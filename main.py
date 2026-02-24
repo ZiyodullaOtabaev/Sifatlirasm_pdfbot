@@ -1,19 +1,17 @@
 import os
-import asyncio
-import replicate
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from PIL import Image
+from PIL import Image, ImageFilter, ImageEnhance
 
-# BOT_TOKEN = os.getenv("8508492779:AAFmPa_x0qs-GLTlpZ0PYjSEfYXhqSk1UVE", "").strip()
-# REPLICATE_API_TOKEN = os.getenv("r8_KH3F0UnShk2lzd2Q9Scz3OH9armqf363lKBku", "").strip()
+# =========================
+#   ENVIRONMENT VARIABLES
+# =========================
 
-
-BOT_TOKEN = os.getenv("8508492779:AAFmPa_x0qs-GLTlpZ0PYjSEfYXhqSk1UVE", "").strip()
-CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()  # ixtiyoriy
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN topilmadi. Alwaysdata Services -> Environment ga qo'ying.")
+    raise RuntimeError("BOT_TOKEN topilmadi! Alwaysdata -> Services -> Environment ga qo'ying.")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
@@ -21,132 +19,142 @@ dp = Dispatcher(bot)
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Har user uchun oxirgi rasm fayli
 LAST_PHOTO_BY_USER = {}
 
-# =====================
-#   YORDAMCHI FUNKSIYALAR
-# =====================
+# =========================
+#   HELPER FUNCTIONS
+# =========================
+
 async def check_sub(user_id: int) -> bool:
-    """Kanalga a'zolikni tekshiradi (bot kanalda admin bo'lishi kerak)."""
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
         return member.status != "left"
     except Exception:
-        # bot admin bo'lmasa yoki xato bo'lsa, bloklamaymiz
         return True
 
-def get_action_keyboard() -> InlineKeyboardMarkup:
+
+def get_action_keyboard():
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton("📄 PDF-ga aylantirish", callback_data="make_pdf"),
-        InlineKeyboardButton("✨ Sifatni oshirish", callback_data="upscale_free"),
+        InlineKeyboardButton("📄 PDF qilish", callback_data="make_pdf"),
+        InlineKeyboardButton("✨ Sifatni oshirish", callback_data="upscale"),
     )
     return kb
 
-def safe_remove(path: str) -> None:
+
+def safe_remove(path):
     try:
         if path and os.path.exists(path):
             os.remove(path)
-    except Exception:
+    except:
         pass
 
-# =====================
-#   HANDLERLAR
-# =====================
+
+# =========================
+#   FREE UPSCALE (NO AI)
+# =========================
+
+def upscale_image(input_path, output_path, scale=2):
+    img = Image.open(input_path).convert("RGB")
+
+    # 1️⃣ Resize (High quality)
+    up = img.resize((img.width * scale, img.height * scale), Image.LANCZOS)
+
+    # 2️⃣ Sharpen (AIga o‘xshash effekt)
+    up = up.filter(ImageFilter.UnsharpMask(radius=2, percent=180, threshold=3))
+
+    # 3️⃣ Contrast ozgina oshiramiz
+    up = ImageEnhance.Contrast(up).enhance(1.08)
+
+    # 4️⃣ Save with max quality
+    up.save(output_path, quality=95, optimize=True)
+
+
+# =========================
+#   HANDLERS
+# =========================
+
 @dp.message_handler(commands=["start"])
-async def send_welcome(message: types.Message):
+async def start(message: types.Message):
     await message.reply(
-        f"Salom! Botdan foydalanish uchun {CHANNEL_USER} kanaliga a'zo bo'ling va rasm yuboring."
+        f"Salom! Botdan foydalanish uchun {CHANNEL_USER} kanaliga a'zo bo‘ling va rasm yuboring."
     )
+
 
 @dp.message_handler(content_types=["photo"])
 async def handle_photo(message: types.Message):
+
     if not await check_sub(message.from_user.id):
-        await message.answer(
-            f"❌ Botdan foydalanish uchun kanalimizga a'zo bo'ling: {CHANNEL_USER}"
-        )
+        await message.answer(f"❌ Kanalga a'zo bo‘ling: {CHANNEL_USER}")
         return
 
     photo = message.photo[-1]
     user_id = message.from_user.id
 
-    file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}.jpg")
-
-    # Aiogram v2 uchun to'g'ri variantlar:
-    # await photo.download(destination_file=file_path)  # ba'zi versiyalarda bor
-    # Sizda working bo'lgan usul:
+    file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}.jpg")
     await photo.download(destination=file_path)
 
     LAST_PHOTO_BY_USER[user_id] = file_path
-    await message.reply("Rasm qabul qilindi! Nima qilamiz?", reply_markup=get_action_keyboard())
+
+    await message.reply("Rasm qabul qilindi!", reply_markup=get_action_keyboard())
+
 
 @dp.callback_query_handler(text="make_pdf")
-async def process_pdf(callback_query: types.CallbackQuery):
-    user_id = callback_query.from_user.id
-    last_file = LAST_PHOTO_BY_USER.get(user_id)
+async def make_pdf(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    file = LAST_PHOTO_BY_USER.get(user_id)
 
-    if not last_file or not os.path.exists(last_file):
-        await callback_query.answer("Rasm topilmadi!", show_alert=True)
+    if not file or not os.path.exists(file):
+        await callback.answer("Rasm topilmadi!", show_alert=True)
         return
 
-    pdf_path = last_file.rsplit(".", 1)[0] + ".pdf"
+    pdf_path = file.replace(".jpg", ".pdf")
 
-    try:
-        img = Image.open(last_file)
-        img.convert("RGB").save(pdf_path)
+    img = Image.open(file)
+    img.convert("RGB").save(pdf_path)
 
-        with open(pdf_path, "rb") as pdf:
-            await bot.send_document(user_id, pdf, caption="Tayyor! ✅ @xonziyy")
+    with open(pdf_path, "rb") as f:
+        await bot.send_document(user_id, f, caption="✅ PDF tayyor!")
 
-    except Exception as e:
-        await bot.send_message(user_id, f"Xato yuz berdi: {e}")
+    safe_remove(file)
+    safe_remove(pdf_path)
+    LAST_PHOTO_BY_USER.pop(user_id, None)
 
-    finally:
-        safe_remove(last_file)
-        safe_remove(pdf_path)
-        LAST_PHOTO_BY_USER.pop(user_id, None)
+    await callback.answer()
 
-    await callback_query.answer()
 
-@dp.callback_query_handler(text="upscale_free")
-async def process_upscale_free(callback_query: types.CallbackQuery):
-    user_id = callback_query.from_user.id
-    last_file = LAST_PHOTO_BY_USER.get(user_id)
+@dp.callback_query_handler(text="upscale")
+async def upscale(callback: types.CallbackQuery):
 
-    if not last_file or not os.path.exists(last_file):
-        await callback_query.answer("Rasm topilmadi!", show_alert=True)
+    user_id = callback.from_user.id
+    file = LAST_PHOTO_BY_USER.get(user_id)
+
+    if not file or not os.path.exists(file):
+        await callback.answer("Rasm topilmadi!", show_alert=True)
         return
 
-    status_msg = await bot.send_message(user_id, "Sifat oshirilmoqda... ⏳")
+    status = await bot.send_message(user_id, "⏳ Sifat oshirilmoqda...")
 
-    output_path = last_file.rsplit(".", 1)[0] + "_upscaled.jpg"
+    output_path = file.replace(".jpg", "_upscaled.jpg")
 
-    try:
-        img = Image.open(last_file)
+    upscale_image(file, output_path)
 
-        # 2x upscale (eng yaxshi bepul filtr)
-        new_size = (img.width * 2, img.height * 2)
-        upscaled = img.resize(new_size, Image.LANCZOS)
+    with open(output_path, "rb") as f:
+        await bot.send_photo(user_id, f, caption="✨ Sifat oshirildi!")
 
-        # Sifatni maksimalroq saqlab yozamiz
-        upscaled.save(output_path, quality=95, optimize=True)
+    await bot.delete_message(user_id, status.message_id)
 
-        with open(output_path, "rb") as f:
-            await bot.send_photo(user_id, f, caption="✨ Sifati oshirilgan rasm ✅ @xonziyy")
+    safe_remove(file)
+    safe_remove(output_path)
+    LAST_PHOTO_BY_USER.pop(user_id, None)
 
-        await bot.delete_message(user_id, status_msg.message_id)
+    await callback.answer()
 
-    except Exception as e:
-        await bot.send_message(user_id, f"Xato: {e}")
 
-    finally:
-        safe_remove(last_file)
-        safe_remove(output_path)
-        LAST_PHOTO_BY_USER.pop(user_id, None)
-
-    await callback_query.answer()
+# =========================
+#   RUN BOT
+# =========================
 
 if __name__ == "__main__":
-    print("Bot muvaffaqiyatli ishga tushdi...")
+    print("Bot ishga tushdi...")
     executor.start_polling(dp, skip_updates=True)
