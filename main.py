@@ -1,20 +1,20 @@
 import os
-import io
 import time
 import asyncio
 import sqlite3
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, Tuple, List
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from PIL import Image
+
 
 # =====================
 #   CONFIG
 # =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
-FREE_USES = int(os.getenv("FREE_USES", "10").strip() or "10")  # default 10
+FREE_USES = int((os.getenv("FREE_USES", "10").strip() or "10"))
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN topilmadi. Alwaysdata Services -> Environment ga qo'ying.")
@@ -27,6 +27,7 @@ DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 DB_PATH = os.path.join(BASE_DIR, "bot.db")
+
 
 # =====================
 #   DB
@@ -43,6 +44,7 @@ def db_init():
     conn.commit()
     conn.close()
 
+
 def db_get_uses(user_id: int) -> int:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -57,6 +59,7 @@ def db_get_uses(user_id: int) -> int:
     conn.close()
     return uses
 
+
 def db_inc_uses(user_id: int) -> int:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -68,8 +71,9 @@ def db_inc_uses(user_id: int) -> int:
     conn.close()
     return uses
 
+
 # =====================
-#   MENU / STATES
+#   STATES / BUFFERS
 # =====================
 MODE_NONE = "none"
 MODE_WAIT_TEXT = "wait_text"
@@ -77,20 +81,32 @@ MODE_WAIT_PHOTO_PDF = "wait_photo_pdf"
 MODE_WAIT_PHOTO_UPSCALE = "wait_photo_upscale"
 
 USER_MODE: Dict[int, str] = {}
-LAST_TEXT: Dict[int, str] = {}
 
-# album/multi-photo buffer: (user_id, media_group_id) -> list of file paths
+# album/multi-photo buffer: (user_id, media_group_id) -> list of image paths
 MEDIA_GROUP_PHOTOS: Dict[Tuple[int, str], List[str]] = {}
 MEDIA_GROUP_TASKS: Dict[Tuple[int, str], asyncio.Task] = {}
 
+
+# =====================
+#   KEYBOARDS
+# =====================
 def menu_keyboard() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("📝 Matnni PDF qilish", callback_data="menu_text_pdf"),
-        InlineKeyboardButton("📄 Rasmni PDF qilish", callback_data="menu_photo_pdf"),
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.row(
+        InlineKeyboardButton("📝 Matnni PDF", callback_data="menu_text_pdf"),
+        InlineKeyboardButton("📄 Rasmni PDF", callback_data="menu_photo_pdf"),
+    )
+    kb.row(
         InlineKeyboardButton("✨ Sifatni oshirish", callback_data="menu_upscale"),
     )
     return kb
+
+
+def cancel_keyboard() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("🔙 Menyuga qaytish", callback_data="go_menu"))
+    return kb
+
 
 def subscribe_keyboard() -> InlineKeyboardMarkup:
     kb = InlineKeyboardMarkup(row_width=1)
@@ -99,6 +115,18 @@ def subscribe_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton("🔄 Tekshirish", callback_data="check_sub"),
     )
     return kb
+
+
+# =====================
+#   MENU / UI HELPERS
+# =====================
+async def clear_inline_keyboard(call: types.CallbackQuery):
+    """Tugma bosilganda eski inline keyboardni olib tashlaydi."""
+    try:
+        await call.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
 
 async def send_menu(chat_id: int):
     USER_MODE[chat_id] = MODE_NONE
@@ -111,6 +139,7 @@ async def send_menu(chat_id: int):
         reply_markup=menu_keyboard()
     )
 
+
 # =====================
 #   SUBSCRIPTION / LIMIT
 # =====================
@@ -122,12 +151,13 @@ async def is_subscribed(user_id: int) -> bool:
         # bot admin bo'lmasa tekshiruv ishlamasligi mumkin, shunda bloklamaymiz
         return True
 
+
 async def can_use_service(user_id: int) -> bool:
     uses = db_get_uses(user_id)
     if uses < FREE_USES:
         return True
-    # 10+ bo'lsa kanalga obuna bo'lish shart
     return await is_subscribed(user_id)
+
 
 async def require_subscribe(chat_id: int):
     await bot.send_message(
@@ -137,8 +167,9 @@ async def require_subscribe(chat_id: int):
         reply_markup=subscribe_keyboard()
     )
 
+
 # =====================
-#   HELPERS
+#   FILE HELPERS
 # =====================
 def safe_remove(path: str):
     try:
@@ -147,12 +178,15 @@ def safe_remove(path: str):
     except Exception:
         pass
 
-def unique_name(prefix: str, ext: str) -> str:
-    return f"{prefix}_{int(time.time()*1000)}.{ext}"
 
-async def download_photo(message: types.Message, file_id: str, out_path: str):
+def unique_name(prefix: str, ext: str) -> str:
+    return f"{prefix}_{int(time.time() * 1000)}.{ext}"
+
+
+async def download_photo(file_id: str, out_path: str):
     file = await bot.get_file(file_id)
     await bot.download_file(file.file_path, out_path)
+
 
 def make_pdf_from_images(image_paths: List[str], pdf_path: str):
     imgs = []
@@ -168,12 +202,11 @@ def make_pdf_from_images(image_paths: List[str], pdf_path: str):
     first, rest = imgs[0], imgs[1:]
     first.save(pdf_path, save_all=True, append_images=rest)
 
+
 def make_pdf_from_text(text: str, pdf_path: str):
-    # Pillow bilan oddiy PDF (font default). Reportlab ham bo'ladi, lekin soddaroq variant:
-    # Katta matnlar uchun bo'lib yozamiz.
+    # oddiy A4ga yaqin canvas
     lines = text.splitlines() if text else [""]
-    # oddiy kanvas
-    img = Image.new("RGB", (1240, 1754), "white")  # A4 ga yaqin
+    img = Image.new("RGB", (1240, 1754), "white")
     from PIL import ImageDraw, ImageFont
     draw = ImageDraw.Draw(img)
 
@@ -213,26 +246,38 @@ def make_pdf_from_text(text: str, pdf_path: str):
 
     img.save(pdf_path, "PDF", resolution=100.0)
 
+
 def upscale_pil_2x(in_path: str, out_path: str):
     img = Image.open(in_path)
     new_size = (img.width * 2, img.height * 2)
     up = img.resize(new_size, Image.LANCZOS)
     up.save(out_path, quality=95, optimize=True)
 
+
 # =====================
 #   COMMANDS
 # =====================
 @dp.message_handler(commands=["start"])
 async def cmd_start(message: types.Message):
-    # /start bosilganda har doim bosh menyu
     await send_menu(message.chat.id)
 
+
 # =====================
-#   CALLBACKS (MENU)
+#   CALLBACKS
 # =====================
+@dp.callback_query_handler(lambda c: c.data == "go_menu")
+async def cb_go_menu(call: types.CallbackQuery):
+    await clear_inline_keyboard(call)
+    await call.answer()
+    await send_menu(call.from_user.id)
+
+
 @dp.callback_query_handler(lambda c: c.data in ["menu_text_pdf", "menu_photo_pdf", "menu_upscale"])
 async def menu_callbacks(call: types.CallbackQuery):
     user_id = call.from_user.id
+
+    # eski inline keyboardni o'chirish
+    await clear_inline_keyboard(call)
 
     if not await can_use_service(user_id):
         await call.answer()
@@ -241,18 +286,31 @@ async def menu_callbacks(call: types.CallbackQuery):
 
     if call.data == "menu_text_pdf":
         USER_MODE[user_id] = MODE_WAIT_TEXT
-        await bot.send_message(user_id, "📝 Matn yuboring (men uni PDF qilib beraman).")
+        await bot.send_message(
+            user_id,
+            "📝 Matn yuboring (men uni PDF qilib beraman).",
+            reply_markup=cancel_keyboard()
+        )
         await call.answer()
 
     elif call.data == "menu_photo_pdf":
         USER_MODE[user_id] = MODE_WAIT_PHOTO_PDF
-        await bot.send_message(user_id, "📄 Rasm yuboring (1 ta yoki 2+ ta rasm yuborsangiz ham bitta PDF qilaman).")
+        await bot.send_message(
+            user_id,
+            "📄 Rasm yuboring (1 ta yoki 2+ ta rasm yuborsangiz ham bitta PDF qilaman).",
+            reply_markup=cancel_keyboard()
+        )
         await call.answer()
 
     elif call.data == "menu_upscale":
         USER_MODE[user_id] = MODE_WAIT_PHOTO_UPSCALE
-        await bot.send_message(user_id, "✨ Sifatni oshirish uchun rasm yuboring.")
+        await bot.send_message(
+            user_id,
+            "✨ Sifatni oshirish uchun rasm yuboring.",
+            reply_markup=cancel_keyboard()
+        )
         await call.answer()
+
 
 @dp.callback_query_handler(lambda c: c.data == "check_sub")
 async def cb_check_sub(call: types.CallbackQuery):
@@ -263,6 +321,7 @@ async def cb_check_sub(call: types.CallbackQuery):
     else:
         await call.answer("❌ Hali obuna emassiz. Avval obuna bo‘ling.", show_alert=True)
 
+
 # =====================
 #   TEXT HANDLER
 # =====================
@@ -272,7 +331,6 @@ async def on_text(message: types.Message):
     mode = USER_MODE.get(user_id, MODE_NONE)
 
     if mode != MODE_WAIT_TEXT:
-        # oddiy chat bo'lsa — faqat menuni ko'rsatib qo'yamiz
         await send_menu(user_id)
         return
 
@@ -285,8 +343,7 @@ async def on_text(message: types.Message):
         await message.reply("Matn bo‘sh. Qaytadan yuboring.")
         return
 
-    pdf_name = unique_name(f"{user_id}_text", "pdf")
-    pdf_path = os.path.join(DOWNLOAD_DIR, pdf_name)
+    pdf_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_text", "pdf"))
 
     try:
         make_pdf_from_text(text, pdf_path)
@@ -300,8 +357,9 @@ async def on_text(message: types.Message):
 
     await send_menu(user_id)
 
+
 # =====================
-#   PHOTO HANDLER (PDF + UPSCALE)
+#   PHOTO HANDLER
 # =====================
 @dp.message_handler(content_types=["photo"])
 async def on_photo(message: types.Message):
@@ -316,24 +374,21 @@ async def on_photo(message: types.Message):
         await require_subscribe(user_id)
         return
 
-    # Eng katta rasm variantini olamiz
     photo = message.photo[-1]
     file_id = photo.file_id
 
-    # ======= PHOTO -> PDF (multi-photo support) =======
+    # ====== PHOTO -> PDF (multi-photo support) ======
     if mode == MODE_WAIT_PHOTO_PDF:
-        # albom bo'lsa
         if message.media_group_id:
             key = (user_id, str(message.media_group_id))
             img_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_img", "jpg"))
-            await download_photo(message, file_id, img_path)
+            await download_photo(file_id, img_path)
 
             MEDIA_GROUP_PHOTOS.setdefault(key, []).append(img_path)
 
-            # 1 ta task bilan 1s kutib, albom tugagach pdf qilamiz
             if key not in MEDIA_GROUP_TASKS:
                 async def finalize_album():
-                    await asyncio.sleep(1.2)  # albomdagi hamma xabarlar kelib ulguradi
+                    await asyncio.sleep(1.2)
                     paths = MEDIA_GROUP_PHOTOS.pop(key, [])
                     MEDIA_GROUP_TASKS.pop(key, None)
 
@@ -361,12 +416,12 @@ async def on_photo(message: types.Message):
 
             return
 
-        # albom emas (1 dona rasm)
+        # single photo
         img_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_img", "jpg"))
         pdf_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_photo", "pdf"))
 
         try:
-            await download_photo(message, file_id, img_path)
+            await download_photo(file_id, img_path)
             make_pdf_from_images([img_path], pdf_path)
             with open(pdf_path, "rb") as f:
                 await bot.send_document(user_id, f, caption="✅ PDF tayyor!")
@@ -380,7 +435,7 @@ async def on_photo(message: types.Message):
         await send_menu(user_id)
         return
 
-    # ======= PHOTO -> UPSCALE =======
+    # ====== PHOTO -> UPSCALE ======
     if mode == MODE_WAIT_PHOTO_UPSCALE:
         in_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_in", "jpg"))
         out_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_up", "jpg"))
@@ -388,13 +443,12 @@ async def on_photo(message: types.Message):
         status = await bot.send_message(user_id, "✨ Sifat oshirilmoqda... ⏳")
 
         try:
-            await download_photo(message, file_id, in_path)
+            await download_photo(file_id, in_path)
             upscale_pil_2x(in_path, out_path)
 
             with open(out_path, "rb") as f:
                 await bot.send_photo(user_id, f, caption="✅ Tayyor! (2x upscale)")
             db_inc_uses(user_id)
-
         except Exception as e:
             await bot.send_message(user_id, f"Xato: {e}")
         finally:
@@ -408,12 +462,14 @@ async def on_photo(message: types.Message):
         await send_menu(user_id)
         return
 
+
 # =====================
-#   FALLBACK (other content)
+#   FALLBACK
 # =====================
 @dp.message_handler(content_types=types.ContentType.ANY)
 async def fallback(message: types.Message):
     await send_menu(message.chat.id)
+
 
 if __name__ == "__main__":
     db_init()
