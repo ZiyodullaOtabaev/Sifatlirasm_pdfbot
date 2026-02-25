@@ -367,11 +367,30 @@ def images_to_pdf(path_list: List[str], out_pdf_path: str):
 # ======================
 #   UPSCALE HELPERS
 # ======================
+# def pillow_upscale_2x(in_path: str, out_path: str):
+#     img = Image.open(in_path)
+#     new_size = (img.width * 2, img.height * 2)
+#     up = img.resize(new_size, Image.LANCZOS)
+#     up.save(out_path, quality=95, optimize=True)
+
 def pillow_upscale_2x(in_path: str, out_path: str):
-    img = Image.open(in_path)
+    img = Image.open(in_path).convert("RGB")
+
+    # 1) Avval yengil shovqin kamaytirish + sharpnessni nazorat qilish
+    # (Pillow o'zidagi filterlar, qo'shimcha kutubxona kerak emas)
+    from PIL import ImageFilter
+
+    img = img.filter(ImageFilter.MedianFilter(size=3))  # yengil denoise
+
+    # 2) 2x upscale (LANCZOS)
     new_size = (img.width * 2, img.height * 2)
     up = img.resize(new_size, Image.LANCZOS)
-    up.save(out_path, quality=95, optimize=True)
+
+    # 3) Yengil sharp (juda kuchli qilmaymiz, artefakt bo'lmasin)
+    up = up.filter(ImageFilter.UnsharpMask(radius=2, percent=140, threshold=3))
+
+    # 4) Saqlash: sifat yuqori
+    up.save(out_path, "JPEG", quality=95, optimize=True, subsampling=0)
 
 def try_realesrgan(in_path: str, out_path: str) -> Tuple[bool, str]:
     """
