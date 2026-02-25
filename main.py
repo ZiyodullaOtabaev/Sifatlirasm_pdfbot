@@ -52,6 +52,90 @@ ADMIN_IDS = parse_admin_ids(ADMIN_IDS_RAW)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
+
+import sqlite3
+from datetime import datetime, timedelta
+
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or "0")
+DB_PATH = os.getenv("DB_PATH", "bot.db")
+
+def is_admin(user_id: int) -> bool:
+    return ADMIN_ID and user_id == ADMIN_ID
+
+def db_one(sql: str, params=()):
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(sql, params)
+    row = cur.fetchone()
+    con.close()
+    return row
+
+def db_all(sql: str, params=()):
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    con.close()
+    return rows
+
+@dp.message_handler(commands=["admin"])
+async def admin_panel(message: types.Message):
+    if not is_admin(message.from_user.id):
+        return
+
+    total_users = db_one("SELECT COUNT(*) FROM users")[0]
+    total_uses = db_one("SELECT COALESCE(SUM(uses_count),0) FROM users")[0]
+
+    # Bugun (server vaqti bo'yicha) ro'yxatdan o'tganlar
+    today_new = db_one(
+        "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
+    )[0]
+
+    # Oxirgi 24 soatda aktivlar (updated_at yangilangan bo'lsa)
+    active_24h = db_one(
+        "SELECT COUNT(*) FROM users WHERE updated_at >= datetime('now','-24 hours')"
+    )[0]
+
+    top10 = db_all(
+        "SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count "
+        "FROM users ORDER BY uses_count DESC, updated_at DESC LIMIT 10"
+    )
+
+    lines = []
+    for i, (uid, un, fn, ln, uses) in enumerate(top10, start=1):
+        name = (fn + " " + ln).strip() or "-"
+        uname = f"@{un}" if un else "-"
+        lines.append(f"{i}) {uname} | {name} | uses={uses} | id={uid}")
+
+    text = (
+        "📊 Admin statistika\n\n"
+        f"👥 Jami foydalanuvchi: {total_users}\n"
+        f"⚡️ Jami foydalanish: {total_uses}\n"
+        f"🆕 Bugun qo‘shilgan: {today_new}\n"
+        f"🕒 Oxirgi 24 soat aktiv: {active_24h}\n\n"
+        "🏆 TOP-10:\n" + ("\n".join(lines) if lines else "Hali yo‘q")
+    )
+
+    await message.answer(text)
+
+@dp.message_handler(commands=["top"])
+async def admin_top(message: types.Message):
+    if not is_admin(message.from_user.id):
+        return
+
+    rows = db_all(
+        "SELECT COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count "
+        "FROM users ORDER BY uses_count DESC, updated_at DESC LIMIT 20"
+    )
+    out = []
+    for i, (un, fn, ln, uses) in enumerate(rows, 1):
+        uname = f"@{un}" if un else "-"
+        name = (fn + " " + ln).strip() or "-"
+        out.append(f"{i}) {uname} | {name} | {uses}")
+
+    await message.answer("🏆 TOP-20:\n" + "\n".join(out))
+
+
 # ======================
 #   DB (SQLite)
 # ======================
