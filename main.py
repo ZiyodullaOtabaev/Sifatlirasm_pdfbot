@@ -1,176 +1,164 @@
 import os
+import re
+import io
 import time
 import asyncio
 import sqlite3
-from typing import Dict, Tuple, List
+import subprocess
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from PIL import Image
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
-
-# =====================
-#   CONFIG
-# =====================
+# ======================
+#   ENV / SETTINGS
+# ======================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
-FREE_USES = int((os.getenv("FREE_USES", "10").strip() or "10"))
+FREE_USES_BEFORE_SUB = int(os.getenv("FREE_USES_BEFORE_SUB", "10").strip() or "10")
+
+REAL_ESRGAN_BIN = os.getenv("REAL_ESRGAN_BIN", "").strip()          # e.g. /home/ziyodulla/apps/realesrgan-ncnn-vulkan
+REAL_ESRGAN_MODELS = os.getenv("REAL_ESRGAN_MODELS", "").strip()    # e.g. /home/ziyodulla/apps/models
+ENABLE_REAL_AI = os.getenv("ENABLE_REAL_AI", "1").strip() != "0"
+
+ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").strip()  # "5853...,123..."
+DB_PATH = os.getenv("DB_PATH", "bot.db").strip() or "bot.db"
+DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "downloads").strip() or "downloads"
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN topilmadi. Alwaysdata Services -> Environment ga qo'ying.")
 
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+def parse_admin_ids(value: str) -> set:
+    out = set()
+    if not value:
+        return out
+    for x in value.split(","):
+        x = x.strip()
+        if x.isdigit():
+            out.add(int(x))
+    return out
+
+ADMIN_IDS = parse_admin_ids(ADMIN_IDS_RAW)
+
+# ======================
+#   BOT INIT
+# ======================
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# ======================
+#   DB (SQLite)
+# ======================
+def db_connect():
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    return con
 
-DB_PATH = os.path.join(BASE_DIR, "bot.db")
-
-
-# =====================
-#   DB
-# =====================
 def db_init():
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("""
+    with db_connect() as con:
+        cur = con.cursor()
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
-            uses INTEGER NOT NULL DEFAULT 0
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            uses_count INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
         )
-    """)
-    conn.commit()
-    conn.close()
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS usage_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_usage_user ON usage_logs(user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_logs(created_at)")
+        con.commit()
 
+def upsert_user(u: types.User):
+    with db_connect() as con:
+        con.execute("""
+        INSERT INTO users (user_id, username, first_name, last_name, uses_count, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 0, datetime('now'), datetime('now'))
+        ON CONFLICT(user_id) DO UPDATE SET
+            username=excluded.username,
+            first_name=excluded.first_name,
+            last_name=excluded.last_name,
+            updated_at=datetime('now')
+        """, (u.id, u.username, u.first_name, u.last_name))
+        con.commit()
 
-def db_get_uses(user_id: int) -> int:
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT uses FROM users WHERE user_id=?", (user_id,))
-    row = cur.fetchone()
-    if not row:
-        cur.execute("INSERT INTO users (user_id, uses) VALUES (?, 0)", (user_id,))
-        conn.commit()
-        uses = 0
-    else:
-        uses = int(row[0])
-    conn.close()
-    return uses
+def get_uses(user_id: int) -> int:
+    with db_connect() as con:
+        row = con.execute("SELECT uses_count FROM users WHERE user_id=?", (user_id,)).fetchone()
+        return int(row["uses_count"]) if row and row["uses_count"] is not None else 0
 
+def inc_uses_and_log(user_id: int, action: str):
+    now = datetime.now(timezone.utc).isoformat()
+    with db_connect() as con:
+        con.execute("UPDATE users SET uses_count = COALESCE(uses_count,0)+1, updated_at=datetime('now') WHERE user_id=?", (user_id,))
+        con.execute("INSERT INTO usage_logs (user_id, action, created_at) VALUES (?, ?, ?)", (user_id, action, now))
+        con.commit()
 
-def db_inc_uses(user_id: int) -> int:
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("INSERT INTO users (user_id, uses) VALUES (?, 0) ON CONFLICT(user_id) DO NOTHING", (user_id,))
-    cur.execute("UPDATE users SET uses = uses + 1 WHERE user_id=?", (user_id,))
-    conn.commit()
-    cur.execute("SELECT uses FROM users WHERE user_id=?", (user_id,))
-    uses = int(cur.fetchone()[0])
-    conn.close()
-    return uses
+def stats_total_users() -> int:
+    with db_connect() as con:
+        row = con.execute("SELECT COUNT(*) c FROM users").fetchone()
+        return int(row["c"]) if row else 0
 
+def stats_total_uses() -> int:
+    with db_connect() as con:
+        row = con.execute("SELECT COALESCE(SUM(uses_count),0) s FROM users").fetchone()
+        return int(row["s"]) if row else 0
 
-# =====================
-#   STATES / BUFFERS
-# =====================
-MODE_NONE = "none"
-MODE_WAIT_TEXT = "wait_text"
-MODE_WAIT_PHOTO_PDF = "wait_photo_pdf"
-MODE_WAIT_PHOTO_UPSCALE = "wait_photo_upscale"
+def stats_top_users(limit: int = 10):
+    with db_connect() as con:
+        return con.execute("""
+        SELECT user_id, username, first_name, uses_count
+        FROM users
+        ORDER BY uses_count DESC
+        LIMIT ?
+        """, (limit,)).fetchall()
 
-USER_MODE: Dict[int, str] = {}
+def stats_daily_counts(days: int = 7):
+    with db_connect() as con:
+        return con.execute(f"""
+        SELECT substr(created_at,1,10) AS day, action, COUNT(*) AS cnt
+        FROM usage_logs
+        WHERE created_at >= datetime('now', '-{days} day')
+        GROUP BY day, action
+        ORDER BY day DESC, cnt DESC
+        """).fetchall()
 
-# album/multi-photo buffer: (user_id, media_group_id) -> list of image paths
-MEDIA_GROUP_PHOTOS: Dict[Tuple[int, str], List[str]] = {}
-MEDIA_GROUP_TASKS: Dict[Tuple[int, str], asyncio.Task] = {}
+# ======================
+#   STATE (in-memory)
+# ======================
+STATE_NONE = "none"
+STATE_WAIT_TEXT = "wait_text"
+STATE_WAIT_IMG_PDF = "wait_img_pdf"
+STATE_WAIT_UPSCALE = "wait_upscale"
 
+USER_STATE: Dict[int, str] = {}
+# photo buffering for media groups
+MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}    # (user_id, media_group_id) -> [filepaths]
+MEDIA_TASK: Dict[Tuple[int, str], asyncio.Task] = {}
 
-# =====================
-#   KEYBOARDS
-# =====================
-def menu_keyboard() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=2)
-    kb.row(
-        InlineKeyboardButton("📝 Matnni PDF", callback_data="menu_text_pdf"),
-        InlineKeyboardButton("📄 Rasmni PDF", callback_data="menu_photo_pdf"),
-    )
-    kb.row(
-        InlineKeyboardButton("✨ Sifatni oshirish", callback_data="menu_upscale"),
-    )
-    return kb
+def set_state(user_id: int, state: str):
+    USER_STATE[user_id] = state
 
+def get_state(user_id: int) -> str:
+    return USER_STATE.get(user_id, STATE_NONE)
 
-def cancel_keyboard() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(InlineKeyboardButton("🔙 Menyuga qaytish", callback_data="go_menu"))
-    return kb
-
-
-def subscribe_keyboard() -> InlineKeyboardMarkup:
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("✅ Kanalga obuna bo‘lish", url=f"https://t.me/{CHANNEL_USER.lstrip('@')}"),
-        InlineKeyboardButton("🔄 Tekshirish", callback_data="check_sub"),
-    )
-    return kb
-
-
-# =====================
-#   MENU / UI HELPERS
-# =====================
-async def clear_inline_keyboard(call: types.CallbackQuery):
-    """Tugma bosilganda eski inline keyboardni olib tashlaydi."""
-    try:
-        await call.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
-
-
-async def send_menu(chat_id: int):
-    USER_MODE[chat_id] = MODE_NONE
-    await bot.send_message(
-        chat_id,
-        "Salom! 👋\n\n"
-        "📌 Rasm yoki matnlaringizni PDF qiling va\n"
-        "✨ rasmlaringiz sifatini oshiring.\n\n"
-        "Quyidagi tugmalardan birini tanlang:",
-        reply_markup=menu_keyboard()
-    )
-
-
-# =====================
-#   SUBSCRIPTION / LIMIT
-# =====================
-async def is_subscribed(user_id: int) -> bool:
-    try:
-        member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
-        return member.status != "left"
-    except Exception:
-        # bot admin bo'lmasa tekshiruv ishlamasligi mumkin, shunda bloklamaymiz
-        return True
-
-
-async def can_use_service(user_id: int) -> bool:
-    uses = db_get_uses(user_id)
-    if uses < FREE_USES:
-        return True
-    return await is_subscribed(user_id)
-
-
-async def require_subscribe(chat_id: int):
-    await bot.send_message(
-        chat_id,
-        f"⚠️ Siz xizmatimizdan {FREE_USES} marta foydalandingiz.\n"
-        f"Yana foydalanish uchun kanalimizga obuna bo‘ling: {CHANNEL_USER}",
-        reply_markup=subscribe_keyboard()
-    )
-
-
-# =====================
-#   FILE HELPERS
-# =====================
 def safe_remove(path: str):
     try:
         if path and os.path.exists(path):
@@ -178,299 +166,418 @@ def safe_remove(path: str):
     except Exception:
         pass
 
+# ======================
+#   UI KEYBOARDS
+# ======================
+def kb_main() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        InlineKeyboardButton("📝 Matnni PDF qilish", callback_data="act_text_pdf"),
+        InlineKeyboardButton("🖼 Rasmni PDF qilish", callback_data="act_img_pdf"),
+        InlineKeyboardButton("✨ Rasm sifatini oshirish", callback_data="act_upscale"),
+    )
+    return kb
 
-def unique_name(prefix: str, ext: str) -> str:
-    return f"{prefix}_{int(time.time() * 1000)}.{ext}"
+def kb_cancel() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("⬅️ Bekor qilish / Bosh menyu", callback_data="act_cancel"))
+    return kb
 
+def kb_subscribe() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("📢 Kanalga obuna bo‘lish", url=f"https://t.me/{CHANNEL_USER.lstrip('@')}"))
+    kb.add(InlineKeyboardButton("🔁 Tekshirish", callback_data="act_check_sub"))
+    return kb
 
-async def download_photo(file_id: str, out_path: str):
-    file = await bot.get_file(file_id)
-    await bot.download_file(file.file_path, out_path)
+# ======================
+#   SUBSCRIPTION RULE
+# ======================
+async def check_sub(user_id: int) -> bool:
+    """Bot kanalga admin bo'lsa, a'zolikni tekshiradi."""
+    try:
+        member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
+        return member.status != "left"
+    except Exception:
+        # bot admin bo'lmasa yoki xato bo'lsa, bloklamaymiz
+        return True
 
+async def enforce_rule_or_block(user_id: int) -> bool:
+    """
+    True -> davom etsin
+    False -> bloklandi (kanal tugmasi chiqarildi)
+    """
+    uses = get_uses(user_id)
+    if uses < FREE_USES_BEFORE_SUB:
+        return True
 
-def make_pdf_from_images(image_paths: List[str], pdf_path: str):
+    ok = await check_sub(user_id)
+    if ok:
+        return True
+
+    await bot.send_message(
+        user_id,
+        "Siz xizmatimizdan 10 marta foydalandingiz.\n"
+        "Yana foydalanish uchun kanalimizga obuna bo‘ling 👇",
+        reply_markup=kb_subscribe()
+    )
+    return False
+
+# ======================
+#   PDF HELPERS
+# ======================
+def make_text_pdf_bytes(text: str) -> bytes:
+    # Simple text-to-PDF (A4), wrap lines
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+
+    margin = 50
+    y = height - margin
+    line_height = 14
+
+    # basic wrapping
+    def wrap_line(s: str, max_chars: int = 95):
+        s = s.strip("\n")
+        if not s:
+            return [""]
+        out = []
+        while len(s) > max_chars:
+            cut = s.rfind(" ", 0, max_chars)
+            if cut <= 0:
+                cut = max_chars
+            out.append(s[:cut].rstrip())
+            s = s[cut:].lstrip()
+        out.append(s)
+        return out
+
+    lines: List[str] = []
+    for raw in text.splitlines():
+        lines.extend(wrap_line(raw))
+
+    c.setFont("Helvetica", 12)
+    for line in lines:
+        if y < margin:
+            c.showPage()
+            c.setFont("Helvetica", 12)
+            y = height - margin
+        c.drawString(margin, y, line)
+        y -= line_height
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.read()
+
+def images_to_pdf(path_list: List[str], out_pdf_path: str):
     imgs = []
-    for p in image_paths:
-        im = Image.open(p)
-        if im.mode != "RGB":
-            im = im.convert("RGB")
+    for p in path_list:
+        im = Image.open(p).convert("RGB")
         imgs.append(im)
 
     if not imgs:
         raise RuntimeError("Rasm topilmadi")
 
     first, rest = imgs[0], imgs[1:]
-    first.save(pdf_path, save_all=True, append_images=rest)
+    first.save(out_pdf_path, save_all=True, append_images=rest)
 
-
-def make_pdf_from_text(text: str, pdf_path: str):
-    # oddiy A4ga yaqin canvas
-    lines = text.splitlines() if text else [""]
-    img = Image.new("RGB", (1240, 1754), "white")
-    from PIL import ImageDraw, ImageFont
-    draw = ImageDraw.Draw(img)
-
-    try:
-        font = ImageFont.truetype("DejaVuSans.ttf", 36)
-    except Exception:
-        font = ImageFont.load_default()
-
-    x, y = 60, 60
-    max_w = 1120
-
-    def wrap_line(s: str) -> List[str]:
-        words = s.split(" ")
-        out = []
-        cur = ""
-        for w in words:
-            test = (cur + " " + w).strip()
-            if draw.textlength(test, font=font) <= max_w:
-                cur = test
-            else:
-                if cur:
-                    out.append(cur)
-                cur = w
-        if cur:
-            out.append(cur)
-        return out
-
-    wrapped = []
-    for ln in lines:
-        wrapped.extend(wrap_line(ln) or [""])
-
-    for ln in wrapped:
-        draw.text((x, y), ln, fill="black", font=font)
-        y += 52
-        if y > 1680:
-            break
-
-    img.save(pdf_path, "PDF", resolution=100.0)
-
-
-def upscale_pil_2x(in_path: str, out_path: str):
+# ======================
+#   UPSCALE HELPERS
+# ======================
+def pillow_upscale_2x(in_path: str, out_path: str):
     img = Image.open(in_path)
     new_size = (img.width * 2, img.height * 2)
     up = img.resize(new_size, Image.LANCZOS)
     up.save(out_path, quality=95, optimize=True)
 
+def try_realesrgan(in_path: str, out_path: str) -> Tuple[bool, str]:
+    """
+    returns: (success, error_msg)
+    """
+    if not ENABLE_REAL_AI:
+        return (False, "ENABLE_REAL_AI=0 (o‘chirilgan)")
 
-# =====================
-#   COMMANDS
-# =====================
-@dp.message_handler(commands=["start"])
-async def cmd_start(message: types.Message):
-    await send_menu(message.chat.id)
+    if not REAL_ESRGAN_BIN or not os.path.exists(REAL_ESRGAN_BIN):
+        return (False, "REAL_ESRGAN_BIN topilmadi")
 
+    model_dir = REAL_ESRGAN_MODELS if REAL_ESRGAN_MODELS else "models"
+    if REAL_ESRGAN_MODELS and (not os.path.exists(REAL_ESRGAN_MODELS)):
+        return (False, "REAL_ESRGAN_MODELS yo‘li topilmadi")
 
-# =====================
-#   CALLBACKS
-# =====================
-@dp.callback_query_handler(lambda c: c.data == "go_menu")
-async def cb_go_menu(call: types.CallbackQuery):
-    await clear_inline_keyboard(call)
-    await call.answer()
-    await send_menu(call.from_user.id)
-
-
-@dp.callback_query_handler(lambda c: c.data in ["menu_text_pdf", "menu_photo_pdf", "menu_upscale"])
-async def menu_callbacks(call: types.CallbackQuery):
-    user_id = call.from_user.id
-
-    # eski inline keyboardni o'chirish
-    await clear_inline_keyboard(call)
-
-    if not await can_use_service(user_id):
-        await call.answer()
-        await require_subscribe(user_id)
-        return
-
-    if call.data == "menu_text_pdf":
-        USER_MODE[user_id] = MODE_WAIT_TEXT
-        await bot.send_message(
-            user_id,
-            "📝 Matn yuboring (men uni PDF qilib beraman).",
-            reply_markup=cancel_keyboard()
-        )
-        await call.answer()
-
-    elif call.data == "menu_photo_pdf":
-        USER_MODE[user_id] = MODE_WAIT_PHOTO_PDF
-        await bot.send_message(
-            user_id,
-            "📄 Rasm yuboring (1 ta yoki 2+ ta rasm yuborsangiz ham bitta PDF qilaman).",
-            reply_markup=cancel_keyboard()
-        )
-        await call.answer()
-
-    elif call.data == "menu_upscale":
-        USER_MODE[user_id] = MODE_WAIT_PHOTO_UPSCALE
-        await bot.send_message(
-            user_id,
-            "✨ Sifatni oshirish uchun rasm yuboring.",
-            reply_markup=cancel_keyboard()
-        )
-        await call.answer()
-
-
-@dp.callback_query_handler(lambda c: c.data == "check_sub")
-async def cb_check_sub(call: types.CallbackQuery):
-    user_id = call.from_user.id
-    if await can_use_service(user_id):
-        await call.answer("✅ Rahmat! Endi foydalanishingiz mumkin.", show_alert=True)
-        await send_menu(user_id)
-    else:
-        await call.answer("❌ Hali obuna emassiz. Avval obuna bo‘ling.", show_alert=True)
-
-
-# =====================
-#   TEXT HANDLER
-# =====================
-@dp.message_handler(content_types=["text"])
-async def on_text(message: types.Message):
-    user_id = message.from_user.id
-    mode = USER_MODE.get(user_id, MODE_NONE)
-
-    if mode != MODE_WAIT_TEXT:
-        await send_menu(user_id)
-        return
-
-    if not await can_use_service(user_id):
-        await require_subscribe(user_id)
-        return
-
-    text = (message.text or "").strip()
-    if not text:
-        await message.reply("Matn bo‘sh. Qaytadan yuboring.")
-        return
-
-    pdf_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_text", "pdf"))
+    cmd = [
+        REAL_ESRGAN_BIN,
+        "-i", in_path,
+        "-o", out_path,
+        "-s", "2",
+        "-n", "realesrgan-x4plus",
+        "-m", model_dir
+    ]
 
     try:
-        make_pdf_from_text(text, pdf_path)
-        with open(pdf_path, "rb") as f:
-            await bot.send_document(user_id, f, caption="✅ Matn PDF tayyor!")
-        db_inc_uses(user_id)
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=180)
+        if p.returncode == 0 and os.path.exists(out_path):
+            return (True, "")
+        return (False, (p.stderr or p.stdout or "Unknown error")[:800])
     except Exception as e:
-        await message.reply(f"Xato: {e}")
+        return (False, str(e))
+
+# ======================
+#   MAIN MENU
+# ======================
+async def show_main_menu(user_id: int):
+    set_state(user_id, STATE_NONE)
+    await bot.send_message(
+        user_id,
+        "Assalamu Alaykum! 📌 Rasm yoki matnlaringizni PDF qiling va rasmlaringizni sifatini oshiring.\n"
+        "Quyidan kerakli bo‘limni tanlang:",
+        reply_markup=kb_main()
+    )
+
+# ======================
+#   COMMANDS
+# ======================
+@dp.message_handler(commands=["start"])
+async def cmd_start(message: types.Message):
+    upsert_user(message.from_user)
+    await show_main_menu(message.from_user.id)
+
+@dp.message_handler(commands=["myid"])
+async def cmd_myid(message: types.Message):
+    await message.answer(f"Your user_id: {message.from_user.id}")
+
+@dp.message_handler(commands=["stats"])
+async def cmd_stats(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    upsert_user(message.from_user)
+
+    tu = stats_total_users()
+    ts = stats_total_uses()
+    top = stats_top_users(10)
+    daily = stats_daily_counts(7)
+
+    top_lines = []
+    for i, r in enumerate(top, 1):
+        name = ("@" + r["username"]) if r["username"] else (r["first_name"] or "no_name")
+        top_lines.append(f"{i}) {name} — {r['uses_count']}")
+
+    daily_lines = []
+    for r in daily[:50]:
+        daily_lines.append(f"{r['day']} | {r['action']} = {r['cnt']}")
+
+    text = (
+        "📊 *Bot Statistikasi*\n\n"
+        f"👥 Users: *{tu}*\n"
+        f"⚙️ Total uses: *{ts}*\n\n"
+        "🏆 *Top 10 users:*\n" + ("\n".join(top_lines) if top_lines else "—") + "\n\n"
+        "📅 *Last 7 days (UTC):*\n" + ("\n".join(daily_lines) if daily_lines else "—")
+    )
+    await message.answer(text, parse_mode="Markdown")
+
+# ======================
+#   CALLBACKS
+# ======================
+@dp.callback_query_handler(text="act_cancel")
+async def cb_cancel(call: types.CallbackQuery):
+    await call.answer()
+    await show_main_menu(call.from_user.id)
+
+@dp.callback_query_handler(text="act_check_sub")
+async def cb_check_sub(call: types.CallbackQuery):
+    await call.answer()
+    ok = await check_sub(call.from_user.id)
+    if ok:
+        await bot.send_message(call.from_user.id, "✅ Rahmat! Endi foydalanishingiz mumkin.")
+        await show_main_menu(call.from_user.id)
+    else:
+        await bot.send_message(call.from_user.id, "❌ Hali obuna emassiz. Iltimos, kanalga obuna bo‘ling.", reply_markup=kb_subscribe())
+
+@dp.callback_query_handler(text="act_text_pdf")
+async def cb_text_pdf(call: types.CallbackQuery):
+    await call.answer()
+
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
+        return
+
+    set_state(call.from_user.id, STATE_WAIT_TEXT)
+    await bot.send_message(call.from_user.id, "📝 Matn yuboring (PDF qilib qaytaraman).", reply_markup=kb_cancel())
+
+@dp.callback_query_handler(text="act_img_pdf")
+async def cb_img_pdf(call: types.CallbackQuery):
+    await call.answer()
+
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
+        return
+
+    set_state(call.from_user.id, STATE_WAIT_IMG_PDF)
+    await bot.send_message(
+        call.from_user.id,
+        "🖼 Rasm yuboring.\n",
+        reply_markup=kb_cancel()
+    )
+
+@dp.callback_query_handler(text="act_upscale")
+async def cb_upscale(call: types.CallbackQuery):
+    await call.answer()
+
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
+        return
+
+    set_state(call.from_user.id, STATE_WAIT_UPSCALE)
+    await bot.send_message(call.from_user.id, "✨ Sifatini oshirish uchun rasm yuboring.", reply_markup=kb_cancel())
+
+# ======================
+#   MESSAGE HANDLERS
+# ======================
+@dp.message_handler(content_types=["text"])
+async def on_text(message: types.Message):
+    upsert_user(message.from_user)
+
+    # menu bo'lmagan matnlar
+    st = get_state(message.from_user.id)
+    if st != STATE_WAIT_TEXT:
+        return
+
+    if not await enforce_rule_or_block(message.from_user.id):
+        return
+
+    text = message.text.strip()
+    if not text:
+        await message.answer("Matn bo‘sh. Qaytadan yuboring.", reply_markup=kb_cancel())
+        return
+
+    status = await message.answer("⏳ PDF tayyorlanmoqda...")
+
+    try:
+        pdf_bytes = make_text_pdf_bytes(text)
+        file_name = f"text_{message.from_user.id}_{int(time.time())}.pdf"
+        await bot.send_document(
+            message.from_user.id,
+            types.InputFile(io.BytesIO(pdf_bytes), filename=file_name),
+            caption="✅ Tayyor!"
+        )
+        inc_uses_and_log(message.from_user.id, "text_pdf")
+    except Exception as e:
+        await message.answer(f"❌ Xato: {e}")
     finally:
-        safe_remove(pdf_path)
+        try:
+            await bot.delete_message(message.from_user.id, status.message_id)
+        except Exception:
+            pass
 
-    await send_menu(user_id)
+    await show_main_menu(message.from_user.id)
 
-
-# =====================
-#   PHOTO HANDLER
-# =====================
 @dp.message_handler(content_types=["photo"])
 async def on_photo(message: types.Message):
+    upsert_user(message.from_user)
     user_id = message.from_user.id
-    mode = USER_MODE.get(user_id, MODE_NONE)
+    st = get_state(user_id)
 
-    if mode not in [MODE_WAIT_PHOTO_PDF, MODE_WAIT_PHOTO_UPSCALE]:
-        await send_menu(user_id)
+    if st not in (STATE_WAIT_IMG_PDF, STATE_WAIT_UPSCALE):
         return
 
-    if not await can_use_service(user_id):
-        await require_subscribe(user_id)
+    if not await enforce_rule_or_block(user_id):
         return
 
+    # Save photo
     photo = message.photo[-1]
-    file_id = photo.file_id
+    file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}.jpg")
+    await photo.download(destination=file_path)  # aiogram v2.25.1
 
-    # ====== PHOTO -> PDF (multi-photo support) ======
-    if mode == MODE_WAIT_PHOTO_PDF:
-        if message.media_group_id:
-            key = (user_id, str(message.media_group_id))
-            img_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_img", "jpg"))
-            await download_photo(file_id, img_path)
-
-            MEDIA_GROUP_PHOTOS.setdefault(key, []).append(img_path)
-
-            if key not in MEDIA_GROUP_TASKS:
-                async def finalize_album():
-                    await asyncio.sleep(1.2)
-                    paths = MEDIA_GROUP_PHOTOS.pop(key, [])
-                    MEDIA_GROUP_TASKS.pop(key, None)
-
-                    if not paths:
-                        await bot.send_message(user_id, "Rasm topilmadi.")
-                        await send_menu(user_id)
-                        return
-
-                    pdf_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_photos", "pdf"))
-                    try:
-                        make_pdf_from_images(paths, pdf_path)
-                        with open(pdf_path, "rb") as f:
-                            await bot.send_document(user_id, f, caption="✅ PDF tayyor!")
-                        db_inc_uses(user_id)
-                    except Exception as e:
-                        await bot.send_message(user_id, f"Xato: {e}")
-                    finally:
-                        for p in paths:
-                            safe_remove(p)
-                        safe_remove(pdf_path)
-
-                    await send_menu(user_id)
-
-                MEDIA_GROUP_TASKS[key] = asyncio.create_task(finalize_album())
-
-            return
-
-        # single photo
-        img_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_img", "jpg"))
-        pdf_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_photo", "pdf"))
-
+    # ===== UPSCALE MODE =====
+    if st == STATE_WAIT_UPSCALE:
+        status = await message.answer("⏳ Sifat oshirilmoqda...")
+        out_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}_up.jpg")
         try:
-            await download_photo(file_id, img_path)
-            make_pdf_from_images([img_path], pdf_path)
-            with open(pdf_path, "rb") as f:
-                await bot.send_document(user_id, f, caption="✅ PDF tayyor!")
-            db_inc_uses(user_id)
-        except Exception as e:
-            await bot.send_message(user_id, f"Xato: {e}")
-        finally:
-            safe_remove(img_path)
-            safe_remove(pdf_path)
-
-        await send_menu(user_id)
-        return
-
-    # ====== PHOTO -> UPSCALE ======
-    if mode == MODE_WAIT_PHOTO_UPSCALE:
-        in_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_in", "jpg"))
-        out_path = os.path.join(DOWNLOAD_DIR, unique_name(f"{user_id}_up", "jpg"))
-
-        status = await bot.send_message(user_id, "✨ Sifat oshirilmoqda... ⏳")
-
-        try:
-            await download_photo(file_id, in_path)
-            upscale_pil_2x(in_path, out_path)
+            ok, err = try_realesrgan(file_path, out_path)
+            if not ok:
+                # fallback
+                pillow_upscale_2x(file_path, out_path)
+                await message.answer(f"⚠️ AI ishlamadi, fallback ishlatildi.\nSabab: {err}")
 
             with open(out_path, "rb") as f:
-                await bot.send_photo(user_id, f, caption="✅ Tayyor! (2x upscale)")
-            db_inc_uses(user_id)
+                await bot.send_photo(user_id, f, caption="✅ Tayyor!")
+            inc_uses_and_log(user_id, "upscale")
         except Exception as e:
-            await bot.send_message(user_id, f"Xato: {e}")
+            await message.answer(f"❌ Xato: {e}")
         finally:
-            safe_remove(in_path)
+            safe_remove(file_path)
             safe_remove(out_path)
             try:
                 await bot.delete_message(user_id, status.message_id)
             except Exception:
                 pass
 
-        await send_menu(user_id)
+        await show_main_menu(user_id)
         return
 
+    # ===== IMG PDF MODE =====
+    # Media group (album) bo'lsa: buffer qilamiz
+    if message.media_group_id:
+        key = (user_id, message.media_group_id)
+        MEDIA_BUFFER.setdefault(key, []).append(file_path)
 
-# =====================
-#   FALLBACK
-# =====================
-@dp.message_handler(content_types=types.ContentType.ANY)
-async def fallback(message: types.Message):
-    await send_menu(message.chat.id)
+        # debounce: oxirgi rasm kelgach 1.2s kutib PDF qilamiz
+        old_task = MEDIA_TASK.get(key)
+        if old_task and not old_task.done():
+            old_task.cancel()
 
+        async def finalize_group():
+            await asyncio.sleep(1.2)
+            paths = MEDIA_BUFFER.pop(key, [])
+            MEDIA_TASK.pop(key, None)
+            if not paths:
+                return
 
+            status = await bot.send_message(user_id, "⏳ PDF tayyorlanmoqda...")
+            pdf_path = os.path.join(DOWNLOAD_DIR, f"images_{user_id}_{int(time.time())}.pdf")
+            try:
+                images_to_pdf(paths, pdf_path)
+                with open(pdf_path, "rb") as f:
+                    await bot.send_document(user_id, f, caption="✅ Tayyor!")
+                inc_uses_and_log(user_id, "img_pdf")
+            except Exception as e:
+                await bot.send_message(user_id, f"❌ Xato: {e}")
+            finally:
+                for p in paths:
+                    safe_remove(p)
+                safe_remove(pdf_path)
+                try:
+                    await bot.delete_message(user_id, status.message_id)
+                except Exception:
+                    pass
+
+            await show_main_menu(user_id)
+
+        MEDIA_TASK[key] = asyncio.create_task(finalize_group())
+        return
+
+    # Bitta rasm bo'lsa: darhol PDF
+    status = await message.answer("⏳ PDF tayyorlanmoqda...")
+    pdf_path = os.path.join(DOWNLOAD_DIR, f"image_{user_id}_{int(time.time())}.pdf")
+    try:
+        images_to_pdf([file_path], pdf_path)
+        with open(pdf_path, "rb") as f:
+            await bot.send_document(user_id, f, caption="✅ Tayyor!")
+        inc_uses_and_log(user_id, "img_pdf")
+    except Exception as e:
+        await message.answer(f"❌ Xato: {e}")
+    finally:
+        safe_remove(file_path)
+        safe_remove(pdf_path)
+        try:
+            await bot.delete_message(user_id, status.message_id)
+        except Exception:
+            pass
+
+    await show_main_menu(user_id)
+
+# ======================
+#   BOOT
+# ======================
 if __name__ == "__main__":
     db_init()
     print("Bot ishga tushdi...")
