@@ -580,7 +580,6 @@ async def on_photo(message: types.Message):
             if not ok:
                 # fallback
                 pillow_upscale_2x(file_path, out_path)
-                await message.answer(f"⚠️ AI ishlamadi, fallback ishlatildi.\nSabab: {err}")
 
             with open(out_path, "rb") as f:
                 await bot.send_photo(user_id, f, caption="✅ Tayyor!")
