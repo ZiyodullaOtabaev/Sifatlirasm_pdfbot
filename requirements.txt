@@ -3,4 +3,4 @@ Pillow
 reportlab
 python-dotenv
 requests
-pypdf
+PyPDF2==3.0.1
