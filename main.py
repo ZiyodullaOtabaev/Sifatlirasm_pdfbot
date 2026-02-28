@@ -12,6 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from PyPDF2 import PdfMerger
 
 # ======================
 #   ENV / SETTINGS
@@ -126,6 +127,7 @@ STATE_NONE = "none"
 STATE_WAIT_TEXT = "wait_text"
 STATE_WAIT_IMG_PDF = "wait_img_pdf"
 STATE_WAIT_UPSCALE = "wait_upscale"
+STATE_WAIT_PDF_MERGE = "wait_pdf_merge"
 
 USER_STATE: Dict[int, str] = {}
 MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}  # (user_id, media_group_id) -> [paths]
@@ -153,6 +155,7 @@ def kb_main() -> InlineKeyboardMarkup:
         InlineKeyboardButton("📝 Matnni PDF qilish", callback_data="act_text_pdf"),
         InlineKeyboardButton("🖼 Rasmni PDF qilish", callback_data="act_img_pdf"),
         InlineKeyboardButton("✨ Rasm sifatini oshirish", callback_data="act_upscale"),
+        InlineKeyboardButton("📎 PDFlarni bitta qilish", callback_data="act_merge_pdf"),
     )
     return kb
 
@@ -166,6 +169,94 @@ def kb_subscribe() -> InlineKeyboardMarkup:
     kb.add(InlineKeyboardButton("📢 Kanalga obuna bo‘lish", url=f"https://t.me/{CHANNEL_USER.lstrip('@')}"))
     kb.add(InlineKeyboardButton("🔁 Tekshirish", callback_data="act_check_sub"))
     return kb
+
+
+def kb_admin() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("🏆 TOP-30", callback_data="admin_top30"),
+        InlineKeyboardButton("📈 7 kun grafik", callback_data="admin_chart7"),
+    )
+    kb.add(
+        InlineKeyboardButton("🟢 Aktiv 24h", callback_data="admin_active24"),
+        InlineKeyboardButton("🆕 Yangi 24h", callback_data="admin_new24"),
+    )
+    return kb
+
+def get_admin_summary():
+    with db_connect() as con:
+        total_users = con.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
+        total_uses = con.execute("SELECT COALESCE(SUM(uses_count),0) s FROM users").fetchone()["s"]
+        active_24h = con.execute("""
+            SELECT COUNT(*) c
+            FROM users
+            WHERE updated_at >= datetime('now','-24 hours')
+        """).fetchone()["c"]
+        new_24h = con.execute("""
+            SELECT COUNT(*) c
+            FROM users
+            WHERE created_at >= datetime('now','-24 hours')
+        """).fetchone()["c"]
+    return total_users, total_uses, active_24h, new_24h
+
+def daily_usage_totals(days: int = 7) -> List[Tuple[str, int]]:
+    with db_connect() as con:
+        rows = con.execute(f"""
+            SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS cnt
+            FROM usage_logs
+            WHERE created_at >= datetime('now', '-{days} day')
+            GROUP BY day
+            ORDER BY day ASC
+        """).fetchall()
+    return [(r["day"], int(r["cnt"])) for r in rows]
+
+def render_bar_chart_png(data: List[Tuple[str, int]], title: str = "So‘nggi 7 kun foydalanish") -> bytes:
+    W, H = 1000, 420
+    pad = 50
+    img = Image.new("RGB", (W, H), "white")
+    from PIL import ImageDraw, ImageFont
+    d = ImageDraw.Draw(img)
+
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 18)
+        font_small = ImageFont.truetype("DejaVuSans.ttf", 14)
+    except Exception:
+        font = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+
+    d.text((pad, 10), title, fill="black", font=font)
+
+    if not data:
+        d.text((pad, 60), "Ma'lumot yo‘q.", fill="black", font=font)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    max_v = max(v for _, v in data) or 1
+    chart_top = 60
+    chart_bottom = H - 80
+    chart_left = pad
+    chart_right = W - pad
+
+    d.line((chart_left, chart_bottom, chart_right, chart_bottom), fill="black", width=2)
+    d.line((chart_left, chart_top, chart_left, chart_bottom), fill="black", width=2)
+
+    n = len(data)
+    gap = 12
+    bar_w = max(18, int((chart_right - chart_left - gap * (n + 1)) / n))
+    x = chart_left + gap
+
+    for day, val in data:
+        bar_h = int((val / max_v) * (chart_bottom - chart_top))
+        y1 = chart_bottom - bar_h
+        d.rectangle((x, y1, x + bar_w, chart_bottom), outline="black", width=2)
+        d.text((x, chart_bottom + 6), day[5:], fill="black", font=font_small)
+        d.text((x, y1 - 18), str(val), fill="black", font=font_small)
+        x += bar_w + gap
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 # ======================
 #   SUBSCRIPTION RULE
@@ -254,6 +345,20 @@ def images_to_pdf(path_list: List[str], out_pdf_path: str):
 
     first, rest = imgs[0], imgs[1:]
     first.save(out_pdf_path, save_all=True, append_images=rest)
+
+
+def merge_pdfs(pdf_paths: List[str], out_pdf_path: str):
+    merger = PdfMerger()
+    try:
+        for p in pdf_paths:
+            merger.append(p)
+        with open(out_pdf_path, "wb") as f:
+            merger.write(f)
+    finally:
+        try:
+            merger.close()
+        except Exception:
+            pass
 
 # ======================
 #   UPSCALE HELPERS
@@ -350,73 +455,50 @@ async def cmd_admin(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
         return
 
-    # Statistikalar
+    total_users, total_uses, active_24h, new_24h = get_admin_summary()
+
+    text = (
+        "🛠 Admin panel\n\n"
+        f"👥 Jami foydalanuvchi: {total_users}\n"
+        f"⚡️ Jami foydalanish: {total_uses}\n"
+        f"🟢 Oxirgi 24 soat aktiv: {active_24h}\n"
+        f"🆕 Oxirgi 24 soatda qo‘shilgan: {new_24h}\n\n"
+        "Quyidan bo‘lim tanlang:"
+    )
+
+    try:
+        data = daily_usage_totals(7)
+        png = render_bar_chart_png(data, "📈 So‘nggi 7 kun foydalanish")
+        await bot.send_photo(
+            message.from_user.id,
+            types.InputFile(io.BytesIO(png), filename="usage_7d.png"),
+            caption=text,
+            reply_markup=kb_admin()
+        )
+    except Exception:
+        await message.answer(text, reply_markup=kb_admin())
+
+
+@dp.message_handler(commands=["top"])
+async def cmd_top(message: types.Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
     with db_connect() as con:
-        total_users = con.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
-        total_uses = con.execute("SELECT COALESCE(SUM(uses_count),0) s FROM users").fetchone()["s"]
-
-        active_24h = con.execute("""
-            SELECT COUNT(*) c
-            FROM users
-            WHERE updated_at >= datetime('now','-24 hours')
-        """).fetchone()["c"]
-
-        new_24h = con.execute("""
-            SELECT COUNT(*) c
-            FROM users
-            WHERE created_at >= datetime('now','-24 hours')
-        """).fetchone()["c"]
-
-        top15 = con.execute("""
+        rows = con.execute("""
             SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count
             FROM users
             ORDER BY uses_count DESC, updated_at DESC
-            LIMIT 15
-        """).fetchall()
-
-        active_list = con.execute("""
-            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), updated_at
-            FROM users
-            WHERE updated_at >= datetime('now','-24 hours')
-            ORDER BY updated_at DESC
             LIMIT 30
         """).fetchall()
 
-        new_list = con.execute("""
-            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), created_at
-            FROM users
-            WHERE created_at >= datetime('now','-24 hours')
-            ORDER BY created_at DESC
-            LIMIT 30
-        """).fetchall()
+    def fmt(r):
+        uname = f"@{r[1]}" if r[1] else "-"
+        name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
+        return f"{uname} | {name} | id={r[0]} | uses={r[4]}"
 
-    def fmt_user(uname, fn, ln, uid):
-        uname = f"@{uname}" if uname else "-"
-        name = (f"{fn or ''} {ln or ''}").strip() or "-"
-        return f"{uname} | {name} | id={uid}"
-
-    lines_top = []
-    for i, r in enumerate(top15, start=1):
-        lines_top.append(f"{i}) {fmt_user(r[1], r[2], r[3], r[0])} | uses={r[4]}")
-
-    lines_active = []
-    for i, r in enumerate(active_list, start=1):
-        lines_active.append(f"{i}) {fmt_user(r[1], r[2], r[3], r[0])} | updated={r[4]}")
-
-    lines_new = []
-    for i, r in enumerate(new_list, start=1):
-        lines_new.append(f"{i}) {fmt_user(r[1], r[2], r[3], r[0])} | created={r[4]}")
-
-    text = (
-        "📊 Admin statistika\n\n"
-        f"👥 Jami foydalanuvchi: {total_users}\n"
-        f"⚡️ Jami foydalanish: {total_uses}\n\n"
-        f"🟢 Oxirgi 24 soat aktiv: {active_24h}\n"
-        f"🆕 Oxirgi 24 soatda qo‘shilgan: {new_24h}\n\n"
-        "🏆 TOP-15:\n" + ("\n".join(lines_top) if lines_top else "—") + "\n\n"
-        "🟢 Oxirgi 24 soat aktivlar (max 30):\n" + ("\n".join(lines_active) if lines_active else "—") + "\n\n"
-        "🆕 Oxirgi 24 soatda qo‘shilganlar (max 30):\n" + ("\n".join(lines_new) if lines_new else "—")
-    )
+    lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
+    text = "🏆 TOP-30 foydalanuvchilar:\n" + ("\n".join(lines) if lines else "—")
     await message.answer(text)
 
 # ======================
@@ -442,6 +524,108 @@ async def cb_check_sub(call: types.CallbackQuery):
             await bot.send_message(call.from_user.id, "❌ Hali obuna emassiz. Iltimos, kanalga obuna bo‘ling.", reply_markup=kb_subscribe())
         except Exception:
             pass
+
+
+@dp.callback_query_handler(text="admin_top30")
+async def cb_admin_top30(call: types.CallbackQuery):
+    if call.from_user.id not in ADMIN_IDS:
+        await call.answer()
+        return
+    await call.answer()
+
+    with db_connect() as con:
+        rows = con.execute("""
+            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count
+            FROM users
+            ORDER BY uses_count DESC, updated_at DESC
+            LIMIT 30
+        """).fetchall()
+
+    def fmt(r):
+        uname = f"@{r[1]}" if r[1] else "-"
+        name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
+        return f"{uname} | {name} | id={r[0]} | uses={r[4]}"
+
+    lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
+    text = "🏆 TOP-30 foydalanuvchilar:\n" + ("\n".join(lines) if lines else "—")
+    try:
+        await bot.send_message(call.from_user.id, text)
+    except Exception:
+        pass
+
+@dp.callback_query_handler(text="admin_active24")
+async def cb_admin_active24(call: types.CallbackQuery):
+    if call.from_user.id not in ADMIN_IDS:
+        await call.answer()
+        return
+    await call.answer()
+
+    with db_connect() as con:
+        rows = con.execute("""
+            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), updated_at
+            FROM users
+            WHERE updated_at >= datetime('now','-24 hours')
+            ORDER BY updated_at DESC
+            LIMIT 30
+        """).fetchall()
+
+    def fmt(r):
+        uname = f"@{r[1]}" if r[1] else "-"
+        name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
+        return f"{uname} | {name} | id={r[0]} | updated={r[4]}"
+
+    lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
+    text = "🟢 Oxirgi 24 soat aktivlar (max 30):\n" + ("\n".join(lines) if lines else "—")
+    try:
+        await bot.send_message(call.from_user.id, text)
+    except Exception:
+        pass
+
+@dp.callback_query_handler(text="admin_new24")
+async def cb_admin_new24(call: types.CallbackQuery):
+    if call.from_user.id not in ADMIN_IDS:
+        await call.answer()
+        return
+    await call.answer()
+
+    with db_connect() as con:
+        rows = con.execute("""
+            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), created_at
+            FROM users
+            WHERE created_at >= datetime('now','-24 hours')
+            ORDER BY created_at DESC
+            LIMIT 30
+        """).fetchall()
+
+    def fmt(r):
+        uname = f"@{r[1]}" if r[1] else "-"
+        name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
+        return f"{uname} | {name} | id={r[0]} | created={r[4]}"
+
+    lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
+    text = "🆕 Oxirgi 24 soatda qo‘shilganlar (max 30):\n" + ("\n".join(lines) if lines else "—")
+    try:
+        await bot.send_message(call.from_user.id, text)
+    except Exception:
+        pass
+
+@dp.callback_query_handler(text="admin_chart7")
+async def cb_admin_chart7(call: types.CallbackQuery):
+    if call.from_user.id not in ADMIN_IDS:
+        await call.answer()
+        return
+    await call.answer()
+
+    try:
+        data = daily_usage_totals(7)
+        png = render_bar_chart_png(data, "📈 So‘nggi 7 kun foydalanish")
+        await bot.send_photo(
+            call.from_user.id,
+            types.InputFile(io.BytesIO(png), filename="usage_7d.png"),
+            caption="📈 7 kunlik foydalanish grafigi"
+        )
+    except Exception:
+        pass
 
 @dp.callback_query_handler(text="act_text_pdf")
 async def cb_text_pdf(call: types.CallbackQuery):
@@ -479,6 +663,24 @@ async def cb_upscale(call: types.CallbackQuery):
     set_state(call.from_user.id, STATE_WAIT_UPSCALE)
     try:
         await bot.send_message(call.from_user.id, "✨ Sifatini oshirish uchun rasm yuboring.", reply_markup=kb_cancel())
+    except Exception:
+        pass
+
+
+@dp.callback_query_handler(text="act_merge_pdf")
+async def cb_merge_pdf(call: types.CallbackQuery):
+    await call.answer()
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
+        return
+
+    set_state(call.from_user.id, STATE_WAIT_PDF_MERGE)
+    try:
+        await bot.send_message(
+            call.from_user.id,
+            "📎 2 ta yoki undan ko‘p PDF yuboring (bitta faylga birlashtirib qaytaraman).",
+            reply_markup=kb_cancel()
+        )
     except Exception:
         pass
 
@@ -642,6 +844,88 @@ async def on_photo(message: types.Message):
                 pass
 
     await show_main_menu(user_id)
+
+
+@dp.message_handler(content_types=["document"])
+async def on_document(message: types.Message):
+    upsert_user(message.from_user)
+    user_id = message.from_user.id
+    st = get_state(user_id)
+
+    if st != STATE_WAIT_PDF_MERGE:
+        return
+
+    if not await enforce_rule_or_block(user_id):
+        return
+
+    doc = message.document
+    if not doc:
+        return
+
+    if doc.mime_type != "application/pdf" and not (doc.file_name or "").lower().endswith(".pdf"):
+        try:
+            await message.answer("Faqat PDF yuboring.", reply_markup=kb_cancel())
+        except Exception:
+            pass
+        return
+
+    try:
+        file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{doc.file_id}.pdf")
+        await doc.download(destination_file=file_path)
+    except Exception:
+        return
+
+    group_id = message.media_group_id or "pdfmerge"
+    key = (user_id, str(group_id))
+    MEDIA_BUFFER.setdefault(key, []).append(file_path)
+
+    old_task = MEDIA_TASK.get(key)
+    if old_task and not old_task.done():
+        old_task.cancel()
+
+    async def finalize_pdf_group():
+        await asyncio.sleep(1.2)
+        paths = MEDIA_BUFFER.pop(key, [])
+        MEDIA_TASK.pop(key, None)
+        if not paths:
+            return
+
+        if len(paths) < 2:
+            for p in paths:
+                safe_remove(p)
+            try:
+                await bot.send_message(user_id, "Iltimos, kamida 2 ta PDF yuboring.", reply_markup=kb_cancel())
+            except Exception:
+                pass
+            return
+
+        try:
+            status = await bot.send_message(user_id, "⏳ PDFlar birlashtirilmoqda...")
+        except Exception:
+            status = None
+
+        out_pdf = os.path.join(DOWNLOAD_DIR, f"merged_{user_id}_{int(time.time())}.pdf")
+        try:
+            merge_pdfs(paths, out_pdf)
+            with open(out_pdf, "rb") as f:
+                await bot.send_document(user_id, f, caption="✅ Tayyor!")
+            inc_uses_and_log(user_id, "pdf_merge")
+        except Exception:
+            pass
+        finally:
+            for p in paths:
+                safe_remove(p)
+            safe_remove(out_pdf)
+            if status:
+                try:
+                    await bot.delete_message(user_id, status.message_id)
+                except Exception:
+                    pass
+
+        await show_main_menu(user_id)
+
+    MEDIA_TASK[key] = asyncio.create_task(finalize_pdf_group())
+
 
 # ======================
 #   STARTUP
