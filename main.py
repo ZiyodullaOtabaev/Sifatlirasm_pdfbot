@@ -5,37 +5,36 @@ import asyncio
 import sqlite3
 import subprocess
 from datetime import datetime, timezone
-from typing import Dict, List, Tuple
-from db import init_db, top_users, total_users, total_uses
+from typing import Dict, List, Optional, Tuple
+
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-# PDF merge (PyPDF2 yoki pypdf)
-try:
-    from PyPDF2 import PdfMerger  # type: ignore
-except Exception:
-    try:
-        from pypdf import PdfMerger  # type: ignore
-    except Exception:
-        PdfMerger = None  # type: ignore
-
 # ======================
 #   ENV / SETTINGS
 # ======================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
+
+# ✅ Endi 15 ta bepul urinish
 FREE_USES_BEFORE_SUB = int((os.getenv("FREE_USES_BEFORE_SUB", "15").strip() or "15"))
 
-REAL_ESRGAN_BIN = os.getenv("REAL_ESRGAN_BIN", "").strip()          # e.g. /home/ziyodulla/apps/realesrgan-ncnn-vulkan
-REAL_ESRGAN_MODELS = os.getenv("REAL_ESRGAN_MODELS", "").strip()    # e.g. /home/ziyodulla/apps/models
+REAL_ESRGAN_BIN = os.getenv("REAL_ESRGAN_BIN", "").strip()
+REAL_ESRGAN_MODELS = os.getenv("REAL_ESRGAN_MODELS", "").strip()
 ENABLE_REAL_AI = os.getenv("ENABLE_REAL_AI", "1").strip() != "0"
 
-ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").strip()                 # "5853...,123..."
-DB_PATH = (os.getenv("DB_PATH", "bot.db").strip() or "bot.db")
-DOWNLOAD_DIR = (os.getenv("DOWNLOAD_DIR", "downloads").strip() or "downloads")
+ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").strip()  # "5853...,123..."
+ADMIN_ID_SINGLE = int(os.getenv("ADMIN_ID", "0") or "0")
+
+DB_PATH = os.getenv("DB_PATH", "bot.db").strip() or "bot.db"
+DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "downloads").strip() or "downloads"
+
+# ✅ 24 soatdan eski fayllar o‘chadi
+CLEANUP_MAX_AGE_SECONDS = int(os.getenv("CLEANUP_MAX_AGE_SECONDS", str(24 * 3600)))
+CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", str(60 * 60)))  # har 1 soatda tekshiradi
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN topilmadi. Alwaysdata Services -> Environment ga qo'ying.")
@@ -44,12 +43,13 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 def parse_admin_ids(value: str) -> set:
     out = set()
-    if not value:
-        return out
-    for x in value.split(","):
-        x = x.strip()
-        if x.isdigit():
-            out.add(int(x))
+    if value:
+        for x in value.split(","):
+            x = x.strip()
+            if x.isdigit():
+                out.add(int(x))
+    if ADMIN_ID_SINGLE:
+        out.add(int(ADMIN_ID_SINGLE))
     return out
 
 ADMIN_IDS = parse_admin_ids(ADMIN_IDS_RAW)
@@ -115,14 +115,8 @@ def get_uses(user_id: int) -> int:
 def inc_uses_and_log(user_id: int, action: str):
     now = datetime.now(timezone.utc).isoformat()
     with db_connect() as con:
-        con.execute(
-            "UPDATE users SET uses_count = COALESCE(uses_count,0)+1, updated_at=datetime('now') WHERE user_id=?",
-            (user_id,)
-        )
-        con.execute(
-            "INSERT INTO usage_logs (user_id, action, created_at) VALUES (?, ?, ?)",
-            (user_id, action, now)
-        )
+        con.execute("UPDATE users SET uses_count = COALESCE(uses_count,0)+1, updated_at=datetime('now') WHERE user_id=?", (user_id,))
+        con.execute("INSERT INTO usage_logs (user_id, action, created_at) VALUES (?, ?, ?)", (user_id, action, now))
         con.commit()
 
 # ======================
@@ -132,12 +126,10 @@ STATE_NONE = "none"
 STATE_WAIT_TEXT = "wait_text"
 STATE_WAIT_IMG_PDF = "wait_img_pdf"
 STATE_WAIT_UPSCALE = "wait_upscale"
-STATE_WAIT_PDF_MERGE = "wait_pdf_merge"
 
 USER_STATE: Dict[int, str] = {}
-MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}    # (user_id, media_group_id) -> [filepaths]
+MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}  # (user_id, media_group_id) -> [paths]
 MEDIA_TASK: Dict[Tuple[int, str], asyncio.Task] = {}
-PDF_BUFFER: Dict[int, List[str]] = {}                  # user_id -> [pdf paths]
 
 def set_state(user_id: int, state: str):
     USER_STATE[user_id] = state
@@ -161,7 +153,6 @@ def kb_main() -> InlineKeyboardMarkup:
         InlineKeyboardButton("📝 Matnni PDF qilish", callback_data="act_text_pdf"),
         InlineKeyboardButton("🖼 Rasmni PDF qilish", callback_data="act_img_pdf"),
         InlineKeyboardButton("✨ Rasm sifatini oshirish", callback_data="act_upscale"),
-        InlineKeyboardButton("📎 PDFlarni bitta qilish", callback_data="act_pdf_merge"),
     )
     return kb
 
@@ -184,7 +175,7 @@ async def check_sub(user_id: int) -> bool:
         member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
         return member.status != "left"
     except Exception:
-        # bot admin bo'lmasa yoki xato bo'lsa, bloklamaymiz
+        # bot admin bo'lmasa ham bloklamaymiz
         return True
 
 async def enforce_rule_or_block(user_id: int) -> bool:
@@ -196,7 +187,7 @@ async def enforce_rule_or_block(user_id: int) -> bool:
     if ok:
         return True
 
-    # blok: faqat shu xabar chiqadi
+    # foydalanuvchiga ko‘rsatamiz (bu xato emas)
     try:
         await bot.send_message(
             user_id,
@@ -259,19 +250,10 @@ def images_to_pdf(path_list: List[str], out_pdf_path: str):
         imgs.append(im)
 
     if not imgs:
-        raise RuntimeError("No images")
+        raise RuntimeError("no images")
 
     first, rest = imgs[0], imgs[1:]
     first.save(out_pdf_path, save_all=True, append_images=rest)
-
-def merge_pdfs(paths: List[str], out_path: str):
-    if PdfMerger is None:
-        raise RuntimeError("PDF merger not available")
-    merger = PdfMerger()
-    for p in paths:
-        merger.append(p)
-    merger.write(out_path)
-    merger.close()
 
 # ======================
 #   UPSCALE HELPERS
@@ -283,8 +265,13 @@ def pillow_upscale_2x(in_path: str, out_path: str):
     up.save(out_path, quality=95, optimize=True)
 
 def try_realesrgan(in_path: str, out_path: str) -> bool:
+    """
+    True -> AI ishladi
+    False -> ishlamadi (fallback ishlatiladi)
+    """
     if not ENABLE_REAL_AI:
         return False
+
     if not REAL_ESRGAN_BIN or not os.path.exists(REAL_ESRGAN_BIN):
         return False
 
@@ -298,13 +285,42 @@ def try_realesrgan(in_path: str, out_path: str) -> bool:
         "-o", out_path,
         "-s", "2",
         "-n", "realesrgan-x4plus",
-        "-m", model_dir,
+        "-m", model_dir
     ]
+
     try:
         p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=180)
         return p.returncode == 0 and os.path.exists(out_path)
     except Exception:
         return False
+
+# ======================
+#   CLEANUP TASK (24h+)
+# ======================
+def cleanup_download_dir_once():
+    """
+    downloads/ ichidagi 24 soatdan eski fayllarni o‘chiradi.
+    (DB va kodga tegmaydi)
+    """
+    try:
+        now = time.time()
+        for name in os.listdir(DOWNLOAD_DIR):
+            path = os.path.join(DOWNLOAD_DIR, name)
+            if not os.path.isfile(path):
+                continue
+            try:
+                mtime = os.path.getmtime(path)
+                if now - mtime > CLEANUP_MAX_AGE_SECONDS:
+                    safe_remove(path)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+async def cleanup_worker():
+    while True:
+        cleanup_download_dir_once()
+        await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
 
 # ======================
 #   MAIN MENU
@@ -326,332 +342,315 @@ async def show_main_menu(user_id: int):
 # ======================
 @dp.message_handler(commands=["start"])
 async def cmd_start(message: types.Message):
-    try:
-        upsert_user(message.from_user)
-        await show_main_menu(message.from_user.id)
-    except Exception:
-        return
-
-@dp.message_handler(commands=["myid"])
-async def cmd_myid(message: types.Message):
-    try:
-        await message.answer(f"Your user_id: {message.from_user.id}")
-    except Exception:
-        return
+    upsert_user(message.from_user)
+    await show_main_menu(message.from_user.id)
 
 @dp.message_handler(commands=["admin"])
-async def admin_panel(message: types.Message):
+async def cmd_admin(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
         return
-    try:
-        tu = 0
-        ts = 0
-        with db_connect() as con:
-            tu = int(con.execute("SELECT COUNT(*) c FROM users").fetchone()["c"])
-            ts = int(con.execute("SELECT COALESCE(SUM(uses_count),0) s FROM users").fetchone()["s"])
 
-            top15 = con.execute(
-                "SELECT user_id, COALESCE(username,'') username, COALESCE(first_name,'') first_name, "
-                "COALESCE(last_name,'') last_name, COALESCE(uses_count,0) uses_count "
-                "FROM users ORDER BY uses_count DESC, updated_at DESC LIMIT 15"
-            ).fetchall()
+    # Statistikalar
+    with db_connect() as con:
+        total_users = con.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
+        total_uses = con.execute("SELECT COALESCE(SUM(uses_count),0) s FROM users").fetchone()["s"]
 
-            last10 = con.execute(
-                "SELECT COALESCE(username,'') username, COALESCE(first_name,'') first_name, "
-                "COALESCE(last_name,'') last_name, created_at "
-                "FROM users ORDER BY created_at DESC LIMIT 10"
-            ).fetchall()
+        active_24h = con.execute("""
+            SELECT COUNT(*) c
+            FROM users
+            WHERE updated_at >= datetime('now','-24 hours')
+        """).fetchone()["c"]
 
-        lines_top = []
-        for i, r in enumerate(top15, 1):
-            uname = f"@{r['username']}" if r["username"] else "-"
-            name = (r["first_name"] + " " + r["last_name"]).strip() or "-"
-            lines_top.append(f"{i}) {uname} | {name} | uses={r['uses_count']} | id={r['user_id']}")
+        new_24h = con.execute("""
+            SELECT COUNT(*) c
+            FROM users
+            WHERE created_at >= datetime('now','-24 hours')
+        """).fetchone()["c"]
 
-        lines_last = []
-        for i, r in enumerate(last10, 1):
-            uname = f"@{r['username']}" if r["username"] else "-"
-            name = (r["first_name"] + " " + r["last_name"]).strip() or "-"
-            lines_last.append(f"{i}) {uname} | {name} | joined={r['created_at']}")
+        top15 = con.execute("""
+            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count
+            FROM users
+            ORDER BY uses_count DESC, updated_at DESC
+            LIMIT 15
+        """).fetchall()
 
-        text = (
-            "📊 Admin statistika\n\n"
-            f"👥 Jami foydalanuvchi: {tu}\n"
-            f"⚡️ Jami foydalanish: {ts}\n\n"
-            "🏆 TOP-15:\n" + ("\n".join(lines_top) if lines_top else "—") + "\n\n"
-            "🆕 Oxirgi qo‘shilgan 10 ta:\n" + ("\n".join(lines_last) if lines_last else "—")
-        )
-        await message.answer(text)
-    except Exception:
-        return
+        active_list = con.execute("""
+            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), updated_at
+            FROM users
+            WHERE updated_at >= datetime('now','-24 hours')
+            ORDER BY updated_at DESC
+            LIMIT 30
+        """).fetchall()
 
-@dp.message_handler(commands=["top"])
-async def admin_top(message: types.Message):
-    if message.from_user.id not in ADMIN_IDS:
-        return
-    try:
-        with db_connect() as con:
-            rows = con.execute(
-                "SELECT COALESCE(username,'') username, COALESCE(first_name,'') first_name, "
-                "COALESCE(last_name,'') last_name, COALESCE(uses_count,0) uses_count "
-                "FROM users ORDER BY uses_count DESC, updated_at DESC LIMIT 15"
-            ).fetchall()
+        new_list = con.execute("""
+            SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), created_at
+            FROM users
+            WHERE created_at >= datetime('now','-24 hours')
+            ORDER BY created_at DESC
+            LIMIT 30
+        """).fetchall()
 
-        out = []
-        for i, r in enumerate(rows, 1):
-            uname = f"@{r['username']}" if r["username"] else "-"
-            name = (r["first_name"] + " " + r["last_name"]).strip() or "-"
-            out.append(f"{i}) {uname} | {name} | {r['uses_count']}")
+    def fmt_user(uname, fn, ln, uid):
+        uname = f"@{uname}" if uname else "-"
+        name = (f"{fn or ''} {ln or ''}").strip() or "-"
+        return f"{uname} | {name} | id={uid}"
 
-        await message.answer("🏆 TOP-15:\n" + ("\n".join(out) if out else "—"))
-    except Exception:
-        return
+    lines_top = []
+    for i, r in enumerate(top15, start=1):
+        lines_top.append(f"{i}) {fmt_user(r[1], r[2], r[3], r[0])} | uses={r[4]}")
+
+    lines_active = []
+    for i, r in enumerate(active_list, start=1):
+        lines_active.append(f"{i}) {fmt_user(r[1], r[2], r[3], r[0])} | updated={r[4]}")
+
+    lines_new = []
+    for i, r in enumerate(new_list, start=1):
+        lines_new.append(f"{i}) {fmt_user(r[1], r[2], r[3], r[0])} | created={r[4]}")
+
+    text = (
+        "📊 Admin statistika\n\n"
+        f"👥 Jami foydalanuvchi: {total_users}\n"
+        f"⚡️ Jami foydalanish: {total_uses}\n\n"
+        f"🟢 Oxirgi 24 soat aktiv: {active_24h}\n"
+        f"🆕 Oxirgi 24 soatda qo‘shilgan: {new_24h}\n\n"
+        "🏆 TOP-15:\n" + ("\n".join(lines_top) if lines_top else "—") + "\n\n"
+        "🟢 Oxirgi 24 soat aktivlar (max 30):\n" + ("\n".join(lines_active) if lines_active else "—") + "\n\n"
+        "🆕 Oxirgi 24 soatda qo‘shilganlar (max 30):\n" + ("\n".join(lines_new) if lines_new else "—")
+    )
+    await message.answer(text)
 
 # ======================
 #   CALLBACKS
 # ======================
 @dp.callback_query_handler(text="act_cancel")
 async def cb_cancel(call: types.CallbackQuery):
-    try:
-        await call.answer()
-        # cleanup buffers
-        PDF_BUFFER.pop(call.from_user.id, None)
-        set_state(call.from_user.id, STATE_NONE)
-        await show_main_menu(call.from_user.id)
-    except Exception:
-        return
+    await call.answer()
+    await show_main_menu(call.from_user.id)
 
 @dp.callback_query_handler(text="act_check_sub")
 async def cb_check_sub(call: types.CallbackQuery):
-    try:
-        await call.answer()
-        ok = await check_sub(call.from_user.id)
-        if ok:
-            await show_main_menu(call.from_user.id)
-        else:
-            await bot.send_message(call.from_user.id, "❌ Hali obuna emassiz.", reply_markup=kb_subscribe())
-    except Exception:
-        return
+    await call.answer()
+    ok = await check_sub(call.from_user.id)
+    if ok:
+        try:
+            await bot.send_message(call.from_user.id, "✅ Rahmat! Endi foydalanishingiz mumkin.")
+        except Exception:
+            pass
+        await show_main_menu(call.from_user.id)
+    else:
+        try:
+            await bot.send_message(call.from_user.id, "❌ Hali obuna emassiz. Iltimos, kanalga obuna bo‘ling.", reply_markup=kb_subscribe())
+        except Exception:
+            pass
 
 @dp.callback_query_handler(text="act_text_pdf")
 async def cb_text_pdf(call: types.CallbackQuery):
+    await call.answer()
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
+        return
+
+    set_state(call.from_user.id, STATE_WAIT_TEXT)
     try:
-        await call.answer()
-        upsert_user(call.from_user)
-        if not await enforce_rule_or_block(call.from_user.id):
-            return
-        set_state(call.from_user.id, STATE_WAIT_TEXT)
         await bot.send_message(call.from_user.id, "📝 Matn yuboring (PDF qilib qaytaraman).", reply_markup=kb_cancel())
     except Exception:
-        return
+        pass
 
 @dp.callback_query_handler(text="act_img_pdf")
 async def cb_img_pdf(call: types.CallbackQuery):
-    try:
-        await call.answer()
-        upsert_user(call.from_user)
-        if not await enforce_rule_or_block(call.from_user.id):
-            return
-        set_state(call.from_user.id, STATE_WAIT_IMG_PDF)
-        await bot.send_message(call.from_user.id, "🖼 Rasm yuboring (PDF qilib qaytaraman).", reply_markup=kb_cancel())
-    except Exception:
+    await call.answer()
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
         return
+
+    set_state(call.from_user.id, STATE_WAIT_IMG_PDF)
+    try:
+        await bot.send_message(call.from_user.id, "🖼 Rasm yuboring.", reply_markup=kb_cancel())
+    except Exception:
+        pass
 
 @dp.callback_query_handler(text="act_upscale")
 async def cb_upscale(call: types.CallbackQuery):
-    try:
-        await call.answer()
-        upsert_user(call.from_user)
-        if not await enforce_rule_or_block(call.from_user.id):
-            return
-        set_state(call.from_user.id, STATE_WAIT_UPSCALE)
-        await bot.send_message(call.from_user.id, "✨ Sifatini oshirish uchun rasm yuboring.", reply_markup=kb_cancel())
-    except Exception:
+    await call.answer()
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
         return
 
-@dp.callback_query_handler(text="act_pdf_merge")
-async def cb_pdf_merge(call: types.CallbackQuery):
+    set_state(call.from_user.id, STATE_WAIT_UPSCALE)
     try:
-        await call.answer()
-        upsert_user(call.from_user)
-        if not await enforce_rule_or_block(call.from_user.id):
-            return
-        set_state(call.from_user.id, STATE_WAIT_PDF_MERGE)
-        PDF_BUFFER[call.from_user.id] = []
-        await bot.send_message(call.from_user.id, "📎 2 ta yoki undan ko‘p PDF yuboring (bitta qilib qaytaraman).", reply_markup=kb_cancel())
+        await bot.send_message(call.from_user.id, "✨ Sifatini oshirish uchun rasm yuboring.", reply_markup=kb_cancel())
     except Exception:
-        return
+        pass
 
 # ======================
 #   MESSAGE HANDLERS
 # ======================
 @dp.message_handler(content_types=["text"])
 async def on_text(message: types.Message):
+    upsert_user(message.from_user)
+
+    st = get_state(message.from_user.id)
+    if st != STATE_WAIT_TEXT:
+        return
+
+    if not await enforce_rule_or_block(message.from_user.id):
+        return
+
+    text = (message.text or "").strip()
+    if not text:
+        return  # foydalanuvchiga xabar bermaymiz
+
     try:
-        upsert_user(message.from_user)
-        user_id = message.from_user.id
+        status = await message.answer("⏳ PDF tayyorlanmoqda...")
+    except Exception:
+        status = None
 
-        if get_state(user_id) != STATE_WAIT_TEXT:
-            return
-        if not await enforce_rule_or_block(user_id):
-            return
-
-        text = (message.text or "").strip()
-        if not text:
-            return
-
+    try:
         pdf_bytes = make_text_pdf_bytes(text)
-        file_name = f"text_{user_id}_{int(time.time())}.pdf"
-
+        file_name = f"text_{message.from_user.id}_{int(time.time())}.pdf"
         await bot.send_document(
-            user_id,
+            message.from_user.id,
             types.InputFile(io.BytesIO(pdf_bytes), filename=file_name),
             caption="✅ Tayyor!"
         )
-        inc_uses_and_log(user_id, "text_pdf")
-        await show_main_menu(user_id)
+        inc_uses_and_log(message.from_user.id, "text_pdf")
     except Exception:
-        # userga ko‘rinmasin
-        return
+        # foydalanuvchiga xato ko‘rsatmaymiz
+        pass
+    finally:
+        if status:
+            try:
+                await bot.delete_message(message.from_user.id, status.message_id)
+            except Exception:
+                pass
+
+    await show_main_menu(message.from_user.id)
 
 @dp.message_handler(content_types=["photo"])
 async def on_photo(message: types.Message):
+    upsert_user(message.from_user)
+    user_id = message.from_user.id
+    st = get_state(user_id)
+
+    if st not in (STATE_WAIT_IMG_PDF, STATE_WAIT_UPSCALE):
+        return
+
+    if not await enforce_rule_or_block(user_id):
+        return
+
     try:
-        upsert_user(message.from_user)
-        user_id = message.from_user.id
-        st = get_state(user_id)
-
-        if st not in (STATE_WAIT_IMG_PDF, STATE_WAIT_UPSCALE):
-            return
-        if not await enforce_rule_or_block(user_id):
-            return
-
         photo = message.photo[-1]
         file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}.jpg")
         await photo.download(destination=file_path)  # aiogram v2.25.1
+    except Exception:
+        return
 
-        # ===== UPSCALE MODE =====
-        if st == STATE_WAIT_UPSCALE:
-            out_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}_up.jpg")
-            try:
-                ok = try_realesrgan(file_path, out_path)
-                if not ok:
-                    pillow_upscale_2x(file_path, out_path)
-
-                with open(out_path, "rb") as f:
-                    await bot.send_photo(user_id, f, caption="✅ Tayyor!")
-                inc_uses_and_log(user_id, "upscale")
-            finally:
-                safe_remove(file_path)
-                safe_remove(out_path)
-
-            await show_main_menu(user_id)
-            return
-
-        # ===== IMG PDF MODE =====
-        if message.media_group_id:
-            key = (user_id, message.media_group_id)
-            MEDIA_BUFFER.setdefault(key, []).append(file_path)
-
-            old_task = MEDIA_TASK.get(key)
-            if old_task and not old_task.done():
-                old_task.cancel()
-
-            async def finalize_group():
-                await asyncio.sleep(1.2)
-                paths = MEDIA_BUFFER.pop(key, [])
-                MEDIA_TASK.pop(key, None)
-                if not paths:
-                    return
-
-                pdf_path = os.path.join(DOWNLOAD_DIR, f"images_{user_id}_{int(time.time())}.pdf")
-                try:
-                    images_to_pdf(paths, pdf_path)
-                    with open(pdf_path, "rb") as f:
-                        await bot.send_document(user_id, f, caption="✅ Tayyor!")
-                    inc_uses_and_log(user_id, "img_pdf")
-                    await show_main_menu(user_id)
-                except Exception:
-                    # jim
-                    pass
-                finally:
-                    for p in paths:
-                        safe_remove(p)
-                    safe_remove(pdf_path)
-
-            MEDIA_TASK[key] = asyncio.create_task(finalize_group())
-            return
-
-        # single photo -> pdf
-        pdf_path = os.path.join(DOWNLOAD_DIR, f"image_{user_id}_{int(time.time())}.pdf")
+    # ===== UPSCALE MODE =====
+    if st == STATE_WAIT_UPSCALE:
         try:
-            images_to_pdf([file_path], pdf_path)
-            with open(pdf_path, "rb") as f:
-                await bot.send_document(user_id, f, caption="✅ Tayyor!")
-            inc_uses_and_log(user_id, "img_pdf")
-            await show_main_menu(user_id)
+            status = await message.answer("⏳ Sifat oshirilmoqda...")
+        except Exception:
+            status = None
+
+        out_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}_up.jpg")
+        try:
+            ok = try_realesrgan(file_path, out_path)
+            if not ok:
+                pillow_upscale_2x(file_path, out_path)
+
+            with open(out_path, "rb") as f:
+                await bot.send_photo(user_id, f, caption="✅ Tayyor!")
+            inc_uses_and_log(user_id, "upscale")
         except Exception:
             pass
         finally:
             safe_remove(file_path)
-            safe_remove(pdf_path)
-
-    except Exception:
-        return
-
-@dp.message_handler(content_types=["document"])
-async def on_document(message: types.Message):
-    try:
-        upsert_user(message.from_user)
-        user_id = message.from_user.id
-
-        if get_state(user_id) != STATE_WAIT_PDF_MERGE:
-            return
-        if not await enforce_rule_or_block(user_id):
-            return
-
-        doc = message.document
-        if not doc:
-            return
-        # faqat PDF
-        if (doc.mime_type or "").lower() != "application/pdf":
-            return
-
-        # yuklab olamiz
-        file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{doc.file_id}.pdf")
-        await doc.download(destination=file_path)
-
-        PDF_BUFFER.setdefault(user_id, []).append(file_path)
-
-        # 2 ta bo‘lganda merge qilib yuboramiz (foydalanuvchi ko‘p yuborsa ham, oxirida bitta qiladi)
-        paths = PDF_BUFFER.get(user_id, [])
-        if len(paths) < 2:
-            return
-
-        out_path = os.path.join(DOWNLOAD_DIR, f"merged_{user_id}_{int(time.time())}.pdf")
-        try:
-            merge_pdfs(paths, out_path)
-            with open(out_path, "rb") as f:
-                await bot.send_document(user_id, f, caption="✅ Tayyor!")
-            inc_uses_and_log(user_id, "pdf_merge")
-            await show_main_menu(user_id)
-        except Exception:
-            # userga ko‘rinmasin
-            pass
-        finally:
-            for p in paths:
-                safe_remove(p)
             safe_remove(out_path)
-            PDF_BUFFER.pop(user_id, None)
-            set_state(user_id, STATE_NONE)
+            if status:
+                try:
+                    await bot.delete_message(user_id, status.message_id)
+                except Exception:
+                    pass
 
-    except Exception:
+        await show_main_menu(user_id)
         return
 
+    # ===== IMG PDF MODE =====
+    if message.media_group_id:
+        key = (user_id, message.media_group_id)
+        MEDIA_BUFFER.setdefault(key, []).append(file_path)
+
+        old_task = MEDIA_TASK.get(key)
+        if old_task and not old_task.done():
+            old_task.cancel()
+
+        async def finalize_group():
+            await asyncio.sleep(1.2)
+            paths = MEDIA_BUFFER.pop(key, [])
+            MEDIA_TASK.pop(key, None)
+            if not paths:
+                return
+
+            try:
+                status = await bot.send_message(user_id, "⏳ PDF tayyorlanmoqda...")
+            except Exception:
+                status = None
+
+            pdf_path = os.path.join(DOWNLOAD_DIR, f"images_{user_id}_{int(time.time())}.pdf")
+            try:
+                images_to_pdf(paths, pdf_path)
+                with open(pdf_path, "rb") as f:
+                    await bot.send_document(user_id, f, caption="✅ Tayyor!")
+                inc_uses_and_log(user_id, "img_pdf")
+            except Exception:
+                pass
+            finally:
+                for p in paths:
+                    safe_remove(p)
+                safe_remove(pdf_path)
+                if status:
+                    try:
+                        await bot.delete_message(user_id, status.message_id)
+                    except Exception:
+                        pass
+
+            await show_main_menu(user_id)
+
+        MEDIA_TASK[key] = asyncio.create_task(finalize_group())
+        return
+
+    try:
+        status = await message.answer("⏳ PDF tayyorlanmoqda...")
+    except Exception:
+        status = None
+
+    pdf_path = os.path.join(DOWNLOAD_DIR, f"image_{user_id}_{int(time.time())}.pdf")
+    try:
+        images_to_pdf([file_path], pdf_path)
+        with open(pdf_path, "rb") as f:
+            await bot.send_document(user_id, f, caption="✅ Tayyor!")
+        inc_uses_and_log(user_id, "img_pdf")
+    except Exception:
+        pass
+    finally:
+        safe_remove(file_path)
+        safe_remove(pdf_path)
+        if status:
+            try:
+                await bot.delete_message(user_id, status.message_id)
+            except Exception:
+                pass
+
+    await show_main_menu(user_id)
+
 # ======================
-#   BOOT
+#   STARTUP
 # ======================
-if __name__ == "__main__":
+async def on_startup(_dp: Dispatcher):
     db_init()
+    # cleanup worker
+    asyncio.create_task(cleanup_worker())
+
+if __name__ == "__main__":
     print("Bot ishga tushdi...")
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
