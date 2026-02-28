@@ -3,3 +3,4 @@ Pillow
 reportlab
 python-dotenv
 requests
+pypdf

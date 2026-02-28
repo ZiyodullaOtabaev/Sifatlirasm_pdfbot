@@ -1,5 +1,4 @@
 import os
-import re
 import io
 import time
 import asyncio
@@ -19,10 +18,10 @@ from reportlab.pdfgen import canvas
 # ======================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
-FREE_USES_BEFORE_SUB = int(os.getenv("FREE_USES_BEFORE_SUB", "10").strip() or "10")
+FREE_USES_BEFORE_SUB = int((os.getenv("FREE_USES_BEFORE_SUB", "15").strip() or "15"))  # 10 -> 15
 
-REAL_ESRGAN_BIN = os.getenv("REAL_ESRGAN_BIN", "").strip()          # e.g. /home/ziyodulla/apps/realesrgan-ncnn-vulkan
-REAL_ESRGAN_MODELS = os.getenv("REAL_ESRGAN_MODELS", "").strip()    # e.g. /home/ziyodulla/apps/models
+REAL_ESRGAN_BIN = os.getenv("REAL_ESRGAN_BIN", "").strip()
+REAL_ESRGAN_MODELS = os.getenv("REAL_ESRGAN_MODELS", "").strip()
 ENABLE_REAL_AI = os.getenv("ENABLE_REAL_AI", "1").strip() != "0"
 
 ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").strip()  # "5853...,123..."
@@ -51,90 +50,6 @@ ADMIN_IDS = parse_admin_ids(ADMIN_IDS_RAW)
 # ======================
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
-
-
-import sqlite3
-from datetime import datetime, timedelta
-
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or "0")
-DB_PATH = os.getenv("DB_PATH", "bot.db")
-
-def is_admin(user_id: int) -> bool:
-    return ADMIN_ID and user_id == ADMIN_ID
-
-def db_one(sql: str, params=()):
-    con = sqlite3.connect(DB_PATH)
-    cur = con.cursor()
-    cur.execute(sql, params)
-    row = cur.fetchone()
-    con.close()
-    return row
-
-def db_all(sql: str, params=()):
-    con = sqlite3.connect(DB_PATH)
-    cur = con.cursor()
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    con.close()
-    return rows
-
-@dp.message_handler(commands=["admin"])
-async def admin_panel(message: types.Message):
-    if not is_admin(message.from_user.id):
-        return
-
-    total_users = db_one("SELECT COUNT(*) FROM users")[0]
-    total_uses = db_one("SELECT COALESCE(SUM(uses_count),0) FROM users")[0]
-
-    # Bugun (server vaqti bo'yicha) ro'yxatdan o'tganlar
-    today_new = db_one(
-        "SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')"
-    )[0]
-
-    # Oxirgi 24 soatda aktivlar (updated_at yangilangan bo'lsa)
-    active_24h = db_one(
-        "SELECT COUNT(*) FROM users WHERE updated_at >= datetime('now','-24 hours')"
-    )[0]
-
-    top10 = db_all(
-        "SELECT user_id, COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count "
-        "FROM users ORDER BY uses_count DESC, updated_at DESC LIMIT 10"
-    )
-
-    lines = []
-    for i, (uid, un, fn, ln, uses) in enumerate(top10, start=1):
-        name = (fn + " " + ln).strip() or "-"
-        uname = f"@{un}" if un else "-"
-        lines.append(f"{i}) {uname} | {name} | uses={uses} | id={uid}")
-
-    text = (
-        "📊 Admin statistika\n\n"
-        f"👥 Jami foydalanuvchi: {total_users}\n"
-        f"⚡️ Jami foydalanish: {total_uses}\n"
-        f"🆕 Bugun qo‘shilgan: {today_new}\n"
-        f"🕒 Oxirgi 24 soat aktiv: {active_24h}\n\n"
-        "🏆 TOP-10:\n" + ("\n".join(lines) if lines else "Hali yo‘q")
-    )
-
-    await message.answer(text)
-
-@dp.message_handler(commands=["top"])
-async def admin_top(message: types.Message):
-    if not is_admin(message.from_user.id):
-        return
-
-    rows = db_all(
-        "SELECT COALESCE(username,''), COALESCE(first_name,''), COALESCE(last_name,''), uses_count "
-        "FROM users ORDER BY uses_count DESC, updated_at DESC LIMIT 20"
-    )
-    out = []
-    for i, (un, fn, ln, uses) in enumerate(rows, 1):
-        uname = f"@{un}" if un else "-"
-        name = (fn + " " + ln).strip() or "-"
-        out.append(f"{i}) {uname} | {name} | {uses}")
-
-    await message.answer("🏆 TOP-20:\n" + "\n".join(out))
-
 
 # ======================
 #   DB (SQLite)
@@ -205,24 +120,23 @@ def stats_total_uses() -> int:
         row = con.execute("SELECT COALESCE(SUM(uses_count),0) s FROM users").fetchone()
         return int(row["s"]) if row else 0
 
-def stats_top_users(limit: int = 10):
+def stats_top_users(limit: int = 15):
     with db_connect() as con:
         return con.execute("""
-        SELECT user_id, username, first_name, uses_count
+        SELECT user_id, username, first_name, last_name, uses_count, created_at
         FROM users
-        ORDER BY uses_count DESC
+        ORDER BY uses_count DESC, updated_at DESC
         LIMIT ?
         """, (limit,)).fetchall()
 
-def stats_daily_counts(days: int = 7):
+def stats_last_users(limit: int = 10):
     with db_connect() as con:
-        return con.execute(f"""
-        SELECT substr(created_at,1,10) AS day, action, COUNT(*) AS cnt
-        FROM usage_logs
-        WHERE created_at >= datetime('now', '-{days} day')
-        GROUP BY day, action
-        ORDER BY day DESC, cnt DESC
-        """).fetchall()
+        return con.execute("""
+        SELECT user_id, username, first_name, last_name, uses_count, created_at
+        FROM users
+        ORDER BY datetime(created_at) DESC
+        LIMIT ?
+        """, (limit,)).fetchall()
 
 # ======================
 #   STATE (in-memory)
@@ -231,11 +145,17 @@ STATE_NONE = "none"
 STATE_WAIT_TEXT = "wait_text"
 STATE_WAIT_IMG_PDF = "wait_img_pdf"
 STATE_WAIT_UPSCALE = "wait_upscale"
+STATE_WAIT_PDF_MERGE = "wait_pdf_merge"
 
 USER_STATE: Dict[int, str] = {}
-# photo buffering for media groups
-MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}    # (user_id, media_group_id) -> [filepaths]
+
+# photo buffering (media group)
+MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}
 MEDIA_TASK: Dict[Tuple[int, str], asyncio.Task] = {}
+
+# pdf merge buffering (no media_group for documents reliably)
+PDF_BUFFER: Dict[int, List[str]] = {}
+PDF_TASK: Dict[int, asyncio.Task] = {}
 
 def set_state(user_id: int, state: str):
     USER_STATE[user_id] = state
@@ -259,6 +179,7 @@ def kb_main() -> InlineKeyboardMarkup:
         InlineKeyboardButton("📝 Matnni PDF qilish", callback_data="act_text_pdf"),
         InlineKeyboardButton("🖼 Rasmni PDF qilish", callback_data="act_img_pdf"),
         InlineKeyboardButton("✨ Rasm sifatini oshirish", callback_data="act_upscale"),
+        InlineKeyboardButton("🧩 PDFlarni bitta qilish", callback_data="act_pdf_merge"),
     )
     return kb
 
@@ -277,19 +198,13 @@ def kb_subscribe() -> InlineKeyboardMarkup:
 #   SUBSCRIPTION RULE
 # ======================
 async def check_sub(user_id: int) -> bool:
-    """Bot kanalga admin bo'lsa, a'zolikni tekshiradi."""
     try:
         member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
         return member.status != "left"
     except Exception:
-        # bot admin bo'lmasa yoki xato bo'lsa, bloklamaymiz
         return True
 
 async def enforce_rule_or_block(user_id: int) -> bool:
-    """
-    True -> davom etsin
-    False -> bloklandi (kanal tugmasi chiqarildi)
-    """
     uses = get_uses(user_id)
     if uses < FREE_USES_BEFORE_SUB:
         return True
@@ -300,7 +215,7 @@ async def enforce_rule_or_block(user_id: int) -> bool:
 
     await bot.send_message(
         user_id,
-        "Siz xizmatimizdan 10 marta foydalandingiz.\n"
+        f"Siz xizmatimizdan {FREE_USES_BEFORE_SUB} marta foydalandingiz.\n"
         "Yana foydalanish uchun kanalimizga obuna bo‘ling 👇",
         reply_markup=kb_subscribe()
     )
@@ -310,7 +225,6 @@ async def enforce_rule_or_block(user_id: int) -> bool:
 #   PDF HELPERS
 # ======================
 def make_text_pdf_bytes(text: str) -> bytes:
-    # Simple text-to-PDF (A4), wrap lines
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
@@ -319,7 +233,6 @@ def make_text_pdf_bytes(text: str) -> bytes:
     y = height - margin
     line_height = 14
 
-    # basic wrapping
     def wrap_line(s: str, max_chars: int = 95):
         s = s.strip("\n")
         if not s:
@@ -364,47 +277,43 @@ def images_to_pdf(path_list: List[str], out_pdf_path: str):
     first, rest = imgs[0], imgs[1:]
     first.save(out_pdf_path, save_all=True, append_images=rest)
 
+def merge_pdfs(pdf_paths: List[str], out_pdf_path: str):
+    # pypdf preferred; fallback PyPDF2 if installed
+    try:
+        from pypdf import PdfMerger
+    except Exception:
+        from PyPDF2 import PdfMerger  # type: ignore
+
+    merger = PdfMerger()
+    try:
+        for p in pdf_paths:
+            merger.append(p)
+        with open(out_pdf_path, "wb") as f:
+            merger.write(f)
+    finally:
+        try:
+            merger.close()
+        except Exception:
+            pass
+
 # ======================
 #   UPSCALE HELPERS
 # ======================
-# def pillow_upscale_2x(in_path: str, out_path: str):
-#     img = Image.open(in_path)
-#     new_size = (img.width * 2, img.height * 2)
-#     up = img.resize(new_size, Image.LANCZOS)
-#     up.save(out_path, quality=95, optimize=True)
-
 def pillow_upscale_2x(in_path: str, out_path: str):
-    img = Image.open(in_path).convert("RGB")
-
-    # 1) Avval yengil shovqin kamaytirish + sharpnessni nazorat qilish
-    # (Pillow o'zidagi filterlar, qo'shimcha kutubxona kerak emas)
-    from PIL import ImageFilter
-
-    img = img.filter(ImageFilter.MedianFilter(size=3))  # yengil denoise
-
-    # 2) 2x upscale (LANCZOS)
+    img = Image.open(in_path)
     new_size = (img.width * 2, img.height * 2)
     up = img.resize(new_size, Image.LANCZOS)
+    up.save(out_path, quality=95, optimize=True)
 
-    # 3) Yengil sharp (juda kuchli qilmaymiz, artefakt bo'lmasin)
-    up = up.filter(ImageFilter.UnsharpMask(radius=2, percent=140, threshold=3))
-
-    # 4) Saqlash: sifat yuqori
-    up.save(out_path, "JPEG", quality=95, optimize=True, subsampling=0)
-
-def try_realesrgan(in_path: str, out_path: str) -> Tuple[bool, str]:
-    """
-    returns: (success, error_msg)
-    """
+def try_realesrgan(in_path: str, out_path: str) -> bool:
     if not ENABLE_REAL_AI:
-        return (False, "ENABLE_REAL_AI=0 (o‘chirilgan)")
-
+        return False
     if not REAL_ESRGAN_BIN or not os.path.exists(REAL_ESRGAN_BIN):
-        return (False, "REAL_ESRGAN_BIN topilmadi")
+        return False
 
     model_dir = REAL_ESRGAN_MODELS if REAL_ESRGAN_MODELS else "models"
     if REAL_ESRGAN_MODELS and (not os.path.exists(REAL_ESRGAN_MODELS)):
-        return (False, "REAL_ESRGAN_MODELS yo‘li topilmadi")
+        return False
 
     cmd = [
         REAL_ESRGAN_BIN,
@@ -417,11 +326,9 @@ def try_realesrgan(in_path: str, out_path: str) -> Tuple[bool, str]:
 
     try:
         p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=180)
-        if p.returncode == 0 and os.path.exists(out_path):
-            return (True, "")
-        return (False, (p.stderr or p.stdout or "Unknown error")[:800])
-    except Exception as e:
-        return (False, str(e))
+        return p.returncode == 0 and os.path.exists(out_path)
+    except Exception:
+        return False
 
 # ======================
 #   MAIN MENU
@@ -443,12 +350,8 @@ async def cmd_start(message: types.Message):
     upsert_user(message.from_user)
     await show_main_menu(message.from_user.id)
 
-@dp.message_handler(commands=["myid"])
-async def cmd_myid(message: types.Message):
-    await message.answer(f"Your user_id: {message.from_user.id}")
-
-@dp.message_handler(commands=["stats"])
-async def cmd_stats(message: types.Message):
+@dp.message_handler(commands=["admin"])
+async def cmd_admin(message: types.Message):
     if message.from_user.id not in ADMIN_IDS:
         return
 
@@ -456,26 +359,30 @@ async def cmd_stats(message: types.Message):
 
     tu = stats_total_users()
     ts = stats_total_uses()
-    top = stats_top_users(10)
-    daily = stats_daily_counts(7)
+
+    top15 = stats_top_users(15)
+    last10 = stats_last_users(10)
 
     top_lines = []
-    for i, r in enumerate(top, 1):
-        name = ("@" + r["username"]) if r["username"] else (r["first_name"] or "no_name")
-        top_lines.append(f"{i}) {name} — {r['uses_count']}")
+    for i, r in enumerate(top15, 1):
+        uname = f"@{r['username']}" if r["username"] else "-"
+        name = (f"{r['first_name'] or ''} {r['last_name'] or ''}").strip() or "-"
+        top_lines.append(f"{i}) {uname} | {name} | uses={r['uses_count']} | id={r['user_id']}")
 
-    daily_lines = []
-    for r in daily[:50]:
-        daily_lines.append(f"{r['day']} | {r['action']} = {r['cnt']}")
+    last_lines = []
+    for i, r in enumerate(last10, 1):
+        uname = f"@{r['username']}" if r["username"] else "-"
+        created = r["created_at"] or "-"
+        last_lines.append(f"{i}) {uname} | {created} | id={r['user_id']}")
 
     text = (
-        "📊 *Bot Statistikasi*\n\n"
-        f"👥 Users: *{tu}*\n"
-        f"⚙️ Total uses: *{ts}*\n\n"
-        "🏆 *Top 10 users:*\n" + ("\n".join(top_lines) if top_lines else "—") + "\n\n"
-        "📅 *Last 7 days (UTC):*\n" + ("\n".join(daily_lines) if daily_lines else "—")
+        "📊 Admin statistika\n\n"
+        f"👥 Jami foydalanuvchi: {tu}\n"
+        f"⚡️ Jami foydalanish: {ts}\n\n"
+        "🏆 TOP-15:\n" + ("\n".join(top_lines) if top_lines else "—") + "\n\n"
+        "🆕 Oxirgi qo‘shilgan 10 ta:\n" + ("\n".join(last_lines) if last_lines else "—")
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text)
 
 # ======================
 #   CALLBACKS
@@ -498,39 +405,42 @@ async def cb_check_sub(call: types.CallbackQuery):
 @dp.callback_query_handler(text="act_text_pdf")
 async def cb_text_pdf(call: types.CallbackQuery):
     await call.answer()
-
     upsert_user(call.from_user)
     if not await enforce_rule_or_block(call.from_user.id):
         return
-
     set_state(call.from_user.id, STATE_WAIT_TEXT)
     await bot.send_message(call.from_user.id, "📝 Matn yuboring (PDF qilib qaytaraman).", reply_markup=kb_cancel())
 
 @dp.callback_query_handler(text="act_img_pdf")
 async def cb_img_pdf(call: types.CallbackQuery):
     await call.answer()
-
     upsert_user(call.from_user)
     if not await enforce_rule_or_block(call.from_user.id):
         return
-
     set_state(call.from_user.id, STATE_WAIT_IMG_PDF)
-    await bot.send_message(
-        call.from_user.id,
-        "🖼 Rasm yuboring.\n",
-        reply_markup=kb_cancel()
-    )
+    await bot.send_message(call.from_user.id, "🖼 Rasm yuboring.", reply_markup=kb_cancel())
 
 @dp.callback_query_handler(text="act_upscale")
 async def cb_upscale(call: types.CallbackQuery):
     await call.answer()
-
     upsert_user(call.from_user)
     if not await enforce_rule_or_block(call.from_user.id):
         return
-
     set_state(call.from_user.id, STATE_WAIT_UPSCALE)
     await bot.send_message(call.from_user.id, "✨ Sifatini oshirish uchun rasm yuboring.", reply_markup=kb_cancel())
+
+@dp.callback_query_handler(text="act_pdf_merge")
+async def cb_pdf_merge(call: types.CallbackQuery):
+    await call.answer()
+    upsert_user(call.from_user)
+    if not await enforce_rule_or_block(call.from_user.id):
+        return
+    set_state(call.from_user.id, STATE_WAIT_PDF_MERGE)
+    PDF_BUFFER.pop(call.from_user.id, None)
+    t = PDF_TASK.get(call.from_user.id)
+    if t and not t.done():
+        t.cancel()
+    await bot.send_message(call.from_user.id, "🧩 2 ta yoki undan ko‘p PDF yuboring (bittaga birlashtiraman).", reply_markup=kb_cancel())
 
 # ======================
 #   MESSAGE HANDLERS
@@ -538,8 +448,6 @@ async def cb_upscale(call: types.CallbackQuery):
 @dp.message_handler(content_types=["text"])
 async def on_text(message: types.Message):
     upsert_user(message.from_user)
-
-    # menu bo'lmagan matnlar
     st = get_state(message.from_user.id)
     if st != STATE_WAIT_TEXT:
         return
@@ -553,7 +461,6 @@ async def on_text(message: types.Message):
         return
 
     status = await message.answer("⏳ PDF tayyorlanmoqda...")
-
     try:
         pdf_bytes = make_text_pdf_bytes(text)
         file_name = f"text_{message.from_user.id}_{int(time.time())}.pdf"
@@ -585,19 +492,17 @@ async def on_photo(message: types.Message):
     if not await enforce_rule_or_block(user_id):
         return
 
-    # Save photo
     photo = message.photo[-1]
     file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}.jpg")
-    await photo.download(destination=file_path)  # aiogram v2.25.1
+    await photo.download(destination=file_path)
 
     # ===== UPSCALE MODE =====
     if st == STATE_WAIT_UPSCALE:
         status = await message.answer("⏳ Sifat oshirilmoqda...")
         out_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{photo.file_id}_up.jpg")
         try:
-            ok, err = try_realesrgan(file_path, out_path)
+            ok = try_realesrgan(file_path, out_path)
             if not ok:
-                # fallback
                 pillow_upscale_2x(file_path, out_path)
 
             with open(out_path, "rb") as f:
@@ -617,12 +522,10 @@ async def on_photo(message: types.Message):
         return
 
     # ===== IMG PDF MODE =====
-    # Media group (album) bo'lsa: buffer qilamiz
     if message.media_group_id:
         key = (user_id, message.media_group_id)
         MEDIA_BUFFER.setdefault(key, []).append(file_path)
 
-        # debounce: oxirgi rasm kelgach 1.2s kutib PDF qilamiz
         old_task = MEDIA_TASK.get(key)
         if old_task and not old_task.done():
             old_task.cancel()
@@ -634,7 +537,7 @@ async def on_photo(message: types.Message):
             if not paths:
                 return
 
-            status = await bot.send_message(user_id, "⏳ PDF tayyorlanmoqda...")
+            status2 = await bot.send_message(user_id, "⏳ PDF tayyorlanmoqda...")
             pdf_path = os.path.join(DOWNLOAD_DIR, f"images_{user_id}_{int(time.time())}.pdf")
             try:
                 images_to_pdf(paths, pdf_path)
@@ -648,7 +551,7 @@ async def on_photo(message: types.Message):
                     safe_remove(p)
                 safe_remove(pdf_path)
                 try:
-                    await bot.delete_message(user_id, status.message_id)
+                    await bot.delete_message(user_id, status2.message_id)
                 except Exception:
                     pass
 
@@ -657,7 +560,6 @@ async def on_photo(message: types.Message):
         MEDIA_TASK[key] = asyncio.create_task(finalize_group())
         return
 
-    # Bitta rasm bo'lsa: darhol PDF
     status = await message.answer("⏳ PDF tayyorlanmoqda...")
     pdf_path = os.path.join(DOWNLOAD_DIR, f"image_{user_id}_{int(time.time())}.pdf")
     try:
@@ -676,6 +578,63 @@ async def on_photo(message: types.Message):
             pass
 
     await show_main_menu(user_id)
+
+@dp.message_handler(content_types=["document"])
+async def on_document(message: types.Message):
+    upsert_user(message.from_user)
+    user_id = message.from_user.id
+    st = get_state(user_id)
+
+    if st != STATE_WAIT_PDF_MERGE:
+        return
+
+    if not await enforce_rule_or_block(user_id):
+        return
+
+    doc = message.document
+    if not doc or (doc.mime_type != "application/pdf"):
+        await message.answer("Iltimos, faqat PDF fayl yuboring.", reply_markup=kb_cancel())
+        return
+
+    file_path = os.path.join(DOWNLOAD_DIR, f"pdf_{user_id}_{doc.file_id}.pdf")
+    await doc.download(destination=file_path)
+
+    PDF_BUFFER.setdefault(user_id, []).append(file_path)
+
+    old_task = PDF_TASK.get(user_id)
+    if old_task and not old_task.done():
+        old_task.cancel()
+
+    async def finalize_pdf_merge():
+        await asyncio.sleep(1.5)
+        paths = PDF_BUFFER.get(user_id, [])
+        if len(paths) < 2:
+            # kamida 2 ta kutamiz (state o‘zgarmaydi)
+            await bot.send_message(user_id, "Yana PDF yuboring (kamida 2 ta kerak).", reply_markup=kb_cancel())
+            return
+
+        status = await bot.send_message(user_id, "⏳ PDFlar birlashtirilmoqda...")
+        out_pdf = os.path.join(DOWNLOAD_DIR, f"merged_{user_id}_{int(time.time())}.pdf")
+        try:
+            merge_pdfs(paths, out_pdf)
+            with open(out_pdf, "rb") as f:
+                await bot.send_document(user_id, f, caption="✅ Tayyor!")
+            inc_uses_and_log(user_id, "pdf_merge")
+        except Exception as e:
+            await bot.send_message(user_id, f"❌ Xato: {e}")
+        finally:
+            for p in paths:
+                safe_remove(p)
+            safe_remove(out_pdf)
+            PDF_BUFFER.pop(user_id, None)
+            try:
+                await bot.delete_message(user_id, status.message_id)
+            except Exception:
+                pass
+
+        await show_main_menu(user_id)
+
+    PDF_TASK[user_id] = asyncio.create_task(finalize_pdf_merge())
 
 # ======================
 #   BOOT
