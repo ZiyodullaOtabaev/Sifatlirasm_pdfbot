@@ -1,6 +1,7 @@
 import os
 import io
 import time
+import re
 import asyncio
 import sqlite3
 import subprocess
@@ -132,6 +133,8 @@ STATE_WAIT_PDF_MERGE = "wait_pdf_merge"
 USER_STATE: Dict[int, str] = {}
 MEDIA_BUFFER: Dict[Tuple[int, str], List[str]] = {}  # (user_id, media_group_id) -> [paths]
 MEDIA_TASK: Dict[Tuple[int, str], asyncio.Task] = {}
+MENU_MESSAGE_ID: Dict[int, int] = {}  # chat_id -> message_id (menu message)
+
 
 def set_state(user_id: int, state: str):
     USER_STATE[user_id] = state
@@ -145,6 +148,45 @@ def safe_remove(path: str):
             os.remove(path)
     except Exception:
         pass
+
+def _sanitize_filename_base(s: str) -> str:
+    s = (s or "").strip()
+    if not s:
+        return ""
+    # faqat xavfsiz belgilar
+    out = []
+    for ch in s:
+        if ch.isalnum() or ch in ("_", "-", "."):
+            out.append(ch)
+        else:
+            out.append("_")
+    base = "".join(out).strip("._-")
+    base = re.sub(r"_+", "_", base)
+    return base[:40] if base else ""
+
+def user_pdf_filename_from_user(u: types.User) -> str:
+    base = _sanitize_filename_base(u.username or "") or _sanitize_filename_base(u.first_name or "") or f"user_{u.id}"
+    return f"{base}.pdf"
+
+def user_pdf_filename(user: types.User) -> str:
+    base = _sanitize_filename_base(getattr(user, "username", "") or "") or _sanitize_filename_base(getattr(user, "first_name", "") or "")
+    if not base:
+        base = f"user_{user.id}"
+    return f"{base}.pdf"
+
+def user_pdf_filename_from_db(user_id: int) -> str:
+    try:
+        with db_connect() as con:
+            r = con.execute("SELECT COALESCE(username,''), COALESCE(first_name,'') FROM users WHERE user_id=?", (user_id,)).fetchone()
+        if r:
+            base = _sanitize_filename_base(r[0]) or _sanitize_filename_base(r[1])
+        else:
+            base = ""
+    except Exception:
+        base = ""
+    if not base:
+        base = f"user_{user_id}"
+    return f"{base}.pdf"
 
 # ======================
 #   UI KEYBOARDS
@@ -199,38 +241,143 @@ def get_admin_summary():
         """).fetchone()["c"]
     return total_users, total_uses, active_24h, new_24h
 
-def daily_usage_totals(days: int = 7) -> List[Tuple[str, int]]:
+
+def daily_usage_by_action(days: int = 7) -> Dict[str, Dict[str, int]]:
+    """Kun / action bo‘yicha count. Return: {day: {action: cnt}}"""
     with db_connect() as con:
         rows = con.execute(f"""
-            SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS cnt
+            SELECT substr(created_at, 1, 10) AS day, action, COUNT(*) AS cnt
             FROM usage_logs
             WHERE created_at >= datetime('now', '-{days} day')
-            GROUP BY day
+            GROUP BY day, action
             ORDER BY day ASC
         """).fetchall()
-    return [(r["day"], int(r["cnt"])) for r in rows]
 
-def render_bar_chart_png(data: List[Tuple[str, int]], title: str = "So‘nggi 7 kun foydalanish") -> bytes:
-    W, H = 1000, 420
-    pad = 50
-    img = Image.new("RGB", (W, H), "white")
+    data: Dict[str, Dict[str, int]] = {}
+    for r in rows:
+        day = r["day"]
+        act = r["action"]
+        cnt = int(r["cnt"])
+        data.setdefault(day, {})[act] = cnt
+    return data
+
+def render_action_stacked_chart_png(data: Dict[str, Dict[str, int]], title: str = "📈 7 kunlik foydalanish (action bo‘yicha)") -> bytes:
+    """PIL bilan 'premium' stacked bar chart (action bo‘yicha)."""
+    W, H = 1150, 520
+    pad_l, pad_r, pad_t, pad_b = 70, 40, 70, 70
+
+    bg = Image.new("RGB", (W, H), (250, 250, 252))
     from PIL import ImageDraw, ImageFont
-    d = ImageDraw.Draw(img)
+    d = ImageDraw.Draw(bg)
 
     try:
-        font = ImageFont.truetype("DejaVuSans.ttf", 18)
+        font = ImageFont.truetype("DejaVuSans.ttf", 20)
         font_small = ImageFont.truetype("DejaVuSans.ttf", 14)
+        font_tiny = ImageFont.truetype("DejaVuSans.ttf", 12)
     except Exception:
         font = ImageFont.load_default()
         font_small = ImageFont.load_default()
+        font_tiny = ImageFont.load_default()
 
-    d.text((pad, 10), title, fill="black", font=font)
+    # Title
+    d.text((pad_l, 18), title, fill=(20, 20, 25), font=font)
 
+    # No data
     if not data:
-        d.text((pad, 60), "Ma'lumot yo‘q.", fill="black", font=font)
+        d.text((pad_l, 110), "Ma'lumot yo‘q.", fill=(50, 50, 60), font=font_small)
         buf = io.BytesIO()
-        img.save(buf, format="PNG")
+        bg.save(buf, format="PNG")
         return buf.getvalue()
+
+    days = list(data.keys())
+    # actions tartibi (so‘ralgan)
+    actions = ["text_pdf", "img_pdf", "upscale", "pdf_merge"]
+    labels = {
+        "text_pdf": "Matn→PDF",
+        "img_pdf": "Rasm→PDF",
+        "upscale": "Rasm sifati",
+        "pdf_merge": "PDF merge",
+    }
+    colors = {
+        "text_pdf": (59, 130, 246),   # blue
+        "img_pdf": (16, 185, 129),    # green
+        "upscale": (245, 158, 11),    # amber
+        "pdf_merge": (168, 85, 247),  # purple
+    }
+
+    # compute totals and max
+    totals = []
+    max_total = 0
+    for day in days:
+        t = sum(data.get(day, {}).get(a, 0) for a in actions)
+        totals.append(t)
+        max_total = max(max_total, t)
+
+    max_total = max_total or 1
+
+    # plot area
+    x0, y0 = pad_l, pad_t
+    x1, y1 = W - pad_r, H - pad_b
+    plot_w = x1 - x0
+    plot_h = y1 - y0
+
+    # panel background
+    d.rounded_rectangle([x0-10, y0-10, x1+10, y1+10], radius=18, fill=(255, 255, 255), outline=(230, 230, 235), width=2)
+
+    # grid + y labels (0..max)
+    grid_n = 5
+    for i in range(grid_n + 1):
+        y = y1 - int(plot_h * i / grid_n)
+        d.line((x0, y, x1, y), fill=(235, 235, 240), width=1)
+        val = int(max_total * i / grid_n)
+        d.text((x0 - 48, y - 8), str(val), fill=(120, 120, 130), font=font_tiny)
+
+    # bars
+    n = len(days)
+    gap = 10
+    bar_w = max(18, int((plot_w - gap * (n - 1)) / max(n, 1)))
+    # if too wide, clamp
+    bar_w = min(bar_w, 90)
+
+    # recompute for center alignment
+    total_bars_w = bar_w * n + gap * (n - 1)
+    start_x = x0 + max(0, (plot_w - total_bars_w) // 2)
+
+    for i, day in enumerate(days):
+        x = start_x + i * (bar_w + gap)
+        y_base = y1
+        # stacked segments
+        for a in actions:
+            v = data.get(day, {}).get(a, 0)
+            if v <= 0:
+                continue
+            h = int(plot_h * (v / max_total))
+            y_top = y_base - h
+            d.rounded_rectangle([x, y_top, x + bar_w, y_base], radius=10, fill=colors[a])
+            y_base = y_top
+
+        # total label
+        d.text((x + 4, y_base - 18), str(totals[i]), fill=(40, 40, 45), font=font_tiny)
+
+        # x label (MM-DD)
+        day_lbl = day[5:] if len(day) >= 10 else day
+        d.text((x, y1 + 10), day_lbl, fill=(90, 90, 100), font=font_tiny)
+
+    # legend
+    lx = x1 - 260
+    ly = pad_t - 52
+    d.rounded_rectangle([lx, ly, x1, ly + 48], radius=14, fill=(255, 255, 255), outline=(230, 230, 235), width=2)
+    cx = lx + 12
+    cy = ly + 14
+    for a in actions:
+        d.rectangle([cx, cy, cx + 14, cy + 14], fill=colors[a])
+        d.text((cx + 20, cy - 2), labels[a], fill=(40, 40, 45), font=font_tiny)
+        cx += 62
+
+    buf = io.BytesIO()
+    bg.save(buf, format="PNG")
+    return buf.getvalue()
+
 
     max_v = max(v for _, v in data) or 1
     chart_top = 60
@@ -430,16 +577,53 @@ async def cleanup_worker():
 # ======================
 #   MAIN MENU
 # ======================
-async def show_main_menu(user_id: int):
-    set_state(user_id, STATE_NONE)
+async def show_main_menu(chat_id: int, message_id: Optional[int] = None):
+    """Show the main menu without spamming the chat.
+    If message_id (or cached MENU_MESSAGE_ID) exists, we edit that message.
+    Otherwise we send a new one and cache its id.
+    """
+    set_state(chat_id, STATE_NONE)
+
+    text = "Assalamu Alaykum! 📌 Rasm yoki matnlaringizni PDF qiling va rasmlaringizni sifatini oshiring.\nQuyidan kerakli bo‘limni tanlang:"
+    kb = kb_main()
+
+    mid = message_id or MENU_MESSAGE_ID.get(chat_id)
+
+    # Try edit first
+    if mid:
+        try:
+            await bot.edit_message_text(text, chat_id=chat_id, message_id=mid, reply_markup=kb)
+            MENU_MESSAGE_ID[chat_id] = mid
+            return
+        except Exception:
+            # If edit failed (deleted/too old), fallback to sending a new one
+            pass
+
     try:
-        await bot.send_message(
-            user_id,
-            "Assalamu Alaykum! 📌 Rasm yoki matnlaringizni PDF qiling va rasmlaringizni sifatini oshiring.\n"
-            "Quyidan kerakli bo‘limni tanlang:",
-            reply_markup=kb_main()
-        )
+        msg = await bot.send_message(chat_id, text, reply_markup=kb)
+        MENU_MESSAGE_ID[chat_id] = msg.message_id
     except Exception:
+        pass
+
+async def show_step_from_call(call: types.CallbackQuery, text: str, reply_markup: InlineKeyboardMarkup):
+    """Edit the current menu message into a step message (no new messages)."""
+    chat_id = call.message.chat.id if call.message else call.from_user.id
+    mid = call.message.message_id if call.message else MENU_MESSAGE_ID.get(chat_id)
+
+    if mid:
+        try:
+            await bot.edit_message_text(text, chat_id=chat_id, message_id=mid, reply_markup=reply_markup)
+            MENU_MESSAGE_ID[chat_id] = mid
+            return
+        except Exception:
+            pass
+
+    # fallback
+    try:
+        msg = await bot.send_message(chat_id, text, reply_markup=reply_markup)
+        MENU_MESSAGE_ID[chat_id] = msg.message_id
+    except Exception:
+        pass
         pass
 
 # ======================
@@ -448,7 +632,7 @@ async def show_main_menu(user_id: int):
 @dp.message_handler(commands=["start"])
 async def cmd_start(message: types.Message):
     upsert_user(message.from_user)
-    await show_main_menu(message.from_user.id)
+    await show_main_menu(message.chat.id)
 
 @dp.message_handler(commands=["admin"])
 async def cmd_admin(message: types.Message):
@@ -467,8 +651,8 @@ async def cmd_admin(message: types.Message):
     )
 
     try:
-        data = daily_usage_totals(7)
-        png = render_bar_chart_png(data, "📈 So‘nggi 7 kun foydalanish")
+        data = daily_usage_by_action(7)
+        png = render_action_stacked_chart_png(data, "📊 So‘nggi 7 kun (action bo‘yicha)")
         await bot.send_photo(
             message.from_user.id,
             types.InputFile(io.BytesIO(png), filename="usage_7d.png"),
@@ -495,7 +679,7 @@ async def cmd_top(message: types.Message):
     def fmt(r):
         uname = f"@{r[1]}" if r[1] else "-"
         name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
-        return f"{uname} | {name} | id={r[0]} | uses={r[4]}"
+        return f"{uname} | {name} | uses={r[4]}"
 
     lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
     text = "🏆 TOP-30 foydalanuvchilar:\n" + ("\n".join(lines) if lines else "—")
@@ -507,7 +691,7 @@ async def cmd_top(message: types.Message):
 @dp.callback_query_handler(text="act_cancel")
 async def cb_cancel(call: types.CallbackQuery):
     await call.answer()
-    await show_main_menu(call.from_user.id)
+    await show_main_menu(call.message.chat.id if call.message else call.from_user.id, call.message.message_id if call.message else None)
 
 @dp.callback_query_handler(text="act_check_sub")
 async def cb_check_sub(call: types.CallbackQuery):
@@ -518,7 +702,7 @@ async def cb_check_sub(call: types.CallbackQuery):
             await bot.send_message(call.from_user.id, "✅ Rahmat! Endi foydalanishingiz mumkin.")
         except Exception:
             pass
-        await show_main_menu(call.from_user.id)
+        await show_main_menu(call.message.chat.id if call.message else call.from_user.id, call.message.message_id if call.message else None)
     else:
         try:
             await bot.send_message(call.from_user.id, "❌ Hali obuna emassiz. Iltimos, kanalga obuna bo‘ling.", reply_markup=kb_subscribe())
@@ -544,7 +728,7 @@ async def cb_admin_top30(call: types.CallbackQuery):
     def fmt(r):
         uname = f"@{r[1]}" if r[1] else "-"
         name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
-        return f"{uname} | {name} | id={r[0]} | uses={r[4]}"
+        return f"{uname} | {name} | uses={r[4]}"
 
     lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
     text = "🏆 TOP-30 foydalanuvchilar:\n" + ("\n".join(lines) if lines else "—")
@@ -572,7 +756,7 @@ async def cb_admin_active24(call: types.CallbackQuery):
     def fmt(r):
         uname = f"@{r[1]}" if r[1] else "-"
         name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
-        return f"{uname} | {name} | id={r[0]} | updated={r[4]}"
+        return f"{uname} | {name} | updated={r[4]}"
 
     lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
     text = "🟢 Oxirgi 24 soat aktivlar (max 30):\n" + ("\n".join(lines) if lines else "—")
@@ -600,7 +784,7 @@ async def cb_admin_new24(call: types.CallbackQuery):
     def fmt(r):
         uname = f"@{r[1]}" if r[1] else "-"
         name = (f"{r[2] or ''} {r[3] or ''}").strip() or "-"
-        return f"{uname} | {name} | id={r[0]} | created={r[4]}"
+        return f"{uname} | {name} | created={r[4]}"
 
     lines = [f"{i}) {fmt(r)}" for i, r in enumerate(rows, start=1)]
     text = "🆕 Oxirgi 24 soatda qo‘shilganlar (max 30):\n" + ("\n".join(lines) if lines else "—")
@@ -617,12 +801,12 @@ async def cb_admin_chart7(call: types.CallbackQuery):
     await call.answer()
 
     try:
-        data = daily_usage_totals(7)
-        png = render_bar_chart_png(data, "📈 So‘nggi 7 kun foydalanish")
+        data = daily_usage_by_action(7)
+        png = render_action_stacked_chart_png(data, "📊 So‘nggi 7 kun (action bo‘yicha)")
         await bot.send_photo(
             call.from_user.id,
             types.InputFile(io.BytesIO(png), filename="usage_7d.png"),
-            caption="📈 7 kunlik foydalanish grafigi"
+            caption="📊 7 kunlik (action bo‘yicha) premium grafik"
         )
     except Exception:
         pass
@@ -636,7 +820,7 @@ async def cb_text_pdf(call: types.CallbackQuery):
 
     set_state(call.from_user.id, STATE_WAIT_TEXT)
     try:
-        await bot.send_message(call.from_user.id, "📝 Matn yuboring (PDF qilib qaytaraman).", reply_markup=kb_cancel())
+        await show_step_from_call(call, "📝 Matn yuboring (PDF qilib qaytaraman).", kb_cancel())
     except Exception:
         pass
 
@@ -709,7 +893,7 @@ async def on_text(message: types.Message):
 
     try:
         pdf_bytes = make_text_pdf_bytes(text)
-        file_name = f"text_{message.from_user.id}_{int(time.time())}.pdf"
+        file_name = user_pdf_filename_from_user(message.from_user)
         await bot.send_document(
             message.from_user.id,
             types.InputFile(io.BytesIO(pdf_bytes), filename=file_name),
@@ -726,7 +910,7 @@ async def on_text(message: types.Message):
             except Exception:
                 pass
 
-    await show_main_menu(message.from_user.id)
+    await show_main_menu(message.chat.id)
 
 @dp.message_handler(content_types=["photo"])
 async def on_photo(message: types.Message):
@@ -802,7 +986,7 @@ async def on_photo(message: types.Message):
             try:
                 images_to_pdf(paths, pdf_path)
                 with open(pdf_path, "rb") as f:
-                    await bot.send_document(user_id, f, caption="✅ Tayyor!")
+                    await bot.send_document(user_id, types.InputFile(f.name, filename=user_pdf_filename(message.from_user)), caption="✅ Tayyor!")
                 inc_uses_and_log(user_id, "img_pdf")
             except Exception:
                 pass
@@ -830,7 +1014,7 @@ async def on_photo(message: types.Message):
     try:
         images_to_pdf([file_path], pdf_path)
         with open(pdf_path, "rb") as f:
-            await bot.send_document(user_id, f, caption="✅ Tayyor!")
+            await bot.send_document(user_id, types.InputFile(f.name, filename=user_pdf_filename(message.from_user)), caption="✅ Tayyor!")
         inc_uses_and_log(user_id, "img_pdf")
     except Exception:
         pass
@@ -908,7 +1092,7 @@ async def on_document(message: types.Message):
         try:
             merge_pdfs(paths, out_pdf)
             with open(out_pdf, "rb") as f:
-                await bot.send_document(user_id, f, caption="✅ Tayyor!")
+                await bot.send_document(user_id, types.InputFile(f.name, filename=user_pdf_filename(message.from_user)), caption="✅ Tayyor!")
             inc_uses_and_log(user_id, "pdf_merge")
         except Exception:
             pass
