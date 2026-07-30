@@ -1,0 +1,14 @@
+type: service
+name: pdf-ai-slides-bot
+instance_type: free
+docker:
+  dockerfile: Dockerfile
+env:
+  - key: BOT_TOKEN
+    value: 8508492779:AAGeAp00TVb9e8J8RpPBWOGOEiize3ISYtA
+  - key: REPLICATE_API_TOKEN
+    value: r8_A3jeaYCmbW8eJGJhl7JNa5fNMJhXpve1q7UZr
+  - key: ADMIN_ID
+    value: "5853138968"
+  - key: CHANNEL_USER
+    value: "@xonziyy"
