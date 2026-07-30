@@ -8,7 +8,16 @@ STATE_WAIT_TEXT = "wait_text"
 STATE_WAIT_IMG_PDF = "wait_img_pdf"
 STATE_WAIT_UPSCALE = "wait_upscale"
 STATE_WAIT_PDF_MERGE = "wait_pdf_merge"
+STATE_WAIT_BG_REMOVE = "wait_bg_remove"
+STATE_WAIT_AI_IMAGE = "wait_ai_image"
+STATE_WAIT_OCR = "wait_ocr"
+STATE_WAIT_COMPRESS_PDF = "wait_compress_pdf"
+STATE_WAIT_AI_VIDEO = "wait_ai_video"
 STATE_WAIT_BROADCAST = "wait_broadcast"
+STATE_WAIT_ADMIN_BALANCE_INPUT = "wait_admin_balance_input"
+STATE_WAIT_SEARCH = "wait_search"
+STATE_WAIT_AI_SLIDES = "wait_ai_slides"
+STATE_WAIT_SLIDE_AUTHOR = "wait_slide_author"
 
 # In-memory state storage
 USER_STATE: Dict[int, str] = {}

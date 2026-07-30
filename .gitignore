@@ -17,11 +17,13 @@ dist/
 build/
 
 # Database
-bot.db
 *.db
+*.db-shm
+*.db-wal
 
-# Downloads
-downloads/
+# Downloads (keep folder structure)
+downloads/*
+!downloads/.gitkeep
 
 # OS
 .DS_Store
@@ -29,10 +31,3 @@ Thumbs.db
 
 # Logs
 *.log
-.venv/
-.idea/
-__pycache__/
-bot.db
-downloads/
-.env
-*.pyc

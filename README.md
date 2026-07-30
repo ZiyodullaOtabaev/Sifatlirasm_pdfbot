@@ -1,62 +1,69 @@
 # Rasm PDF Bot
 
-Telegram bot for converting images and text to PDF, upscaling images, merging PDFs, compressing PDFs, and smart document scanning.
+Telegram bot — rasmlar va matnni PDF ga aylantirish, sifat oshirish, PDF birlashtirish/siqish, fon olib tashlash, AI rasm generatsiya va OCR.
 
-## Features
+## Imkoniyatlar
 
-| Feature | Description |
-|---------|-------------|
-| 📝 Text to PDF | Convert any text message to a PDF file |
-| 🖼 Image to PDF | Convert single or multiple images to PDF |
-| ✨ Image Upscale | Enhance image quality (AI or LANCZOS 2x) |
-| 📎 PDF Merge | Combine multiple PDFs into one |
-| 🗜 PDF Compress | Reduce PDF file size |
-| 📄 Smart Scan | Document scanning with perspective correction |
-| 📢 Broadcast | Admin can send messages to all users |
-| 🛠 Admin Panel | Statistics, charts, top users |
+| Funksiya | Tavsif |
+|----------|--------|
+| 📝 Matn → PDF | Matnni PDF faylga aylantirish |
+| 🖼 Rasm → PDF | Bir yoki bir necha rasmni PDF ga aylantirish |
+| ✨ Sifat oshirish | Rasm sifatini AI orqali yaxshilash |
+| 📎 PDF birlashtirish | Bir necha PDF ni bittaga qo'shish |
+| 🗜 PDF siqish | PDF hajmini sifatga zarar bermasdan kichraytirish |
+| 📄 Smart Scan | Hujjat skanerlash (perspektiv to'g'rilash) |
+| 🎨 Fon olib tashlash | Rasmdan fonni AI orqali olib tashlash |
+| 🤖 AI rasm | Sun'iy intellekt bilan rasm generatsiya |
+| 📖 OCR | Rasmdan matn ajratish (ingliz, rus) |
+| 📢 Broadcast | Admin barcha foydalanuvchilarga xabar yuborish |
+| 🛠 Admin panel | Statistika, grafiklar, top foydalanuvchilar |
 
-## Tech Stack
+## Texnologiyalar
 
 - **Python 3.11+**
-- **Aiogram 3.x** — Telegram Bot API framework
-- **SQLite** — User and usage data storage
-- **Pillow** — Image processing
-- **ReportLab** — PDF generation
-- **PyPDF2** — PDF merging
-- **PyMuPDF (fitz)** — PDF compression
-- **OpenCV** — Smart scan, image processing
-- **Real-ESRGAN** (optional) — AI image upscaling
+- **Aiogram 3.x** — Telegram Bot API
+- **SQLite** — Ma'lumotlar bazasi
+- **Pillow** — Rasm qayta ishlash
+- **ReportLab** — PDF yaratish
+- **PyPDF2** — PDF birlashtirish
+- **PyMuPDF** — PDF siqish
+- **OpenCV** — Smart scan, rasm qayta ishlash
+- **EasyOCR** — Rasmdan matn aniqlash
+- **Replicate API** — AI upscale, fon olib tashlash, rasm generatsiya
 
-## Project Structure
+## Loyiha strukturasi
 
 ```
-rasm_pdf/
+rasm_pdf_bot/
 ├── bot/
 │   ├── __init__.py
-│   ├── config.py          # Environment configuration
-│   ├── database.py        # SQLite operations
-│   ├── keyboards.py       # Inline keyboards
-│   ├── states.py          # User state management
-│   ├── main.py            # Entry point
+│   ├── config.py           # .env konfiguratsiya
+│   ├── database.py         # SQLite operatsiyalari
+│   ├── keyboards.py        # Inline klaviaturalar
+│   ├── states.py           # Foydalanuvchi holatlari
+│   ├── main.py             # Entry point (dispatcher, polling)
 │   ├── handlers/
-│   │   ├── __init__.py    # Router registry
-│   │   ├── start.py       # /start command
-│   │   ├── text_pdf.py    # Text → PDF
-│   │   ├── img_pdf.py     # Image → PDF
-│   │   ├── upscale.py     # Image upscale
-│   │   ├── merge_pdf.py   # PDF merge
-│   │   ├── compress.py    # PDF compression
-│   │   ├── smart_scan.py  # Smart scan
-│   │   ├── admin.py       # Admin & broadcast
-│   │   └── menu.py        # Menu navigation
+│   │   ├── __init__.py     # Router registratsiyasi
+│   │   ├── start.py        # /start buyrug'i
+│   │   ├── menu.py         # Menyu navigatsiyasi
+│   │   ├── text_pdf.py     # Matn → PDF
+│   │   ├── img_pdf.py      # Rasm → PDF
+│   │   ├── upscale.py      # Sifat oshirish
+│   │   ├── merge_pdf.py    # PDF birlashtirish
+│   │   ├── compress.py     # PDF siqish
+│   │   ├── bg_remove.py    # Fon olib tashlash
+│   │   ├── ai_image.py     # AI rasm generatsiya
+│   │   ├── ocr.py          # OCR (matn ajratish)
+│   │   └── admin.py        # Admin panel & broadcast
 │   └── utils/
 │       ├── __init__.py
-│       ├── pdf.py          # PDF utilities
-│       ├── image.py        # Image processing
-│       ├── chart.py        # Admin charts
-│       ├── cleanup.py      # File cleanup worker
-│       └── helpers.py      # Common helpers
-├── .env.example            # Environment template
+│       ├── pdf.py           # PDF yordamchi funksiyalar
+│       ├── image.py         # Rasm qayta ishlash
+│       ├── chart.py         # Admin grafiklar
+│       ├── cleanup.py       # Fayl tozalash worker
+│       └── helpers.py       # Umumiy yordamchilar
+├── downloads/               # Vaqtinchalik fayllar (gitignore)
+├── .env.example             # Muhit o'zgaruvchilari namunasi
 ├── .gitignore
 ├── requirements.txt
 ├── Dockerfile
@@ -64,78 +71,62 @@ rasm_pdf/
 └── README.md
 ```
 
-## Setup
+## O'rnatish
 
-### Prerequisites
+### Talablar
 
-- Python 3.11 or higher
+- Python 3.11+
 - pip
 
-### Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ZiyodullaOtabaev/rasm_pdf.git
-   cd rasm_pdf
-   ```
-
-2. **Create virtual environment:**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Linux/Mac
-   # or
-   .venv\Scripts\activate     # Windows
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your bot token and settings
-   ```
-
-5. **Run the bot:**
-   ```bash
-   python -m bot.main
-   ```
-
-### Docker Setup
+### Lokal ishga tushirish
 
 ```bash
-# Build and run
-docker-compose up -d
+# Virtual muhit yaratish
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux/Mac
 
-# View logs
-docker-compose logs -f bot
+# Paketlarni o'rnatish
+pip install -r requirements.txt
 
-# Stop
-docker-compose down
+# .env sozlash
+copy .env.example .env
+# .env faylni tahrirlang — BOT_TOKEN va REPLICATE_API_TOKEN kiriting
+
+# Botni ishga tushirish
+python -m bot.main
 ```
 
-## Configuration
+### Docker orqali
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `BOT_TOKEN` | Telegram bot token from @BotFather | *required* |
-| `CHANNEL_USER` | Channel for subscription check | `@xonziyy` |
-| `FREE_USES_BEFORE_SUB` | Free uses before requiring subscription | `15` |
-| `ADMIN_IDS` | Comma-separated admin Telegram IDs | `""` |
-| `MAX_FILE_SIZE` | Maximum file size in bytes | `20971520` (20MB) |
-| `DB_PATH` | SQLite database file path | `bot.db` |
-| `DOWNLOAD_DIR` | Temporary file directory | `downloads` |
-| `ENABLE_REAL_AI` | Enable Real-ESRGAN upscale | `1` |
-| `BROADCAST_RATE` | Messages per second for broadcast | `25` |
+```bash
+docker-compose up -d          # Ishga tushirish
+docker-compose logs -f bot    # Loglar
+docker-compose down           # To'xtatish
+```
 
-## Admin Commands
+## Konfiguratsiya (.env)
 
-- `/admin` — Admin dashboard with statistics
-- `/top` — Top 30 users by usage
-- `/broadcast` — Send message to all users
+| O'zgaruvchi | Tavsif | Default |
+|-------------|--------|---------|
+| `BOT_TOKEN` | Telegram bot token (@BotFather) | *majburiy* |
+| `REPLICATE_API_TOKEN` | Replicate API kaliti | *majburiy (AI uchun)* |
+| `CHANNEL_USER` | Obuna tekshirish kanali | `@xonziyy` |
+| `FREE_USES_BEFORE_SUB` | Obunagacha bepul foydalanish | `15` |
+| `ADMIN_IDS` | Admin ID'lar (vergul bilan) | `""` |
+| `MAX_FILE_SIZE` | Maksimal fayl hajmi (bayt) | `20971520` |
+| `DB_PATH` | SQLite baza fayli | `bot.db` |
+| `DOWNLOAD_DIR` | Vaqtinchalik fayllar papkasi | `downloads` |
+| `ENABLE_REAL_AI` | AI upscale yoqish | `1` |
+| `UPSCALE_TARGET_HEIGHT` | Upscale maqsad balandligi (px) | `1080` |
+| `BROADCAST_RATE` | Broadcast tezligi (xabar/sek) | `25` |
 
-## License
+## Admin buyruqlar
+
+- `/admin` — Statistika dashboard
+- `/top` — Top 30 foydalanuvchi
+- `/broadcast` — Barcha foydalanuvchilarga xabar
+
+## Litsenziya
 
 MIT
