@@ -6,6 +6,7 @@ Telegram bot — rasmlar va matnni PDF ga aylantirish, sifat oshirish, PDF birla
 
 | Funksiya | Tavsif |
 |----------|--------|
+| 📊 AI Slayd Yaratish | 12 betli standart akademik PowerPoint va FLUX AI rasmlari |
 | 📝 Matn → PDF | Matnni PDF faylga aylantirish |
 | 🖼 Rasm → PDF | Bir yoki bir necha rasmni PDF ga aylantirish |
 | ✨ Sifat oshirish | Rasm sifatini AI orqali yaxshilash |
