@@ -39,12 +39,7 @@ async def cmd_start(message: Message, bot: Bot):
         except Exception as ref_err:
             logger.warning(f"Error processing referral link: {ref_err}")
 
-    lang = get_user_language(user.id)
-    if not lang:
-        # First time user — ask for language
-        await message.answer(t("lang_select_prompt", "uz"), reply_markup=kb_language(), parse_mode="HTML")
-        logger.info(f"User {user.id} ({user.username}) started bot, prompted for language selection.")
-    else:
-        # Existing user with language set
-        await message.answer(t("welcome_text", lang), reply_markup=kb_main(lang), parse_mode="HTML")
-        logger.info(f"User {user.id} ({user.username}) started bot [lang={lang}]")
+    lang = get_user_language(user.id) or "uz"
+    set_user_language(user.id, lang)
+    await message.answer(t("welcome_text", lang), reply_markup=kb_main(lang), parse_mode="HTML")
+    logger.info(f"User {user.id} ({user.username}) started bot [lang={lang}]")
