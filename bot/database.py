@@ -92,23 +92,56 @@ def upsert_user(user_id: int, username: Optional[str] = None,
             last_name=excluded.last_name,
             updated_at=datetime('now')
         """, (user_id, username, first_name, last_name))
-        # Clear reminders when user comes back
-        con.execute("DELETE FROM retention_log WHERE user_id=?", (user_id,))
+        # Clear reminders when user comes back (safely)
+        try:
+            con.execute("""
+            CREATE TABLE IF NOT EXISTS retention_log (
+                user_id INTEGER NOT NULL,
+                reminder_type TEXT NOT NULL,
+                sent_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (user_id, reminder_type)
+            )
+            """)
+            con.execute("DELETE FROM retention_log WHERE user_id=?", (user_id,))
+        except Exception:
+            pass
         con.commit()
 
 
 def get_user_language(user_id: int) -> Optional[str]:
     """Get language setting for user ('uz', 'ru', 'en' or None)."""
     with db_connect() as con:
-        row = con.execute("SELECT language FROM users WHERE user_id=?", (user_id,)).fetchone()
-        return row["language"] if row and row["language"] else None
+        try:
+            row = con.execute("SELECT language FROM users WHERE user_id=?", (user_id,)).fetchone()
+            if row:
+                keys = row.keys()
+                if "language" in keys and row["language"]:
+                    return row["language"]
+                if "lang" in keys and row["lang"]:
+                    return row["lang"]
+            return "uz"
+        except Exception:
+            try:
+                con.execute("ALTER TABLE users ADD COLUMN language TEXT")
+                con.commit()
+            except Exception:
+                pass
+            return "uz"
 
 
 def set_user_language(user_id: int, lang: str):
     """Set user language preference."""
     with db_connect() as con:
-        con.execute("UPDATE users SET language=?, updated_at=datetime('now') WHERE user_id=?", (lang, user_id))
-        con.commit()
+        try:
+            con.execute("UPDATE users SET language=?, updated_at=datetime('now') WHERE user_id=?", (lang, user_id))
+            con.commit()
+        except Exception:
+            try:
+                con.execute("ALTER TABLE users ADD COLUMN language TEXT")
+                con.execute("UPDATE users SET language=?, updated_at=datetime('now') WHERE user_id=?", (lang, user_id))
+                con.commit()
+            except Exception:
+                pass
 
 
 def get_user_balance(user_id: int) -> int:
