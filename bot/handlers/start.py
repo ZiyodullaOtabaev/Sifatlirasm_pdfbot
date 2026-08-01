@@ -7,7 +7,7 @@ from aiogram import Router, Bot
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from bot.database import upsert_user, get_user_language, process_referral
+from bot.database import upsert_user, get_user_language, set_user_language, process_referral
 from bot.i18n import t
 from bot.keyboards import kb_main, kb_language
 from bot.states import set_state, STATE_NONE

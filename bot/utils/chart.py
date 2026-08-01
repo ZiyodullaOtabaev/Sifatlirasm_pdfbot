@@ -171,14 +171,14 @@ def render_growth_chart_png(data: List[Tuple[str, int]], title: str = "O'sish gr
 
 def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
     """Render admin statistics as image."""
-    W, H = 800, 500
+    W, H = 800, 560
     bg = Image.new("RGB", (W, H), (250, 250, 252))
     d = ImageDraw.Draw(bg)
     font, font_small, font_tiny = _get_fonts()
 
     d.text((30, 20), "Admin Statistika", fill=(20, 20, 25), font=font)
 
-    y = 70
+    y = 65
     stats_lines = [
         f"Jami foydalanuvchilar: {summary.get('total_users', 0)}",
         f"Jami foydalanish: {summary.get('total_uses', 0)}",
@@ -186,12 +186,14 @@ def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
         f"Yangi 24h: {summary.get('new_24h', 0)}",
         f"Aktiv 7 kun: {summary.get('active_7d', 0)}",
         f"Yangi 7 kun: {summary.get('new_7d', 0)}",
+        f"Aktiv 30 kun: {summary.get('active_30d', 0)}",
+        f"Yangi 30 kun: {summary.get('new_30d', 0)}",
         f"Bugun ishlatilgan: {summary.get('uses_today', 0)}",
         f"Haftalik ishlatish: {summary.get('uses_week', 0)}",
     ]
     for line in stats_lines:
         d.text((40, y), line, fill=(40, 40, 50), font=font_small)
-        y += 28
+        y += 26
 
     y += 20
     d.text((40, y), "Funksiya statistikasi:", fill=(20, 20, 25), font=font_small)
