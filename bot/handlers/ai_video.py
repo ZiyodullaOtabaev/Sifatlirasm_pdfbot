@@ -10,7 +10,10 @@ from aiogram import Router, Bot, F
 from aiogram.types import Message, CallbackQuery, BufferedInputFile
 
 from bot.config import REPLICATE_API_TOKEN
-from bot.database import upsert_user, get_user_balance, deduct_user_balance, inc_uses_and_log, get_user_language
+from bot.database import (
+    upsert_user, get_user_balance, deduct_user_balance, inc_uses_and_log,
+    get_user_language, get_user_ai_video_count, inc_user_ai_video_count
+)
 from bot.i18n import t
 from bot.keyboards import kb_cancel, kb_top_up, kb_top_up_video
 from bot.states import get_state, set_state, STATE_WAIT_AI_VIDEO, STATE_NONE
@@ -23,50 +26,36 @@ router = Router(name="ai_video")
 async def _generate_video(prompt: str) -> bytes:
     """Generate video using Replicate API (video generation model)."""
     import replicate
-    import httpx
 
-    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
-
+    client = replicate.Client(api_token=REPLICATE_API_TOKEN)
     loop = asyncio.get_event_loop()
-    
-    # Try video generation models in priority order
-    models_to_try = [
-        ("minimax/video-01", {"prompt": prompt}),
-        ("cjwbw/damo-text-to-video", {"prompt": prompt}),
-    ]
 
-    output = None
-    last_err = None
+    output = await loop.run_in_executor(
+        None,
+        lambda: client.run(
+            "minimax/video-01",
+            input={
+                "prompt": prompt,
+                "prompt_optimizer": True
+            }
+        )
+    )
 
-    for model_name, inputs in models_to_try:
-        try:
-            output = await loop.run_in_executor(
-                None,
-                lambda: replicate.run(model_name, input=inputs)
-            )
-            if output:
-                break
-        except Exception as e:
-            logger.warning(f"Replicate video model {model_name} failed: {e}")
-            last_err = e
-
-    if not output and last_err:
-        raise last_err
-
-    # Extract video bytes from output
     if output:
-        if isinstance(output, list):
-            output = output[0]
-
-        if hasattr(output, 'read'):
+        import httpx
+        if isinstance(output, str):
+            resp = httpx.get(output, timeout=120, follow_redirects=True)
+            return resp.content
+        elif hasattr(output, 'read'):
             return output.read()
-        elif isinstance(output, str):
-            resp = httpx.get(output, follow_redirects=True, timeout=60)
+        elif hasattr(output, 'url'):
+            resp = httpx.get(output.url, timeout=120, follow_redirects=True)
             return resp.content
 
     raise RuntimeError("AI Video generation model did not return output.")
 
 
+AI_VIDEO_FREE_LIMIT = 2
 VIDEO_COST = 4
 
 
@@ -82,8 +71,11 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
 
+    used_videos = get_user_ai_video_count(user_id)
+    is_free = used_videos < AI_VIDEO_FREE_LIMIT
     balance = get_user_balance(user_id)
-    if balance < VIDEO_COST:
+
+    if not is_free and balance < VIDEO_COST:
         await bot.send_message(
             user_id,
             t("ai_video_insufficient_balance", lang, balance=balance),
@@ -93,9 +85,17 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
         return
 
     from bot.keyboards import kb_ai_video_terms
+    trial_note = f"🎁 <b>Sizda {AI_VIDEO_FREE_LIMIT - used_videos} ta BEPUL sinov videosi bor!</b>" if is_free else f"📌 Video narxi: <b>{VIDEO_COST} kredit (1 500 so'm yoki ⭐️ 15 Stars)</b>"
+    
     await bot.send_message(
         user_id,
-        t("ai_video_terms", lang, balance=balance),
+        f"🎬 <b>AI Video Yaratish</b>\n\n"
+        f"{trial_note}\n\n"
+        f"• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p MP4)\n"
+        f"• ⏳ Generatsiya vaqti: <b>1-2 daqiqa</b>\n"
+        f"• 🌐 Til: <b>O'zbek, Rus va Ingliz</b> (avto-tarjima)\n"
+        f"• 💰 Balansingiz: <b>{balance} kredit</b>\n\n"
+        f"Davom etish uchun quyidagi tugmani bosing 👇",
         parse_mode="HTML",
         reply_markup=kb_ai_video_terms(lang)
     )
@@ -112,8 +112,11 @@ async def cb_start_ai_video(call: CallbackQuery, bot: Bot):
     user_id = user.id
     lang = get_user_language(user_id) or "uz"
 
+    used_videos = get_user_ai_video_count(user_id)
+    is_free = used_videos < AI_VIDEO_FREE_LIMIT
     balance = get_user_balance(user_id)
-    if balance < VIDEO_COST:
+
+    if not is_free and balance < VIDEO_COST:
         await bot.send_message(
             user_id,
             t("ai_video_insufficient_balance", lang, balance=balance),
@@ -145,8 +148,11 @@ async def handle_ai_video(message: Message, bot: Bot):
         await show_main_menu(bot, message.chat.id)
         return
 
+    used_videos = get_user_ai_video_count(user_id)
+    is_free = used_videos < AI_VIDEO_FREE_LIMIT
     balance = get_user_balance(user_id)
-    if balance < VIDEO_COST:
+
+    if not is_free and balance < VIDEO_COST:
         await message.answer(
             t("ai_video_insufficient_balance", lang, balance=balance),
             parse_mode="HTML",
@@ -171,16 +177,20 @@ async def handle_ai_video(message: Message, bot: Bot):
 
         video_bytes = await _generate_video(en_prompt)
         
-        # Deduct balance & log use
-        deduct_user_balance(user_id, VIDEO_COST)
+        inc_user_ai_video_count(user_id)
+        if not is_free:
+            deduct_user_balance(user_id, VIDEO_COST)
+            remaining = get_user_balance(user_id)
+            cost_text = f"💰 Yechildi: <b>{VIDEO_COST} kredit</b> | Qolgan balans: <b>{remaining} kredit</b>"
+        else:
+            cost_text = f"🎁 Bepul sinov videosi: <b>{used_videos + 1}/{AI_VIDEO_FREE_LIMIT}</b>"
+
         inc_uses_and_log(user_id, "ai_video")
-        
-        remaining = get_user_balance(user_id)
-        caption = f"🎬 <i>{prompt[:100]}</i>\n\n💰 Balans: <b>{remaining} kredit</b>"
+        caption = f"🎬 <i>{prompt[:100]}</i>\n\n{cost_text}"
         
         video_file = BufferedInputFile(video_bytes, filename="ai_generated_video.mp4")
         await bot.send_video(user_id, video_file, caption=caption, parse_mode="HTML")
-        logger.info(f"User {user_id}: ai_video '{prompt[:50]}' (remaining balance: {remaining})")
+        logger.info(f"User {user_id}: ai_video '{prompt[:50]}' (remaining balance: {get_user_balance(user_id)})")
     except Exception as e:
         logger.error(f"AI Video error for user {user_id}: {e}")
         from bot.utils.helpers import friendly_error

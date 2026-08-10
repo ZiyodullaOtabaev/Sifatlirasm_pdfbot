@@ -29,13 +29,71 @@ async def _safe_answer(call: CallbackQuery):
         pass
 
 
+async def check_user_subscriptions(bot: Bot, user_id: int) -> tuple[bool, list[dict]]:
+    """
+    Check if user is subscribed to all active required channels.
+    Returns: (is_all_subscribed, list_of_unjoined_channels)
+    """
+    from bot.database import get_active_channels, record_channel_join
+    from bot.config import ADMIN_IDS, ADMIN_ID
+
+    channels = get_active_channels()
+    if not channels:
+        # Fallback to CHANNEL_USER if configured
+        if CHANNEL_USER:
+            try:
+                member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
+                if member.status in ("left", "kicked"):
+                    return False, [{"channel_id": CHANNEL_USER, "channel_title": CHANNEL_USER, "invite_link": f"https://t.me/{CHANNEL_USER.lstrip('@')}"}]
+            except Exception:
+                pass
+        return True, []
+
+    unjoined = []
+    joined_channels = []
+
+    for ch in channels:
+        ch_id = ch["channel_id"]
+        try:
+            member = await bot.get_chat_member(chat_id=ch_id, user_id=user_id)
+            if member.status in ("left", "kicked"):
+                unjoined.append(ch)
+            else:
+                joined_channels.append(ch)
+        except Exception as e:
+            logger.warning(f"Could not verify membership in {ch_id} for user {user_id}: {e}")
+            # If bot cannot check (e.g. not admin), do not block user
+            joined_channels.append(ch)
+
+    if unjoined:
+        return False, unjoined
+
+    # If all joined, record join counts and check auto-detach targets
+    admin_list = [int(x.strip()) for x in ADMIN_IDS.split(",") if x.strip().isdigit()] if ADMIN_IDS else [ADMIN_ID]
+    for ch in joined_channels:
+        ch_id = ch["channel_id"]
+        is_new, target_reached, cur_subs, target = record_channel_join(ch_id, user_id)
+        if target_reached:
+            title = ch.get("channel_title") or ch_id
+            alert_text = (
+                f"🎯 <b>Kanal Obunachi Maqsadi Bajarildi!</b>\n\n"
+                f"📢 Kanal: <b>{title}</b> ({ch_id})\n"
+                f"👥 Yig'ilgan obunachilar: <b>{cur_subs}/{target} ta</b>\n\n"
+                f"✅ Ushbu kanal majburiy obuna ro'yxatidan <b>avtomatik tarzda uzildi!</b>"
+            )
+            for adm in set(admin_list):
+                try:
+                    await bot.send_message(adm, alert_text, parse_mode="HTML")
+                except Exception:
+                    pass
+
+    return True, []
+
+
 async def check_subscription(bot: Bot, user_id: int) -> bool:
-    """Check if user is subscribed to the channel."""
-    try:
-        member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
-        return member.status != "left"
-    except Exception:
-        return True
+    """Backward-compatible helper."""
+    ok, _ = await check_user_subscriptions(bot, user_id)
+    return ok
 
 
 async def enforce_subscription(bot: Bot, user_id: int, lang: str = "uz") -> bool:
@@ -43,14 +101,18 @@ async def enforce_subscription(bot: Bot, user_id: int, lang: str = "uz") -> bool
     uses = get_uses(user_id)
     if uses < FREE_USES_BEFORE_SUB:
         return True
-    ok = await check_subscription(bot, user_id)
+
+    from bot.keyboards import kb_required_channels
+
+    ok, unjoined = await check_user_subscriptions(bot, user_id)
     if ok:
         return True
+
     await bot.send_message(
         user_id,
         t("sub_required", lang),
         parse_mode="HTML",
-        reply_markup=kb_subscribe(lang)
+        reply_markup=kb_required_channels(unjoined, lang)
     )
     return False
 
@@ -125,15 +187,18 @@ async def cb_check_sub(call: CallbackQuery, bot: Bot):
     """Handle subscription check button."""
     await _safe_answer(call)
     lang = get_user_language(call.from_user.id) or "uz"
-    ok = await check_subscription(bot, call.from_user.id)
+    from bot.keyboards import kb_required_channels
+
+    ok, unjoined = await check_user_subscriptions(bot, call.from_user.id)
     if ok:
-        await bot.send_message(call.from_user.id, t("sub_check_btn", lang))
+        await bot.send_message(call.from_user.id, "✅ <b>Obuna tasdiqlandi! Xush kelibsiz!</b>", parse_mode="HTML")
         await show_main_menu(bot, call.message.chat.id, call.message.message_id)
     else:
         await bot.send_message(
             call.from_user.id,
             t("sub_not_yet", lang),
-            reply_markup=kb_subscribe(lang)
+            parse_mode="HTML",
+            reply_markup=kb_required_channels(unjoined, lang)
         )
 
 

@@ -1124,3 +1124,209 @@ async def _do_broadcast(bot: Bot, admin_id: int, broadcast_data: dict, status_ms
 
     BROADCAST_RUNNING.pop(admin_id, None)
     logger.info(f"Broadcast by {admin_id}: {success}/{total}, failed={failed}")
+
+
+# =========================================================================
+# Dynamic Channels Management Handlers
+# =========================================================================
+
+ADMIN_CHANNEL_TEMP: Dict[int, Dict[str, any]] = {}
+
+
+@router.callback_query(F.data == "admin_channels")
+async def cb_admin_channels(call: CallbackQuery, bot: Bot):
+    """Show list of required channels and management options."""
+    if not _is_admin(call.from_user.id):
+        await call.answer("❌ Ruxsat yo'q", show_alert=True)
+        return
+    await call.answer()
+
+    from bot.database import get_all_channels
+    from bot.keyboards import kb_admin_channels
+
+    channels = get_all_channels()
+    text = (
+        "📢 <b>Majburiy Obuna Kanallari Boshqaruvi</b>\n\n"
+        "Bu bo'limda siz botga yangi majburiy kanallar qo'shishingiz, obunachi limitini belgilashingiz "
+        "yoki istalgan payt kanalni o'chirishingiz mumkin.\n\n"
+        f"📋 <b>Jami kanallar:</b> {len(channels)} ta\n"
+        "<i>(🟢 - Faol, 🔴 - To'xtatilgan yoki limiti to'lgan)</i>"
+    )
+    await bot.send_message(call.from_user.id, text, parse_mode="HTML", reply_markup=kb_admin_channels(channels))
+
+
+@router.callback_query(F.data == "admin_add_channel")
+async def cb_admin_add_channel(call: CallbackQuery, bot: Bot):
+    """Start wizard to add a new channel."""
+    if not _is_admin(call.from_user.id):
+        return
+    await call.answer()
+
+    set_state(call.from_user.id, STATE_WAIT_ADMIN_CHANNEL_ID)
+    ADMIN_CHANNEL_TEMP[call.from_user.id] = {}
+
+    await bot.send_message(
+        call.from_user.id,
+        "➕ <b>Yangi Majburiy Kanal Qo'shish:</b>\n\n"
+        "1️⃣ Kanal username yoki havolasini yuboring:\n"
+        "<i>Masalan: <code>@mening_kanalim</code> yoki <code>https://t.me/mening_kanalim</code></i>\n\n"
+        "⚠️ <b>Eslatma:</b> Bot ushbu kanalda <b>Administrator</b> bo'lishi shart (foydalanuvchilar a'zoligini tekshirishi uchun)!",
+        parse_mode="HTML",
+        reply_markup=kb_cancel()
+    )
+
+
+@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_ADMIN_CHANNEL_ID)
+async def handle_admin_channel_id_input(message: Message, bot: Bot):
+    """Handle channel username or link input from admin."""
+    admin_id = message.from_user.id
+    if not _is_admin(admin_id):
+        return
+
+    text = message.text.strip()
+    channel_id = text
+    invite_link = ""
+
+    if "t.me/" in text:
+        parts = text.split("t.me/")[-1].replace("/", "").strip()
+        invite_link = text
+        if not parts.startswith("+"):
+            channel_id = f"@{parts}"
+        else:
+            channel_id = text
+    elif text.startswith("@"):
+        channel_id = text
+        invite_link = f"https://t.me/{text.lstrip('@')}"
+    elif text.startswith("-100"):
+        channel_id = text
+        invite_link = ""
+    else:
+        channel_id = f"@{text}"
+        invite_link = f"https://t.me/{text}"
+
+    channel_title = channel_id
+    try:
+        chat = await bot.get_chat(channel_id)
+        if chat.title:
+            channel_title = chat.title
+        if chat.username:
+            channel_id = f"@{chat.username}"
+            invite_link = f"https://t.me/{chat.username}"
+    except Exception as e:
+        logger.warning(f"Could not fetch chat info for {channel_id}: {e}")
+
+    ADMIN_CHANNEL_TEMP[admin_id] = {
+        "channel_id": channel_id,
+        "channel_title": channel_title,
+        "invite_link": invite_link or f"https://t.me/{channel_id.lstrip('@')}"
+    }
+
+    set_state(admin_id, STATE_WAIT_ADMIN_CHANNEL_TARGET)
+    await message.answer(
+        f"✅ Kanal qabul qilindi: <b>{channel_title}</b> ({channel_id})\n\n"
+        f"2️⃣ <b>Obunachi Maqsadi (Limit):</b>\n\n"
+        f"🎯 Ushbu kanal orqali nechta obunachi yig'ilishi kerak?\n\n"
+        f"• <b>Cheksiz bo'lishi uchun:</b> <code>0</code> deb yozing\n"
+        f"• <b>Avtomatik ajratish uchun:</b> Kerakli sonni yozing (masalan <code>100</code> yoki <code>500</code>):",
+        parse_mode="HTML",
+        reply_markup=kb_cancel()
+    )
+
+
+@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_ADMIN_CHANNEL_TARGET)
+async def handle_admin_channel_target_input(message: Message, bot: Bot):
+    """Handle channel subscriber target limit input."""
+    admin_id = message.from_user.id
+    if not _is_admin(admin_id):
+        return
+
+    text = message.text.strip()
+    try:
+        target = int(text)
+        if target < 0:
+            target = 0
+    except ValueError:
+        await message.answer("❌ Iltimos, faqat raqam kiriting (masalan <code>0</code> yoki <code>100</code>):", parse_mode="HTML")
+        return
+
+    temp = ADMIN_CHANNEL_TEMP.pop(admin_id, {})
+    channel_id = temp.get("channel_id")
+    channel_title = temp.get("channel_title") or channel_id
+    invite_link = temp.get("invite_link") or f"https://t.me/{channel_id.lstrip('@')}"
+
+    if not channel_id:
+        await message.answer("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+        set_state(admin_id, STATE_NONE)
+        return
+
+    from bot.database import add_required_channel, get_all_channels
+    from bot.keyboards import kb_admin_channels
+
+    add_required_channel(channel_id, channel_title, invite_link, target)
+    set_state(admin_id, STATE_NONE)
+
+    target_desc = "Cheksiz (qo'lda o'chirilguncha)" if target == 0 else f"{target} ta obunachidan keyin avto-uziladi"
+    await message.answer(
+        f"🎉 <b>Kanal muvaffaqiyatli qo'shildi!</b>\n\n"
+        f"📢 Kanal: <b>{channel_title}</b> ({channel_id})\n"
+        f"🎯 Maqsad: <b>{target_desc}</b>\n\n"
+        f"Endi yangi foydalanuvchilar ushbu kanalga a'zo bo'lishi talab etiladi.",
+        parse_mode="HTML"
+    )
+
+    channels = get_all_channels()
+    await message.answer("📋 <b>Yangilangan Kanallar Ro'yxati:</b>", parse_mode="HTML", reply_markup=kb_admin_channels(channels))
+
+
+@router.callback_query(F.data.startswith("adm_ch_toggle_"))
+async def cb_admin_channel_toggle(call: CallbackQuery, bot: Bot):
+    """Toggle channel active status."""
+    if not _is_admin(call.from_user.id):
+        return
+    await call.answer()
+
+    ch_id = call.data.replace("adm_ch_toggle_", "")
+    from bot.database import get_all_channels, toggle_channel_status
+    from bot.keyboards import kb_admin_channels
+
+    channels = get_all_channels()
+    target_ch = next((c for c in channels if str(c["id"]) == ch_id), None)
+    if target_ch:
+        new_status = 0 if target_ch.get("is_active", 1) else 1
+        toggle_channel_status(ch_id, new_status)
+
+    updated_channels = get_all_channels()
+    try:
+        await call.message.edit_reply_markup(reply_markup=kb_admin_channels(updated_channels))
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data.startswith("adm_ch_del_"))
+async def cb_admin_channel_del(call: CallbackQuery, bot: Bot):
+    """Delete a required channel."""
+    if not _is_admin(call.from_user.id):
+        return
+    await call.answer("🗑 Kanal o'chirildi", show_alert=True)
+
+    ch_id = call.data.replace("adm_ch_del_", "")
+    from bot.database import delete_required_channel, get_all_channels
+    from bot.keyboards import kb_admin_channels
+
+    delete_required_channel(ch_id)
+    channels = get_all_channels()
+    try:
+        await call.message.edit_reply_markup(reply_markup=kb_admin_channels(channels))
+    except Exception:
+        pass
+
+
+@router.callback_query(F.data == "admin_back_to_menu")
+async def cb_admin_back_to_menu(call: CallbackQuery, bot: Bot):
+    """Return to main admin menu."""
+    if not _is_admin(call.from_user.id):
+        return
+    await call.answer()
+    from bot.keyboards import kb_admin
+    await bot.send_message(call.from_user.id, "⚙️ <b>Admin Panel</b>", parse_mode="HTML", reply_markup=kb_admin())
+

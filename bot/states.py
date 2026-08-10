@@ -18,6 +18,8 @@ STATE_WAIT_ADMIN_BALANCE_INPUT = "wait_admin_balance_input"
 STATE_WAIT_SEARCH = "wait_search"
 STATE_WAIT_AI_SLIDES = "wait_ai_slides"
 STATE_WAIT_SLIDE_AUTHOR = "wait_slide_author"
+STATE_WAIT_ADMIN_CHANNEL_ID = "wait_admin_channel_id"
+STATE_WAIT_ADMIN_CHANNEL_TARGET = "wait_admin_channel_target"
 
 # In-memory state storage
 USER_STATE: Dict[int, str] = {}

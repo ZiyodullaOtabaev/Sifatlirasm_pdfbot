@@ -244,13 +244,66 @@ def kb_admin() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="💳 Kredit Qo'shish", callback_data="admin_add_balance"),
+            InlineKeyboardButton(text="📢 Kanallar Boshqaruvi", callback_data="admin_channels"),
+        ],
+        [
             InlineKeyboardButton(text="💾 Baza Zaxira", callback_data="admin_backup"),
+            InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
         ],
         [
             InlineKeyboardButton(text="📜 BC tarix", callback_data="admin_bc_history"),
-            InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
         ],
     ])
+
+
+def kb_admin_channels(channels: list[dict]) -> InlineKeyboardMarkup:
+    """Keyboard for managing required channels in admin panel."""
+    buttons = []
+    for ch in channels:
+        ch_id = ch["channel_id"]
+        title = ch.get("channel_title") or ch_id
+        target = ch.get("target_subs", 0)
+        current = ch.get("current_subs", 0)
+        is_active = ch.get("is_active", 1)
+
+        status_emoji = "🟢" if is_active else "🔴"
+        target_str = f"({current}/{target} ta)" if target > 0 else f"({current} ta / Cheksiz)"
+        
+        buttons.append([
+            InlineKeyboardButton(text=f"{status_emoji} {title} {target_str}", callback_data=f"adm_ch_info_{ch['id']}")
+        ])
+        buttons.append([
+            InlineKeyboardButton(text="🔄 Yoqish/O'chirish", callback_data=f"adm_ch_toggle_{ch['id']}"),
+            InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"adm_ch_del_{ch['id']}"),
+        ])
+
+    buttons.append([
+        InlineKeyboardButton(text="➕ Yangi Kanal Qo'shish", callback_data="admin_add_channel")
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="⬅️ Admin menyu", callback_data="admin_back_to_menu")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def kb_required_channels(channels: list[dict], lang: str = "uz") -> InlineKeyboardMarkup:
+    """Dynamic keyboard displaying all required channels for user subscription."""
+    buttons = []
+    for idx, ch in enumerate(channels, 1):
+        title = ch.get("channel_title") or f"Kanal #{idx}"
+        link = ch.get("invite_link")
+        if not link:
+            ch_uname = ch.get("channel_id", "").lstrip("@")
+            link = f"https://t.me/{ch_uname}"
+        
+        buttons.append([
+            InlineKeyboardButton(text=f"📢 {title}", url=link)
+        ])
+
+    buttons.append([
+        InlineKeyboardButton(text=t("sub_check_btn", lang), callback_data="act_check_sub")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def kb_user_balance_actions(user_id: int) -> InlineKeyboardMarkup:
