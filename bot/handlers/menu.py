@@ -69,7 +69,7 @@ async def check_user_subscriptions(bot: Bot, user_id: int) -> tuple[bool, list[d
         return False, unjoined
 
     # If all joined, record join counts and check auto-detach targets
-    admin_list = [int(x.strip()) for x in ADMIN_IDS.split(",") if x.strip().isdigit()] if ADMIN_IDS else [ADMIN_ID]
+    admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
     for ch in joined_channels:
         ch_id = ch["channel_id"]
         is_new, target_reached, cur_subs, target = record_channel_join(ch_id, user_id)

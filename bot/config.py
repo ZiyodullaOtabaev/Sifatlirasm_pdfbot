@@ -57,6 +57,7 @@ def parse_admin_ids(value: str) -> set:
     return out
 
 ADMIN_IDS = parse_admin_ids(ADMIN_IDS_RAW)
+ADMIN_ID = ADMIN_ID_SINGLE or (list(ADMIN_IDS)[0] if ADMIN_IDS else 0)
 
 # Database
 DB_PATH = os.getenv("DB_PATH", "bot.db").strip() or "bot.db"
