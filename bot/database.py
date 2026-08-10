@@ -447,13 +447,14 @@ def get_top_users(limit: int = 30) -> list:
         """, (limit,)).fetchall()
 
 
-def get_active_users_24h(limit: int = 30) -> list:
+def get_active_users_24h(limit: int = 50) -> list:
     """Get users active in last 24 hours."""
     with db_connect() as con:
         return con.execute("""
             SELECT user_id, COALESCE(username,'') as username,
                    COALESCE(first_name,'') as first_name,
-                   COALESCE(last_name,'') as last_name, updated_at
+                   COALESCE(last_name,'') as last_name,
+                   COALESCE(uses_count, 0) as uses_count, updated_at
             FROM users WHERE updated_at >= datetime('now','-24 hours')
             ORDER BY updated_at DESC LIMIT ?
         """, (limit,)).fetchall()

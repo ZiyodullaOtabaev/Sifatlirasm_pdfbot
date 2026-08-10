@@ -16,14 +16,14 @@ from typing import Dict, Optional
 from aiogram import Router, Bot, F
 from aiogram.filters import Command
 from aiogram.types import (
-    Message, CallbackQuery, BufferedInputFile,
+    Message, CallbackQuery, BufferedInputFile, FSInputFile,
     InlineKeyboardMarkup, InlineKeyboardButton,
 )
 
-from bot.config import ADMIN_IDS, BROADCAST_RATE
+from bot.config import ADMIN_IDS, BROADCAST_RATE, DB_PATH
 from bot.database import (
     upsert_user, get_admin_summary, daily_usage_by_action,
-    get_top_users, get_new_users_24h,
+    get_top_users, get_new_users_24h, get_active_users_24h,
     get_all_user_ids, save_broadcast_result,
     get_action_stats, get_growth_stats,
     get_broadcast_history, search_user,
@@ -419,6 +419,52 @@ async def cb_admin_new24(call: CallbackQuery, bot: Bot):
     text = "<b>🆕 Yangi 24 soat:</b>\n\n" + ("\n".join(lines) if lines else "Hech kim yo'q")
     await bot.send_message(call.from_user.id, text, parse_mode="HTML",
                            reply_markup=kb_admin_back())
+
+
+@router.message(Command("active24h"))
+@router.callback_query(F.data == "admin_active24")
+async def cb_admin_active24(event: Message | CallbackQuery, bot: Bot):
+    """Active users in the last 24 hours."""
+    user_id = event.from_user.id
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+    if not _is_admin(user_id):
+        return
+
+    rows = get_active_users_24h(50)
+    lines = []
+    for i, r in enumerate(rows, start=1):
+        uname = f"@{r['username']}" if r["username"] else f"ID:{r['user_id']}"
+        name = (f"{r['first_name'] or ''}").strip() or "-"
+        t_str = r["updated_at"][11:16] if r.get("updated_at") and len(r["updated_at"]) >= 16 else ""
+        uses = r.get("uses_count", 0)
+        lines.append(f"{i}. {uname} | {name} | <b>{uses} ta</b> | {t_str}")
+
+    text = f"<b>⚡️ Oxirgi 24 soatdagi aktiv foydalanuvchilar (Jami: {len(rows)} ta):</b>\n\n" + ("\n".join(lines) if lines else "Hozircha hech kim yo'q")
+    await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=kb_admin_back())
+
+
+@router.message(Command("backup"))
+@router.callback_query(F.data == "admin_backup")
+async def cb_admin_backup(event: Message | CallbackQuery, bot: Bot):
+    """Send database backup to admin."""
+    user_id = event.from_user.id
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+    if not _is_admin(user_id):
+        return
+
+    import os
+    if os.path.exists(DB_PATH):
+        doc = FSInputFile(DB_PATH, filename=f"bot_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
+        await bot.send_document(
+            user_id, doc,
+            caption="💾 <b>Ma'lumotlar bazasi zaxirasi (bot.db)</b>\n\nUshbu fayl barcha foydalanuvchilar va ma'lumotlarni o'zida saqlaydi.",
+            parse_mode="HTML",
+            reply_markup=kb_admin_back()
+        )
+    else:
+        await bot.send_message(user_id, "❌ Baza fayli topilmadi.", reply_markup=kb_admin_back())
 
 
 @router.callback_query(F.data == "admin_bc_history")

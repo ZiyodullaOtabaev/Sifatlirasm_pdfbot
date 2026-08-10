@@ -163,11 +163,15 @@ def kb_admin() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="🏆 TOP-30", callback_data="admin_top30"),
-            InlineKeyboardButton(text="🆕 Yangi 24h", callback_data="admin_new24"),
+            InlineKeyboardButton(text="⚡️ Aktiv 24h", callback_data="admin_active24"),
         ],
         [
+            InlineKeyboardButton(text="🆕 Yangi 24h", callback_data="admin_new24"),
             InlineKeyboardButton(text="🔍 Qidirish", callback_data="admin_search"),
+        ],
+        [
             InlineKeyboardButton(text="💳 Kredit Qo'shish", callback_data="admin_add_balance"),
+            InlineKeyboardButton(text="💾 Baza Zaxira", callback_data="admin_backup"),
         ],
         [
             InlineKeyboardButton(text="📜 BC tarix", callback_data="admin_bc_history"),
