@@ -38,7 +38,7 @@ USER_SLIDE_DATA: Dict[int, Dict[str, str]] = {}
 USER_GALLERY_INDEX: Dict[int, int] = {}
 FILE_THEME_CACHE: Dict[str, str] = {}
 
-SLIDE_COST = 1
+SLIDE_COST = 7
 
 
 async def _safe_answer(call: CallbackQuery):
@@ -70,7 +70,7 @@ async def cb_ai_slides(call: CallbackQuery, bot: Bot):
         )
         return
 
-    trial_text = "🎁 <b>Sizda 1 ta BEPUL sinov taqdimoti bor!</b> (0 kredit)" if not used_trial else "📌 Taqdimot narxi: <b>2 000 so'm (yoki ⭐️ 20 Stars / 1 kredit)</b>"
+    trial_text = "🎁 <b>Sizda 1 ta BEPUL sinov taqdimoti bor!</b> (0 kredit)" if not used_trial else "📌 Taqdimot narxi: <b>7 kredit (2 000 so'm yoki ⭐️ 20 Stars)</b>"
 
     USER_SLIDE_DATA[user_id] = {}
     set_state(user_id, STATE_WAIT_AI_SLIDES)
@@ -289,7 +289,7 @@ async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
         remaining = get_user_balance(user_id)
         theme_title = SLIDE_THEMES.get(theme_name, {}).get("name", theme_name)
 
-        cost_notice = "🎁 <b>1-Sinov taqdimotingiz BEPUL berildi!</b>" if cost == 0 else f"💰 Yechildi: <b>1 kredit</b> | Qolgan balans: <b>{remaining} kredit</b>"
+        cost_notice = "🎁 <b>1-Sinov taqdimotingiz BEPUL berildi!</b>" if cost == 0 else f"💰 Yechildi: <b>7 kredit</b> | Qolgan balans: <b>{remaining} kredit</b>"
 
         caption = (
             f"📊 <b>{topic[:60]}</b>\n"

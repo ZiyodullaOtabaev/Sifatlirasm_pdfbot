@@ -67,6 +67,9 @@ async def _generate_video(prompt: str) -> bytes:
     raise RuntimeError("AI Video generation model did not return output.")
 
 
+VIDEO_COST = 4
+
+
 @router.callback_query(F.data == "act_ai_video")
 async def cb_ai_video(call: CallbackQuery, bot: Bot):
     """Show AI Video terms and conditions."""
@@ -80,7 +83,7 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
     lang = get_user_language(user_id) or "uz"
 
     balance = get_user_balance(user_id)
-    if balance < 1:
+    if balance < VIDEO_COST:
         await bot.send_message(
             user_id,
             t("ai_video_insufficient_balance", lang, balance=balance),
@@ -110,7 +113,7 @@ async def cb_start_ai_video(call: CallbackQuery, bot: Bot):
     lang = get_user_language(user_id) or "uz"
 
     balance = get_user_balance(user_id)
-    if balance < 1:
+    if balance < VIDEO_COST:
         await bot.send_message(
             user_id,
             t("ai_video_insufficient_balance", lang, balance=balance),
@@ -143,11 +146,11 @@ async def handle_ai_video(message: Message, bot: Bot):
         return
 
     balance = get_user_balance(user_id)
-    if balance < 1:
+    if balance < VIDEO_COST:
         await message.answer(
             t("ai_video_insufficient_balance", lang, balance=balance),
             parse_mode="HTML",
-            reply_markup=kb_top_up(lang)
+            reply_markup=kb_top_up_video(lang)
         )
         set_state(user_id, STATE_NONE)
         return
@@ -169,7 +172,7 @@ async def handle_ai_video(message: Message, bot: Bot):
         video_bytes = await _generate_video(en_prompt)
         
         # Deduct balance & log use
-        deduct_user_balance(user_id, 1)
+        deduct_user_balance(user_id, VIDEO_COST)
         inc_uses_and_log(user_id, "ai_video")
         
         remaining = get_user_balance(user_id)

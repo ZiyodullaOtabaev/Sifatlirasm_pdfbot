@@ -143,6 +143,41 @@ def kb_top_up_slides(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMa
     ])
 
 
+def kb_top_up_ai_image(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
+    """Top up balance keyboard specifically for AI Image."""
+    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🤖 1 ta AI Rasm (10 ⭐)", callback_data="buy_stars_image_1"),
+        ],
+        [
+            InlineKeyboardButton(text="🤖 5 ta AI Rasm (45 ⭐)", callback_data="buy_stars_image_5"),
+        ],
+        [
+            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
+
+def kb_top_up_img_pdf(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
+    """Top up keyboard specifically for Image-to-PDF 1-Year Pass."""
+    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💎 1 Yillik Cheksiz Pass (50 ⭐)", callback_data="buy_stars_img_pdf_1yr"),
+        ],
+        [
+            InlineKeyboardButton(text="👤 Kartaga to'lash 5 000 so'm (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
+
 def kb_top_up(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
     """General top up balance keyboard with Telegram Stars and Admin contact options."""
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"

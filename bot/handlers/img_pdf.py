@@ -11,8 +11,12 @@ from aiogram import Router, Bot
 from aiogram.types import Message, FSInputFile
 
 from bot.config import DOWNLOAD_DIR, MAX_FILE_SIZE
-from bot.database import upsert_user, inc_uses_and_log
-from bot.states import get_state, STATE_WAIT_IMG_PDF
+from bot.database import (
+    upsert_user, inc_uses_and_log, get_user_language,
+    get_user_img_pdf_count, inc_user_img_pdf_count, has_active_img_pdf_pass
+)
+from bot.states import get_state, set_state, STATE_WAIT_IMG_PDF, STATE_NONE
+from bot.keyboards import kb_top_up_img_pdf
 from bot.utils.pdf import images_to_pdf
 from bot.utils.helpers import safe_remove, user_pdf_filename
 from bot.handlers.menu import enforce_subscription, show_main_menu
@@ -31,8 +35,23 @@ async def handle_img_pdf(message: Message, bot: Bot):
     user = message.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
 
     if not await enforce_subscription(bot, user_id):
+        return
+
+    has_pass = has_active_img_pdf_pass(user_id)
+    cnt = get_user_img_pdf_count(user_id)
+
+    if not has_pass and cnt >= 50:
+        await message.answer(
+            f"🖼 <b>Rasm ➡️ PDF (1 Yillik Cheksiz Pass)</b>\n\n"
+            f"📌 Siz dastlabki <b>50 ta bepul</b> rasmni PDF qilish limitidan to'liq foydalandingiz.\n\n"
+            f"Buyog'iga ushbu xizmatni <b>1 YIL (365 kun) davomida BUTUNLAY CHEKSIZ</b> ishlatish uchun <b>5 000 so'm (yoki ⭐️ 50 Stars)</b> to'lov qiling 👇",
+            parse_mode="HTML",
+            reply_markup=kb_top_up_img_pdf(lang)
+        )
+        set_state(user_id, STATE_NONE)
         return
 
     photo = message.photo[-1]
@@ -65,7 +84,10 @@ async def handle_img_pdf(message: Message, bot: Bot):
             try:
                 images_to_pdf(paths, pdf_path)
                 doc = FSInputFile(pdf_path, filename=user_pdf_filename(user))
-                await bot.send_document(user_id, doc, caption="✅ Tayyor!")
+                inc_user_img_pdf_count(user_id)
+                current_cnt = get_user_img_pdf_count(user_id)
+                tag = "💎 1 Yillik VIP Pass faol" if has_pass else f"🎁 Bepul limit: {current_cnt}/50"
+                await bot.send_document(user_id, doc, caption=f"✅ <b>PDF Tayyor!</b> ({len(paths)} ta rasm)\n<i>{tag}</i>", parse_mode="HTML")
                 inc_uses_and_log(user_id, "img_pdf")
                 logger.info(f"User {user_id}: img_pdf ({len(paths)} images)")
             except Exception as e:
@@ -80,6 +102,7 @@ async def handle_img_pdf(message: Message, bot: Bot):
                     await status.delete()
                 except Exception:
                     pass
+            set_state(user_id, STATE_NONE)
             await show_main_menu(bot, user_id)
 
         MEDIA_TASK[key] = asyncio.create_task(finalize_group())
@@ -91,7 +114,10 @@ async def handle_img_pdf(message: Message, bot: Bot):
     try:
         images_to_pdf([file_path], pdf_path)
         doc = FSInputFile(pdf_path, filename=user_pdf_filename(user))
-        await bot.send_document(user_id, doc, caption="✅ Tayyor!")
+        inc_user_img_pdf_count(user_id)
+        current_cnt = get_user_img_pdf_count(user_id)
+        tag = "💎 1 Yillik VIP Pass faol" if has_pass else f"🎁 Bepul limit: {current_cnt}/50"
+        await bot.send_document(user_id, doc, caption=f"✅ <b>PDF Tayyor!</b>\n<i>{tag}</i>", parse_mode="HTML")
         inc_uses_and_log(user_id, "img_pdf")
         logger.info(f"User {user_id}: img_pdf (1 image)")
     except Exception as e:
@@ -105,4 +131,5 @@ async def handle_img_pdf(message: Message, bot: Bot):
             await status.delete()
         except Exception:
             pass
+    set_state(user_id, STATE_NONE)
     await show_main_menu(bot, message.chat.id)

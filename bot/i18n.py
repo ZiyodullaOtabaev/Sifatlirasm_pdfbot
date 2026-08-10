@@ -56,8 +56,10 @@ TEXTS = {
         "ai_video_refund_notify": "⚠️ <b>Video yaratishda xatolik yuz berdi.</b>\n💰 1 kredit balansingizga qaytarildi!",
         "top_up_info": (
             "💳 <b>Rasmiy Xizmat Tariflari va To'lovlar:</b>\n\n"
-            "🎬 <b>1 ta AI Video yaratish:</b> 1 500 so'm <i>(yoki ⭐️ 15 Stars)</i>\n"
-            "📊 <b>1 ta AI Slayd (12 bet) yaratish:</b> 2 000 so'm <i>(yoki ⭐️ 20 Stars)</i>\n\n"
+            "🎬 <b>AI Video (1 ta):</b> 4 kredit <i>(1 500 so'm yoki ⭐️ 15 Stars)</i>\n"
+            "📊 <b>AI Slayd (12 bet):</b> 7 kredit <i>(2 000 so'm yoki ⭐️ 20 Stars)</i>\n"
+            "🤖 <b>AI Rasm (1 ta):</b> 2 kredit <i>(500 so'm yoki ⭐️ 10 Stars — 7 ta bepul)</i>\n"
+            "🖼 <b>Rasm ➡️ PDF:</b> 1 Yillik Cheksiz Pass <i>(5 000 so'm yoki ⭐️ 50 Stars — 50 ta bepul)</i>\n\n"
             "⭐️ <b>Telegram Stars</b> orqali pastdagi tugmalar bilan 1 soniyada to'lashingiz mumkin!\n"
             "💳 <b>Karta orqali to'lash</b> uchun admin @ziyodullame ga murojaat qiling 👇"
         ),
@@ -93,7 +95,7 @@ TEXTS = {
         ),
         "ai_slides_insufficient_balance": (
             "📊 <b>AI Slayd Yaratish (Pullik xizmat)</b>\n\n"
-            "📌 1 ta to'liq professional slayd (12 bet) narxi: <b>2 000 so'm (yoki ⭐️ 20 Stars / 1 kredit)</b>\n"
+            "📌 1 ta to'liq professional slayd (12 bet) narxi: <b>7 kredit (2 000 so'm yoki ⭐️ 20 Stars)</b>\n"
             "💰 Sizning balansingiz: <b>{balance} kredit</b>\n\n"
             "Davom etish uchun balansingizni to'ldiring 👇"
         ),
@@ -102,7 +104,7 @@ TEXTS = {
         "pdf_converting_msg": "📄 PowerPoint slayd PDF shakliga o'tkazilmoqda, biroz kuting...",
         "ai_video_terms": (
             "🎬 <b>AI Video yaratish shartlari va tariflar:</b>\n\n"
-            "• 📌 1 ta AI video yaratish: <b>1 kredit</b>\n"
+            "• 📌 1 ta AI video yaratish: <b>4 kredit (1 500 so'm yoki ⭐️ 15 Stars)</b>\n"
             "• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p MP4)\n"
             "• 🎞 Video sifati: <b>HD (720p MP4)</b>\n"
             "• ⏳ Generatsiya vaqti: <b>1-2 daqiqa</b>\n"
@@ -118,7 +120,7 @@ TEXTS = {
         ),
         "ai_video_insufficient_balance": (
             "🎬 <b>AI Video yaratish (Pullik xizmat)</b>\n\n"
-            "📌 1 ta AI video narxi: <b>1 500 so'm (yoki ⭐️ 15 Stars / 1 kredit)</b>\n"
+            "📌 1 ta AI video narxi: <b>4 kredit (1 500 so'm yoki ⭐️ 15 Stars)</b>\n"
             "💰 Sizning balansingiz: <b>{balance} kredit</b>\n\n"
             "❌ Balansingizda kredit yetarli emas.\n"
             "Telegram Stars yoki admin @ziyodullame orqali to'ldirishingiz mumkin 👇"

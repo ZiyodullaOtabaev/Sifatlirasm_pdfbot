@@ -156,12 +156,38 @@ async def cb_img_pdf(call: CallbackQuery, bot: Bot):
     """Start image-to-PDF flow."""
     await _safe_answer(call)
     user = call.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user.id) or "uz"
-    if not await enforce_subscription(bot, user.id, lang):
+    user_id = user.id
+    upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
+    if not await enforce_subscription(bot, user_id, lang):
         return
-    set_state(user.id, STATE_WAIT_IMG_PDF)
-    await bot.send_message(user.id, t("img_pdf_prompt", lang),
+
+    from bot.database import get_user_img_pdf_count, has_active_img_pdf_pass
+    from bot.keyboards import kb_top_up_img_pdf
+
+    has_pass = has_active_img_pdf_pass(user_id)
+    cnt = get_user_img_pdf_count(user_id)
+
+    if not has_pass and cnt >= 50:
+        await bot.send_message(
+            user_id,
+            f"🖼 <b>Rasm ➡️ PDF (1 Yillik Cheksiz Pass)</b>\n\n"
+            f"📌 Siz dastlabki <b>50 ta bepul</b> rasmni PDF qilish limitidan to'liq foydalandingiz.\n\n"
+            f"Buyog'iga ushbu xizmatni <b>1 YIL (365 kun) davomida BUTUNLAY CHEKSIZ</b> ishlatish uchun <b>5 000 so'm (yoki ⭐️ 50 Stars)</b> to'lov qiling 👇",
+            parse_mode="HTML",
+            reply_markup=kb_top_up_img_pdf(lang)
+        )
+        return
+
+    status_note = ""
+    if has_pass:
+        status_note = "\n\n💎 <i>(Sizda 1 Yillik Cheksiz VIP Pass faol!)</i>"
+    else:
+        status_note = f"\n\n🎁 <i>(Bepul limit: {cnt}/50)</i>"
+
+    set_state(user_id, STATE_WAIT_IMG_PDF)
+    await bot.send_message(user_id, t("img_pdf_prompt", lang) + status_note,
+                           parse_mode="HTML",
                            reply_markup=kb_cancel(lang))
 
 

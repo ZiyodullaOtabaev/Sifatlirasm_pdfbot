@@ -8,7 +8,7 @@ from aiogram.types import (
     LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-from bot.database import get_user_language, add_user_balance, get_user_balance
+from bot.database import get_user_language, add_user_balance, get_user_balance, activate_img_pdf_pass
 from bot.i18n import t
 from bot.keyboards import kb_top_up
 from bot.states import set_state, STATE_NONE
@@ -25,10 +25,13 @@ async def _safe_answer(call: CallbackQuery):
 
 
 STARS_BUNDLES = {
-    "stars_video_1": {"credits": 1, "stars": 15, "label": "🎬 1 ta Video (15 ⭐)", "desc": "1 ta AI Video yaratish uchun 1 kredit (1 500 so'm)"},
-    "stars_slide_1": {"credits": 1, "stars": 20, "label": "📊 1 ta Slayd (20 ⭐)", "desc": "1 ta 12 betli AI Slayd yaratish uchun 1 kredit (2 000 so'm)"},
-    "stars_video_5": {"credits": 5, "stars": 65, "label": "🎬 5 ta Video (65 ⭐)", "desc": "5 ta AI Video yaratish uchun kreditlar (Chegirma bilan)"},
-    "stars_slide_5": {"credits": 5, "stars": 85, "label": "📊 5 ta Slayd (85 ⭐)", "desc": "5 ta 12 betli AI Slayd yaratish uchun kreditlar (Chegirma bilan)"},
+    "stars_video_1": {"credits": 4, "stars": 15, "label": "🎬 1 ta Video (15 ⭐)", "desc": "1 ta AI Video yaratish (4 kredit)"},
+    "stars_slide_1": {"credits": 7, "stars": 20, "label": "📊 1 ta Slayd (20 ⭐)", "desc": "1 ta 12 betli AI Slayd (7 kredit)"},
+    "stars_image_1": {"credits": 2, "stars": 10, "label": "🤖 1 ta AI Rasm (10 ⭐)", "desc": "1 ta AI Rasm yaratish (2 kredit)"},
+    "stars_image_5": {"credits": 10, "stars": 45, "label": "🤖 5 ta AI Rasm (45 ⭐)", "desc": "5 ta AI Rasm yaratish (10 kredit)"},
+    "stars_img_pdf_1yr": {"credits": 0, "stars": 50, "label": "🖼 1 Yillik Cheksiz Pass (50 ⭐)", "desc": "1 yil davomida Rasm->PDF cheksiz foydalanish", "is_pass": True},
+    "stars_video_5": {"credits": 20, "stars": 65, "label": "🎬 5 ta Video (65 ⭐)", "desc": "5 ta AI Video uchun kreditlar (Chegirma bilan)"},
+    "stars_slide_5": {"credits": 35, "stars": 85, "label": "📊 5 ta Slayd (85 ⭐)", "desc": "5 ta 12 betli AI Slayd uchun kreditlar (Chegirma bilan)"},
 }
 
 
@@ -45,7 +48,7 @@ async def cb_buy_stars(call: CallbackQuery, bot: Bot):
         await call.answer("❌ Noma'lum to'plam", show_alert=True)
         return
 
-    title = f"{bundle['credits']} ta AI Video Kredit"
+    title = bundle["label"]
     description = bundle["desc"]
     payload = bundle_key
     prices = [LabeledPrice(label=bundle["label"], amount=bundle["stars"])]
@@ -91,14 +94,24 @@ async def process_successful_payment(message: Message, bot: Bot):
     payload = payment_info.invoice_payload
 
     bundle = STARS_BUNDLES.get(payload)
-    credits_to_add = bundle["credits"] if bundle else 5
-
-    add_user_balance(user_id, credits_to_add)
-    new_bal = get_user_balance(user_id)
     lang = get_user_language(user_id) or "uz"
 
+    if bundle and bundle.get("is_pass"):
+        activate_img_pdf_pass(user_id, days=365)
+        await message.answer(
+            f"🎉 <b>Tabriklaymiz! 1 Yillik Cheksiz Pass faollashtirildi!</b>\n\n"
+            f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
+            f"🖼 <b>Rasm ➡️ PDF</b> funksiyasini 1 yil (365 kun) davomida butunlay cheksiz ishlatishingiz mumkin! 🚀",
+            parse_mode="HTML"
+        )
+        logger.info(f"User {user_id} activated 1-Year Image-to-PDF pass with {payment_info.total_amount} Stars")
+        return
+
+    credits_to_add = bundle["credits"] if bundle else 5
+    add_user_balance(user_id, credits_to_add)
+    new_bal = get_user_balance(user_id)
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("btn_ai_video", lang), callback_data="act_ai_video")],
         [InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel")]
     ])
 
@@ -107,8 +120,9 @@ async def process_successful_payment(message: Message, bot: Bot):
         f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
         f"➕ Qo'shilgan kredit: <b>+{credits_to_add} kredit</b>\n"
         f"💰 Jami balansingiz: <b>{new_bal} kredit</b>\n\n"
-        f"Video yaratish uchun pastdagi tugmani bosing 👇",
+        f"Xizmatlardan foydalanishingiz mumkin 👇",
         parse_mode="HTML",
         reply_markup=kb
     )
     logger.info(f"User {user_id} paid {payment_info.total_amount} Stars for {credits_to_add} credits. New balance: {new_bal}")
+
