@@ -106,8 +106,46 @@ def kb_slide_result(lang: str = "uz", pptx_file_id: str = "") -> InlineKeyboardM
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+def kb_top_up_video(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
+    """Top up balance keyboard specifically for AI Video."""
+    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🎬 1 ta Video (15 ⭐)", callback_data="buy_stars_video_1"),
+        ],
+        [
+            InlineKeyboardButton(text="🎬 5 ta Video (65 ⭐)", callback_data="buy_stars_video_5"),
+        ],
+        [
+            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
+
+def kb_top_up_slides(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
+    """Top up balance keyboard specifically for AI Slides."""
+    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📊 1 ta Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
+        ],
+        [
+            InlineKeyboardButton(text="📊 5 ta Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
+        ],
+        [
+            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
+
 def kb_top_up(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
-    """Top up balance keyboard with Telegram Stars and Admin contact options."""
+    """General top up balance keyboard with Telegram Stars and Admin contact options."""
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [

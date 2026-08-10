@@ -93,7 +93,7 @@ TEXTS = {
         ),
         "ai_slides_insufficient_balance": (
             "📊 <b>AI Slayd Yaratish (Pullik xizmat)</b>\n\n"
-            "📌 1 ta to'liq professional slayd narxi: <b>3 kredit</b>\n"
+            "📌 1 ta to'liq professional slayd (12 bet) narxi: <b>2 000 so'm (yoki ⭐️ 20 Stars / 1 kredit)</b>\n"
             "💰 Sizning balansingiz: <b>{balance} kredit</b>\n\n"
             "Davom etish uchun balansingizni to'ldiring 👇"
         ),
