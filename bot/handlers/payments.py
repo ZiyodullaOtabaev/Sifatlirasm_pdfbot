@@ -25,9 +25,10 @@ async def _safe_answer(call: CallbackQuery):
 
 
 STARS_BUNDLES = {
-    "stars_bundle_5": {"credits": 5, "stars": 15, "label": "5 Kredit (15 ⭐)", "desc": "5 ta AI Video yaratish uchun kreditlar"},
-    "stars_bundle_15": {"credits": 15, "stars": 40, "label": "15 Kredit (40 ⭐)", "desc": "15 ta AI Video yaratish uchun kreditlar"},
-    "stars_bundle_50": {"credits": 50, "stars": 120, "label": "50 Kredit (120 ⭐)", "desc": "50 ta AI Video yaratish uchun kreditlar"},
+    "stars_video_1": {"credits": 1, "stars": 15, "label": "🎬 1 ta Video (15 ⭐)", "desc": "1 ta AI Video yaratish uchun 1 kredit (1 500 so'm)"},
+    "stars_slide_1": {"credits": 1, "stars": 20, "label": "📊 1 ta Slayd (20 ⭐)", "desc": "1 ta 12 betli AI Slayd yaratish uchun 1 kredit (2 000 so'm)"},
+    "stars_video_5": {"credits": 5, "stars": 65, "label": "🎬 5 ta Video (65 ⭐)", "desc": "5 ta AI Video yaratish uchun kreditlar (Chegirma bilan)"},
+    "stars_slide_5": {"credits": 5, "stars": 85, "label": "📊 5 ta Slayd (85 ⭐)", "desc": "5 ta 12 betli AI Slayd yaratish uchun kreditlar (Chegirma bilan)"},
 }
 
 

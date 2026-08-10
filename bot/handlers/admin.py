@@ -444,10 +444,78 @@ async def cb_admin_active24(event: Message | CallbackQuery, bot: Bot):
     await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=kb_admin_back())
 
 
+def export_users_to_excel() -> bytes:
+    """Generate Excel (.xlsx) file with all users."""
+    import io
+    import xlsxwriter
+    from bot.database import db_connect
+
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet("Foydalanuvchilar")
+
+    header_format = workbook.add_format({
+        'bold': True,
+        'bg_color': '#2C3E50',
+        'font_color': '#FFFFFF',
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    row_format = workbook.add_format({
+        'border': 1,
+        'align': 'left',
+        'valign': 'vcenter'
+    })
+    num_format = workbook.add_format({
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+
+    headers = ["№", "Telegram ID", "Username", "Ism", "Familiya", "Jami Ishlatgan", "Balans", "Qo'shilgan Sana", "Oxirgi Faollik"]
+    for col_num, header in enumerate(headers):
+        worksheet.write(0, col_num, header, header_format)
+
+    with db_connect() as con:
+        rows = con.execute("""
+            SELECT user_id, COALESCE(username,'') as username,
+                   COALESCE(first_name,'') as first_name,
+                   COALESCE(last_name,'') as last_name,
+                   COALESCE(uses_count, 0) as uses_count,
+                   COALESCE(balance, 0) as balance,
+                   COALESCE(created_at, '') as created_at,
+                   COALESCE(updated_at, '') as updated_at
+            FROM users
+            ORDER BY uses_count DESC, created_at DESC
+        """).fetchall()
+
+        for row_idx, r in enumerate(rows, start=1):
+            worksheet.write(row_idx, 0, row_idx, num_format)
+            worksheet.write(row_idx, 1, r["user_id"], num_format)
+            worksheet.write(row_idx, 2, f"@{r['username']}" if r["username"] else "-", row_format)
+            worksheet.write(row_idx, 3, r["first_name"] or "-", row_format)
+            worksheet.write(row_idx, 4, r["last_name"] or "-", row_format)
+            worksheet.write(row_idx, 5, r["uses_count"], num_format)
+            worksheet.write(row_idx, 6, r["balance"], num_format)
+            worksheet.write(row_idx, 7, str(r["created_at"])[:16], num_format)
+            worksheet.write(row_idx, 8, str(r["updated_at"])[:16], num_format)
+
+    worksheet.set_column(0, 0, 6)
+    worksheet.set_column(1, 1, 14)
+    worksheet.set_column(2, 2, 18)
+    worksheet.set_column(3, 4, 18)
+    worksheet.set_column(5, 6, 14)
+    worksheet.set_column(7, 8, 18)
+
+    workbook.close()
+    return output.getvalue()
+
+
 @router.message(Command("backup"))
 @router.callback_query(F.data == "admin_backup")
 async def cb_admin_backup(event: Message | CallbackQuery, bot: Bot):
-    """Send database backup to admin."""
+    """Send Excel (.xlsx) report and database backup to admin."""
     user_id = event.from_user.id
     if isinstance(event, CallbackQuery):
         await event.answer()
@@ -455,11 +523,26 @@ async def cb_admin_backup(event: Message | CallbackQuery, bot: Bot):
         return
 
     import os
+    date_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    # 1. Send Excel (.xlsx) user table
+    try:
+        excel_bytes = export_users_to_excel()
+        excel_file = BufferedInputFile(excel_bytes, filename=f"foydalanuvchilar_{date_str}.xlsx")
+        await bot.send_document(
+            user_id, excel_file,
+            caption="📊 <b>Foydalanuvchilar Ro'yxati (Excel .xlsx)</b>\n\nUshbu faylni telefon yoki kompyuterda Excel/WPS orqali ochib, barcha obunachilaringiz ma'lumotlarini qulay ko'rishingiz mumkin.",
+            parse_mode="HTML"
+        )
+    except Exception as exc:
+        logger.error(f"Error generating Excel user export: {exc}")
+
+    # 2. Send Raw SQLite DB
     if os.path.exists(DB_PATH):
-        doc = FSInputFile(DB_PATH, filename=f"bot_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
+        doc = FSInputFile(DB_PATH, filename=f"bot_backup_{date_str}.db")
         await bot.send_document(
             user_id, doc,
-            caption="💾 <b>Ma'lumotlar bazasi zaxirasi (bot.db)</b>\n\nUshbu fayl barcha foydalanuvchilar va ma'lumotlarni o'zida saqlaydi.",
+            caption="💾 <b>Texnik Server Bazasi (bot.db)</b>\n\nServerni kelajakda qayta tiklash uchun texnik zaxira fayli.",
             parse_mode="HTML",
             reply_markup=kb_admin_back()
         )

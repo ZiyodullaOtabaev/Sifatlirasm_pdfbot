@@ -111,11 +111,12 @@ def kb_top_up(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="⭐ 5 Kredit (15 Stars)", callback_data="buy_stars_bundle_5"),
-            InlineKeyboardButton(text="⭐ 15 Kredit (40 Stars)", callback_data="buy_stars_bundle_15"),
+            InlineKeyboardButton(text="🎬 1 Video (15 ⭐)", callback_data="buy_stars_video_1"),
+            InlineKeyboardButton(text="📊 1 Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
         ],
         [
-            InlineKeyboardButton(text="⭐ 50 Kredit (120 Stars)", callback_data="buy_stars_bundle_50"),
+            InlineKeyboardButton(text="🎬 5 Video (65 ⭐)", callback_data="buy_stars_video_5"),
+            InlineKeyboardButton(text="📊 5 Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
         ],
         [
             InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),

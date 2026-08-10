@@ -55,11 +55,11 @@ TEXTS = {
         "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi!</b>\n🎁 Sizga <b>+1 kredit bonus</b> berildi!",
         "ai_video_refund_notify": "⚠️ <b>Video yaratishda xatolik yuz berdi.</b>\n💰 1 kredit balansingizga qaytarildi!",
         "top_up_info": (
-            "💳 <b>Kredit Paketlari va Tariflar:</b>\n\n"
-            "🥉 <b>Boshlang'ich:</b> 5 kredit — <b>2 500 so'm</b>\n"
-            "🥈 <b>Standart:</b> 15 kredit — <b>6 000 so'm</b> <i>(400 so'm/ta)</i>\n"
-            "🥇 <b>VIP Pro:</b> 50 kredit — <b>18 000 so'm</b> <i>(360 so'm/ta)</i>\n\n"
-            "💡 Balansni to'ldirish uchun admin @ziyodullame ga murojaat qiling 👇"
+            "💳 <b>Rasmiy Xizmat Tariflari va To'lovlar:</b>\n\n"
+            "🎬 <b>1 ta AI Video yaratish:</b> 1 500 so'm <i>(yoki ⭐️ 15 Stars)</i>\n"
+            "📊 <b>1 ta AI Slayd (12 bet) yaratish:</b> 2 000 so'm <i>(yoki ⭐️ 20 Stars)</i>\n\n"
+            "⭐️ <b>Telegram Stars</b> orqali pastdagi tugmalar bilan 1 soniyada to'lashingiz mumkin!\n"
+            "💳 <b>Karta orqali to'lash</b> uchun admin @ziyodullame ga murojaat qiling 👇"
         ),
         "sub_required": "⚠️ Botdan foydalanish uchun rasmiy kanalimizga obuna bo'ling:",
         "sub_btn": "📢 Kanalga obuna bo'lish",
@@ -118,10 +118,10 @@ TEXTS = {
         ),
         "ai_video_insufficient_balance": (
             "🎬 <b>AI Video yaratish (Pullik xizmat)</b>\n\n"
-            "📌 1 ta AI video narxi: <b>1 kredit (500 so'm)</b>\n"
+            "📌 1 ta AI video narxi: <b>1 500 so'm (yoki ⭐️ 15 Stars / 1 kredit)</b>\n"
             "💰 Sizning balansingiz: <b>{balance} kredit</b>\n\n"
             "❌ Balansingizda kredit yetarli emas.\n"
-            "Balansni to'ldirish uchun o'zingizga kerakli kredit soni bilan admin @ziyodullame ga murojaat qiling 👇"
+            "Telegram Stars yoki admin @ziyodullame orqali to'ldirishingiz mumkin 👇"
         ),
         "ai_video_generating": "🎬 AI Video yaratilmoqda... Bu jarayon 1-2 daqiqa vaqt olishi mumkin, kuting...",
         "ocr_prompt": "📖 Matnini ajratib olmoqchi bo'lgan me'yoriy/tiniq rasmingizni yuboring:",
@@ -185,10 +185,10 @@ TEXTS = {
         ),
         "ai_video_insufficient_balance": (
             "🎬 <b>AI Генерация видео (Платная услуга)</b>\n\n"
-            "📌 Стоимость 1 ИИ видео: <b>1 кредит (500 сум)</b>\n"
+            "📌 Стоимость 1 ИИ видео: <b>1 500 сум (или ⭐️ 15 Stars / 1 кредит)</b>\n"
             "💰 Ваш баланс: <b>{balance} кредитов</b>\n\n"
             "❌ На вашем балансе недостаточно кредитов.\n"
-            "Для пополнения баланса напишите админу @ziyodullame с указанием количества нужных кредитов 👇"
+            "Вы можете пополнить баланс через Telegram Stars или написав админу @ziyodullame 👇"
         ),
         "ai_video_generating": "🎬 Создание ИИ видео... Это может занять 1-2 минуты, пожалуйста подождите...",
         "ocr_prompt": "📖 Отправьте четкое изображение для распознавания текста:",
@@ -252,10 +252,10 @@ TEXTS = {
         ),
         "ai_video_insufficient_balance": (
             "🎬 <b>AI Video Generator (Paid Service)</b>\n\n"
-            "📌 Price per 1 AI Video: <b>1 credit (500 UZS)</b>\n"
+            "📌 Price per 1 AI Video: <b>1,500 UZS (or ⭐️ 15 Stars / 1 credit)</b>\n"
             "💰 Your balance: <b>{balance} credits</b>\n\n"
             "❌ Insufficient credits on your balance.\n"
-            "To top up balance, contact admin @ziyodullame with the number of credits needed 👇"
+            "You can top up via Telegram Stars or by contacting admin @ziyodullame 👇"
         ),
         "ai_video_generating": "🎬 Generating AI Video... This may take 1-2 minutes, please wait...",
         "ocr_prompt": "📖 Send a clear image to extract text from:",
