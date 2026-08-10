@@ -19,7 +19,7 @@ from bot.database import (
     has_user_used_free_slide
 )
 from bot.i18n import t
-from bot.keyboards import kb_cancel, kb_top_up_slides, kb_template_gallery, kb_slide_result, kb_author_skip
+from bot.keyboards import kb_cancel, kb_top_up, kb_top_up_slides, kb_template_gallery, kb_slide_result, kb_author_skip
 from bot.states import get_state, set_state, STATE_WAIT_AI_SLIDES, STATE_WAIT_SLIDE_AUTHOR, STATE_NONE
 from bot.handlers.menu import show_main_menu
 from bot.utils.slides_generator import (
@@ -66,7 +66,7 @@ async def cb_ai_slides(call: CallbackQuery, bot: Bot):
             user_id,
             t("ai_slides_insufficient_balance", lang, balance=balance),
             parse_mode="HTML",
-            reply_markup=kb_top_up(lang)
+            reply_markup=kb_top_up_slides(lang)
         )
         return
 

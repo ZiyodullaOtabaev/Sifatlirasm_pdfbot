@@ -12,7 +12,7 @@ from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from bot.config import REPLICATE_API_TOKEN
 from bot.database import upsert_user, get_user_balance, deduct_user_balance, inc_uses_and_log, get_user_language
 from bot.i18n import t
-from bot.keyboards import kb_cancel, kb_top_up_video
+from bot.keyboards import kb_cancel, kb_top_up, kb_top_up_video
 from bot.states import get_state, set_state, STATE_WAIT_AI_VIDEO, STATE_NONE
 from bot.handlers.menu import show_main_menu
 
