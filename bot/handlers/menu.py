@@ -11,7 +11,7 @@ from bot.database import upsert_user, get_uses, get_user_language, set_user_lang
 from bot.i18n import t
 from bot.keyboards import kb_main, kb_subscribe, kb_cancel, kb_language
 from bot.states import (
-    set_state, STATE_NONE, STATE_WAIT_TEXT,
+    get_state, set_state, STATE_NONE, STATE_WAIT_TEXT,
     STATE_WAIT_IMG_PDF, STATE_WAIT_UPSCALE, STATE_WAIT_PDF_MERGE,
     STATE_WAIT_BG_REMOVE, STATE_WAIT_AI_IMAGE, STATE_WAIT_OCR,
     STATE_WAIT_COMPRESS_PDF,

@@ -29,7 +29,11 @@ from bot.database import (
     get_broadcast_history, search_user,
 )
 from bot.keyboards import kb_admin, kb_admin_back, kb_broadcast_confirm, kb_cancel, kb_user_balance_actions
-from bot.states import set_state, get_state, STATE_NONE, STATE_WAIT_BROADCAST, STATE_WAIT_ADMIN_BALANCE_INPUT, STATE_WAIT_SEARCH
+from bot.states import (
+    set_state, get_state, STATE_NONE, STATE_WAIT_BROADCAST,
+    STATE_WAIT_ADMIN_BALANCE_INPUT, STATE_WAIT_SEARCH,
+    STATE_WAIT_ADMIN_CHANNEL_ID, STATE_WAIT_ADMIN_CHANNEL_TARGET
+)
 from bot.utils.chart import render_usage_chart_png, render_growth_chart_png, render_stats_image
 
 logger = logging.getLogger(__name__)
