@@ -11,9 +11,10 @@ from aiogram import Router, Bot
 from aiogram.types import Message, FSInputFile
 
 from bot.config import DOWNLOAD_DIR, MAX_FILE_SIZE
-from bot.database import upsert_user, inc_uses_and_log
+from bot.database import upsert_user, inc_uses_and_log, get_user_language
+from bot.i18n import t
 from bot.keyboards import kb_cancel
-from bot.states import get_state, STATE_WAIT_PDF_MERGE
+from bot.states import get_state, set_state, STATE_WAIT_PDF_MERGE, STATE_NONE
 from bot.utils.pdf import merge_pdfs
 from bot.utils.helpers import safe_remove, user_pdf_filename
 from bot.handlers.menu import enforce_subscription, show_main_menu
@@ -29,9 +30,8 @@ PDF_TASK: Dict[Tuple[int, str], asyncio.Task] = {}
 @router.message(lambda msg: msg.photo and get_state(msg.from_user.id) == STATE_WAIT_PDF_MERGE)
 async def handle_merge_photo_error(message: Message, bot: Bot):
     """Reject photos in PDF merge mode."""
-    await message.answer("❌ Faqat PDF fayl yuboring, rasm emas.\n"
-                         "💡 Rasmni PDF qilish uchun — menyudan \"🖼 Rasm → PDF\" ni tanlang.",
-                         reply_markup=kb_cancel())
+    lang = get_user_language(message.from_user.id) or "uz"
+    await message.answer("❌ Iltimos, faqat PDF fayl yuboring, rasm emas.", reply_markup=kb_cancel(lang))
 
 
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_PDF_MERGE)
@@ -40,8 +40,9 @@ async def handle_merge_pdf(message: Message, bot: Bot):
     user = message.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
 
-    if not await enforce_subscription(bot, user_id):
+    if not await enforce_subscription(bot, user_id, lang):
         return
 
     doc = message.document
@@ -49,7 +50,7 @@ async def handle_merge_pdf(message: Message, bot: Bot):
 
     # Validate PDF
     if doc.mime_type != "application/pdf" and not file_name.endswith(".pdf"):
-        await message.answer("❌ Faqat PDF fayl yuboring.", reply_markup=kb_cancel())
+        await message.answer("❌ Faqat PDF fayl yuboring.", reply_markup=kb_cancel(lang))
         return
 
     # File size check
@@ -78,16 +79,15 @@ async def handle_merge_pdf(message: Message, bot: Bot):
         if len(paths) < 2:
             for p in paths:
                 safe_remove(p)
-            await bot.send_message(user_id, "❌ Kamida 2 ta PDF yuboring.",
-                                   reply_markup=kb_cancel())
+            await bot.send_message(user_id, "❌ Kamida 2 ta PDF yuboring.", reply_markup=kb_cancel(lang))
             return
 
-        status = await bot.send_message(user_id, "⏳ PDFlar birlashtirilmoqda...")
+        status = await bot.send_message(user_id, t("merge_pdf_generating", lang))
         out_pdf = os.path.join(DOWNLOAD_DIR, f"merged_{user_id}_{int(time.time())}.pdf")
         try:
             merge_pdfs(paths, out_pdf)
             result = FSInputFile(out_pdf, filename=user_pdf_filename(user))
-            await bot.send_document(user_id, result, caption="✅ PDFlar birlashtirildi!")
+            await bot.send_document(user_id, result, caption=t("merge_pdf_ready", lang), parse_mode="HTML")
             inc_uses_and_log(user_id, "pdf_merge")
             logger.info(f"User {user_id}: pdf_merge ({len(paths)} files)")
         except Exception as e:
@@ -102,6 +102,7 @@ async def handle_merge_pdf(message: Message, bot: Bot):
                 await status.delete()
             except Exception:
                 pass
+        set_state(user_id, STATE_NONE)
         await show_main_menu(bot, user_id)
 
     PDF_TASK[key] = asyncio.create_task(finalize_pdf_group())

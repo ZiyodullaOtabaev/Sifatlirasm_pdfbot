@@ -85,17 +85,56 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
         return
 
     from bot.keyboards import kb_ai_video_terms
-    trial_note = f"🎁 <b>Sizda {AI_VIDEO_FREE_LIMIT - used_videos} ta BEPUL sinov videosi bor!</b>" if is_free else f"📌 Video narxi: <b>{VIDEO_COST} kredit (1 500 so'm yoki ⭐️ 15 Stars)</b>"
-    
+
+    if is_free:
+        if lang == "ru":
+            trial_note = f"🎁 <b>У вас есть {AI_VIDEO_FREE_LIMIT - used_videos} БЕСПЛАТНЫХ пробных видео!</b>"
+        elif lang == "en":
+            trial_note = f"🎁 <b>You have {AI_VIDEO_FREE_LIMIT - used_videos} FREE trial videos!</b>"
+        else:
+            trial_note = f"🎁 <b>Sizda {AI_VIDEO_FREE_LIMIT - used_videos} ta BEPUL sinov videosi bor!</b>"
+    else:
+        if lang == "ru":
+            trial_note = f"📌 Стоимость видео: <b>{VIDEO_COST} кредита (1 500 сум или ⭐️ 15 Stars)</b>"
+        elif lang == "en":
+            trial_note = f"📌 Video price: <b>{VIDEO_COST} credits (1,500 UZS or ⭐️ 15 Stars)</b>"
+        else:
+            trial_note = f"📌 Video narxi: <b>{VIDEO_COST} kredit (1 500 so'm yoki ⭐️ 15 Stars)</b>"
+
+    if lang == "ru":
+        terms_text = (
+            f"🎬 <b>AI Генерация видео</b>\n\n"
+            f"{trial_note}\n\n"
+            f"• ⏱ Длительность: <b>5 секунд</b> (HD 720p MP4)\n"
+            f"• ⏳ Время генерации: <b>1-2 минуты</b>\n"
+            f"• 🌐 Язык: <b>Узбекский, Русский, Английский</b>\n"
+            f"• 💰 Ваш баланс: <b>{balance} кредитов</b>\n\n"
+            f"Для продолжения нажмите кнопку ниже 👇"
+        )
+    elif lang == "en":
+        terms_text = (
+            f"🎬 <b>AI Video Generator</b>\n\n"
+            f"{trial_note}\n\n"
+            f"• ⏱ Video duration: <b>5 seconds</b> (HD 720p MP4)\n"
+            f"• ⏳ Generation time: <b>1-2 minutes</b>\n"
+            f"• 🌐 Languages: <b>Uzbek, Russian, English</b>\n"
+            f"• 💰 Your balance: <b>{balance} credits</b>\n\n"
+            f"Click the button below to continue 👇"
+        )
+    else:
+        terms_text = (
+            f"🎬 <b>AI Video Yaratish</b>\n\n"
+            f"{trial_note}\n\n"
+            f"• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p MP4)\n"
+            f"• ⏳ Generatsiya vaqti: <b>1-2 daqiqa</b>\n"
+            f"• 🌐 Til: <b>O'zbek, Rus va Ingliz</b> (avto-tarjima)\n"
+            f"• 💰 Balansingiz: <b>{balance} kredit</b>\n\n"
+            f"Davom etish uchun quyidagi tugmani bosing 👇"
+        )
+
     await bot.send_message(
         user_id,
-        f"🎬 <b>AI Video Yaratish</b>\n\n"
-        f"{trial_note}\n\n"
-        f"• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p MP4)\n"
-        f"• ⏳ Generatsiya vaqti: <b>1-2 daqiqa</b>\n"
-        f"• 🌐 Til: <b>O'zbek, Rus va Ingliz</b> (avto-tarjima)\n"
-        f"• 💰 Balansingiz: <b>{balance} kredit</b>\n\n"
-        f"Davom etish uchun quyidagi tugmani bosing 👇",
+        terms_text,
         parse_mode="HTML",
         reply_markup=kb_ai_video_terms(lang)
     )
@@ -181,9 +220,19 @@ async def handle_ai_video(message: Message, bot: Bot):
         if not is_free:
             deduct_user_balance(user_id, VIDEO_COST)
             remaining = get_user_balance(user_id)
-            cost_text = f"💰 Yechildi: <b>{VIDEO_COST} kredit</b> | Qolgan balans: <b>{remaining} kredit</b>"
+            if lang == "ru":
+                cost_text = f"💰 Списано: <b>{VIDEO_COST} кредита</b> | Остаток: <b>{remaining} кредитов</b>"
+            elif lang == "en":
+                cost_text = f"💰 Deducted: <b>{VIDEO_COST} credits</b> | Balance: <b>{remaining} credits</b>"
+            else:
+                cost_text = f"💰 Yechildi: <b>{VIDEO_COST} kredit</b> | Qolgan balans: <b>{remaining} kredit</b>"
         else:
-            cost_text = f"🎁 Bepul sinov videosi: <b>{used_videos + 1}/{AI_VIDEO_FREE_LIMIT}</b>"
+            if lang == "ru":
+                cost_text = f"🎁 Бесплатное видео: <b>{used_videos + 1}/{AI_VIDEO_FREE_LIMIT}</b>"
+            elif lang == "en":
+                cost_text = f"🎁 Free trial video: <b>{used_videos + 1}/{AI_VIDEO_FREE_LIMIT}</b>"
+            else:
+                cost_text = f"🎁 Bepul sinov videosi: <b>{used_videos + 1}/{AI_VIDEO_FREE_LIMIT}</b>"
 
         inc_uses_and_log(user_id, "ai_video")
         caption = f"🎬 <i>{prompt[:100]}</i>\n\n{cost_text}"

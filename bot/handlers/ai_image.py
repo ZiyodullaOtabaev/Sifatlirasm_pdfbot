@@ -105,7 +105,7 @@ async def handle_ai_image(message: Message, bot: Bot):
         await message.answer("❌ Matn juda uzun (max 500 belgi).", reply_markup=kb_cancel(lang))
         return
 
-    status = await message.answer("✦ AI rasm yaratmoqda...")
+    status = await message.answer(t("ai_image_generating", lang))
     try:
         from bot.utils.helpers import auto_translate_to_en
         en_prompt = await auto_translate_to_en(prompt)

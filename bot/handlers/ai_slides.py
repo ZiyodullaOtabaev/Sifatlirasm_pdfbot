@@ -70,7 +70,20 @@ async def cb_ai_slides(call: CallbackQuery, bot: Bot):
         )
         return
 
-    trial_text = "🎁 <b>Sizda 1 ta BEPUL sinov taqdimoti bor!</b> (0 kredit)" if not used_trial else "📌 Taqdimot narxi: <b>7 kredit (2 000 so'm yoki ⭐️ 20 Stars)</b>"
+    if not used_trial:
+        if lang == "ru":
+            trial_text = "🎁 <b>У вас есть 1 БЕСПЛАТНАЯ пробная презентация!</b> (0 кредитов)"
+        elif lang == "en":
+            trial_text = "🎁 <b>You have 1 FREE trial presentation!</b> (0 credits)"
+        else:
+            trial_text = "🎁 <b>Sizda 1 ta BEPUL sinov taqdimoti bor!</b> (0 kredit)"
+    else:
+        if lang == "ru":
+            trial_text = "📌 Стоимость презентации: <b>7 кредитов (2 000 сум или ⭐️ 20 Stars)</b>"
+        elif lang == "en":
+            trial_text = "📌 Presentation price: <b>7 credits (2,000 UZS or ⭐️ 20 Stars)</b>"
+        else:
+            trial_text = "📌 Taqdimot narxi: <b>7 kredit (2 000 so'm yoki ⭐️ 20 Stars)</b>"
 
     USER_SLIDE_DATA[user_id] = {}
     set_state(user_id, STATE_WAIT_AI_SLIDES)

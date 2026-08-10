@@ -110,13 +110,13 @@ def kb_top_up_video(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMar
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🎬 1 ta Video (15 ⭐)", callback_data="buy_stars_video_1"),
+            InlineKeyboardButton(text="🎬 1 Video (15 ⭐)", callback_data="buy_stars_video_1"),
         ],
         [
-            InlineKeyboardButton(text="🎬 5 ta Video (65 ⭐)", callback_data="buy_stars_video_5"),
+            InlineKeyboardButton(text="🎬 5 Video (65 ⭐)", callback_data="buy_stars_video_5"),
         ],
         [
-            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
         ],
         [
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
@@ -129,13 +129,13 @@ def kb_top_up_slides(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMa
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📊 1 ta Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
+            InlineKeyboardButton(text="📊 1 Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
         ],
         [
-            InlineKeyboardButton(text="📊 5 ta Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
+            InlineKeyboardButton(text="📊 5 Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
         ],
         [
-            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
         ],
         [
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
@@ -148,13 +148,13 @@ def kb_top_up_ai_image(lang: str = "uz", admin_user: str = "") -> InlineKeyboard
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🤖 1 ta AI Rasm (10 ⭐)", callback_data="buy_stars_image_1"),
+            InlineKeyboardButton(text="🤖 1 AI Rasm (10 ⭐)", callback_data="buy_stars_image_1"),
         ],
         [
-            InlineKeyboardButton(text="🤖 5 ta AI Rasm (45 ⭐)", callback_data="buy_stars_image_5"),
+            InlineKeyboardButton(text="🤖 5 AI Rasm (45 ⭐)", callback_data="buy_stars_image_5"),
         ],
         [
-            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
         ],
         [
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
@@ -167,10 +167,10 @@ def kb_top_up_img_pdf(lang: str = "uz", admin_user: str = "") -> InlineKeyboardM
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="💎 1 Yillik Cheksiz Pass (50 ⭐)", callback_data="buy_stars_img_pdf_1yr"),
+            InlineKeyboardButton(text="💎 1-Year Pass (50 ⭐)", callback_data="buy_stars_img_pdf_1yr"),
         ],
         [
-            InlineKeyboardButton(text="👤 Kartaga to'lash 5 000 so'm (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
         ],
         [
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
@@ -191,7 +191,7 @@ def kb_top_up(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📊 5 Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
         ],
         [
-            InlineKeyboardButton(text="👤 Admin orqali kartaga to'lash (@ziyodullame)", url=f"https://t.me/{admin_contact}"),
+            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
         ],
         [
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),

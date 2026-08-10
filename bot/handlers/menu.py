@@ -234,11 +234,27 @@ async def cb_img_pdf(call: CallbackQuery, bot: Bot):
     cnt = get_user_img_pdf_count(user_id)
 
     if not has_pass and cnt >= 50:
+        if lang == "ru":
+            limit_msg = (
+                "🖼 <b>Фото ➡️ PDF (Безлимит на 1 год)</b>\n\n"
+                "📌 Вы использовали все <b>50 бесплатных</b> конвертаций.\n\n"
+                "Чтобы использовать эту функцию <b>БЕЗЛИМИТНО в течение 1 ГОДА (365 дней)</b>, оплатите <b>5 000 сум (или ⭐️ 50 Stars)</b> 👇"
+            )
+        elif lang == "en":
+            limit_msg = (
+                "🖼 <b>Image ➡️ PDF (1-Year Unlimited Pass)</b>\n\n"
+                "📌 You have used all <b>50 free</b> conversions.\n\n"
+                "To use this feature <b>UNLIMITED for 1 YEAR (365 days)</b>, purchase the pass for <b>5,000 UZS (or ⭐️ 50 Stars)</b> 👇"
+            )
+        else:
+            limit_msg = (
+                "🖼 <b>Rasm ➡️ PDF (1 Yillik Cheksiz Pass)</b>\n\n"
+                "📌 Siz dastlabki <b>50 ta bepul</b> rasmni PDF qilish limitidan to'liq foydalandingiz.\n\n"
+                "Buyog'iga ushbu xizmatni <b>1 YIL (365 kun) davomida BUTUNLAY CHEKSIZ</b> ishlatish uchun <b>5 000 so'm (yoki ⭐️ 50 Stars)</b> to'lov qiling 👇"
+            )
         await bot.send_message(
             user_id,
-            f"🖼 <b>Rasm ➡️ PDF (1 Yillik Cheksiz Pass)</b>\n\n"
-            f"📌 Siz dastlabki <b>50 ta bepul</b> rasmni PDF qilish limitidan to'liq foydalandingiz.\n\n"
-            f"Buyog'iga ushbu xizmatni <b>1 YIL (365 kun) davomida BUTUNLAY CHEKSIZ</b> ishlatish uchun <b>5 000 so'm (yoki ⭐️ 50 Stars)</b> to'lov qiling 👇",
+            limit_msg,
             parse_mode="HTML",
             reply_markup=kb_top_up_img_pdf(lang)
         )
@@ -246,9 +262,9 @@ async def cb_img_pdf(call: CallbackQuery, bot: Bot):
 
     status_note = ""
     if has_pass:
-        status_note = "\n\n💎 <i>(Sizda 1 Yillik Cheksiz VIP Pass faol!)</i>"
+        status_note = "\n\n💎 <i>(1-Годовой VIP Pass активен!)</i>" if lang == "ru" else "\n\n💎 <i>(1-Year VIP Pass active!)</i>" if lang == "en" else "\n\n💎 <i>(Sizda 1 Yillik Cheksiz VIP Pass faol!)</i>"
     else:
-        status_note = f"\n\n🎁 <i>(Bepul limit: {cnt}/50)</i>"
+        status_note = f"\n\n🎁 <i>(Бесплатный лимит: {cnt}/50)</i>" if lang == "ru" else f"\n\n🎁 <i>(Free trial: {cnt}/50)</i>" if lang == "en" else f"\n\n🎁 <i>(Bepul limit: {cnt}/50)</i>"
 
     set_state(user_id, STATE_WAIT_IMG_PDF)
     await bot.send_message(user_id, t("img_pdf_prompt", lang) + status_note,

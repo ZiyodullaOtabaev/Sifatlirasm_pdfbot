@@ -98,12 +98,26 @@ async def process_successful_payment(message: Message, bot: Bot):
 
     if bundle and bundle.get("is_pass"):
         activate_img_pdf_pass(user_id, days=365)
-        await message.answer(
-            f"🎉 <b>Tabriklaymiz! 1 Yillik Cheksiz Pass faollashtirildi!</b>\n\n"
-            f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
-            f"🖼 <b>Rasm ➡️ PDF</b> funksiyasini 1 yil (365 kun) davomida butunlay cheksiz ishlatishingiz mumkin! 🚀",
-            parse_mode="HTML"
-        )
+        if lang == "ru":
+            pass_success_text = (
+                f"🎉 <b>Поздравляем! 1-Годовой Безлимитный Pass активирован!</b>\n\n"
+                f"⭐️ Оплачено: <b>{payment_info.total_amount} Stars</b>\n"
+                f"🖼 Функция <b>Фото ➡️ PDF</b> доступна вам абсолютно БЕЗЛИМИТНО на 1 год (365 дней)! 🚀"
+            )
+        elif lang == "en":
+            pass_success_text = (
+                f"🎉 <b>Congratulations! 1-Year Unlimited Pass is activated!</b>\n\n"
+                f"⭐️ Paid: <b>{payment_info.total_amount} Stars</b>\n"
+                f"🖼 <b>Image ➡️ PDF</b> feature is now completely UNLIMITED for 1 Year (365 days)! 🚀"
+            )
+        else:
+            pass_success_text = (
+                f"🎉 <b>Tabriklaymiz! 1 Yillik Cheksiz Pass faollashtirildi!</b>\n\n"
+                f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
+                f"🖼 <b>Rasm ➡️ PDF</b> funksiyasini 1 yil (365 kun) davomida butunlay cheksiz ishlatishingiz mumkin! 🚀"
+            )
+
+        await message.answer(pass_success_text, parse_mode="HTML")
         logger.info(f"User {user_id} activated 1-Year Image-to-PDF pass with {payment_info.total_amount} Stars")
         return
 
@@ -115,12 +129,33 @@ async def process_successful_payment(message: Message, bot: Bot):
         [InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel")]
     ])
 
+    if lang == "ru":
+        credit_success_text = (
+            f"🎉 <b>Покупка успешно завершена!</b>\n\n"
+            f"⭐️ Оплачено: <b>{payment_info.total_amount} Stars</b>\n"
+            f"➕ Начислено: <b>+{credits_to_add} кредитов</b>\n"
+            f"💰 Ваш баланс: <b>{new_bal} кредитов</b>\n\n"
+            f"Вы можете пользоваться услугами бота 👇"
+        )
+    elif lang == "en":
+        credit_success_text = (
+            f"🎉 <b>Purchase completed successfully!</b>\n\n"
+            f"⭐️ Paid: <b>{payment_info.total_amount} Stars</b>\n"
+            f"➕ Credited: <b>+{credits_to_add} credits</b>\n"
+            f"💰 Your balance: <b>{new_bal} credits</b>\n\n"
+            f"You can now use all bot services 👇"
+        )
+    else:
+        credit_success_text = (
+            f"🎉 <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
+            f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
+            f"➕ Qo'shilgan kredit: <b>+{credits_to_add} kredit</b>\n"
+            f"💰 Jami balansingiz: <b>{new_bal} kredit</b>\n\n"
+            f"Xizmatlardan foydalanishingiz mumkin 👇"
+        )
+
     await message.answer(
-        f"🎉 <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
-        f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
-        f"➕ Qo'shilgan kredit: <b>+{credits_to_add} kredit</b>\n"
-        f"💰 Jami balansingiz: <b>{new_bal} kredit</b>\n\n"
-        f"Xizmatlardan foydalanishingiz mumkin 👇",
+        credit_success_text,
         parse_mode="HTML",
         reply_markup=kb
     )

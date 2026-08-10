@@ -97,12 +97,23 @@ async def _remove_background(in_path: str) -> bytes:
     raise RuntimeError("Timeout waiting for background removal")
 
 
+from bot.config import DOWNLOAD_DIR, MAX_FILE_SIZE, REPLICATE_API_TOKEN
+from bot.database import upsert_user, inc_uses_and_log, get_user_language
+from bot.i18n import t
+from bot.states import get_state, set_state, STATE_WAIT_BG_REMOVE, STATE_NONE
+from bot.utils.helpers import safe_remove
+from bot.handlers.menu import enforce_subscription, show_main_menu
+
+logger = logging.getLogger(__name__)
+router = Router(name="bg_remove")
+
+
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_BG_REMOVE)
 async def handle_bg_remove_document_error(message: Message, bot: Bot):
     """Reject documents in bg_remove mode — need a photo."""
+    lang = get_user_language(message.from_user.id) or "uz"
     from bot.keyboards import kb_cancel
-    await message.answer("❌ Rasm yuboring, fayl emas.\n"
-                         "💡 Rasmni siqmay (photo sifatida) yuboring.", reply_markup=kb_cancel())
+    await message.answer("❌ Iltimos, fayl emas, rasm yuboring.", reply_markup=kb_cancel(lang))
 
 
 @router.message(lambda msg: msg.photo and get_state(msg.from_user.id) == STATE_WAIT_BG_REMOVE)
@@ -111,8 +122,9 @@ async def handle_bg_remove(message: Message, bot: Bot):
     user = message.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
 
-    if not await enforce_subscription(bot, user_id):
+    if not await enforce_subscription(bot, user_id, lang):
         return
 
     if not REPLICATE_API_TOKEN:
@@ -129,11 +141,11 @@ async def handle_bg_remove(message: Message, bot: Bot):
     file = await bot.get_file(photo.file_id)
     await bot.download_file(file.file_path, file_path)
 
-    status = await message.answer("⏳ AI fon olib tashlamoqda...")
+    status = await message.answer(t("bg_remove_generating", lang))
     try:
         result_bytes = await _remove_background(file_path)
         doc = BufferedInputFile(result_bytes, filename="no_background.png")
-        await bot.send_document(user_id, doc, caption="✅ Fon olib tashlandi!")
+        await bot.send_document(user_id, doc, caption=t("bg_remove_ready", lang), parse_mode="HTML")
         inc_uses_and_log(user_id, "bg_remove")
         logger.info(f"User {user_id}: bg_remove success")
     except Exception as e:
@@ -146,4 +158,5 @@ async def handle_bg_remove(message: Message, bot: Bot):
             await status.delete()
         except Exception:
             pass
+    set_state(user_id, STATE_NONE)
     await show_main_menu(bot, message.chat.id)
