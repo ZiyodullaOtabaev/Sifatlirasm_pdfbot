@@ -24,6 +24,10 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
     """Main menu keyboard localized."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
+            InlineKeyboardButton(text=t("btn_ai_slides", lang), callback_data="act_ai_slides"),
+            InlineKeyboardButton(text=t("btn_ai_video", lang), callback_data="act_ai_video"),
+        ],
+        [
             InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
             InlineKeyboardButton(text=t("btn_img_pdf", lang), callback_data="act_img_pdf"),
         ],
@@ -37,11 +41,6 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text=t("btn_ai_image", lang), callback_data="act_ai_image"),
-            InlineKeyboardButton(text=t("btn_ocr", lang), callback_data="act_ocr"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_ai_video", lang), callback_data="act_ai_video"),
-            InlineKeyboardButton(text=t("btn_ai_slides", lang), callback_data="act_ai_slides"),
         ],
         [
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
