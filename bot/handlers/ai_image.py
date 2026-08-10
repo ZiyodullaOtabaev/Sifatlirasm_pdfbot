@@ -14,6 +14,7 @@ from bot.database import (
     upsert_user, inc_uses_and_log, get_user_balance, deduct_user_balance,
     get_user_language, get_user_ai_image_count, inc_user_ai_image_count
 )
+from bot.i18n import t
 from bot.states import get_state, set_state, STATE_WAIT_AI_IMAGE, STATE_NONE
 from bot.keyboards import kb_cancel, kb_top_up_ai_image
 from bot.handlers.menu import enforce_subscription, show_main_menu

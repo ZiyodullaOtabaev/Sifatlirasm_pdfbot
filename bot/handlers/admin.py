@@ -28,6 +28,7 @@ from bot.database import (
     get_action_stats, get_growth_stats,
     get_broadcast_history, search_user,
 )
+from bot.i18n import t
 from bot.keyboards import kb_admin, kb_admin_back, kb_broadcast_confirm, kb_cancel, kb_user_balance_actions
 from bot.states import (
     set_state, get_state, STATE_NONE, STATE_WAIT_BROADCAST,
