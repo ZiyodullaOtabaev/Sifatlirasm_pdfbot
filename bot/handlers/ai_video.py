@@ -43,6 +43,9 @@ async def _generate_video(prompt: str) -> bytes:
     )
 
     if output:
+        if isinstance(output, (list, tuple)) and len(output) > 0:
+            output = output[0]
+
         import httpx
         if isinstance(output, str):
             resp = httpx.get(output, timeout=120, follow_redirects=True)
