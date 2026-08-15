@@ -24,7 +24,7 @@ router = Router(name="ai_video")
 
 
 async def _generate_video(prompt: str) -> bytes:
-    """Generate video using Replicate API (video generation model)."""
+    """Generate video using Replicate API (Lightricks LTX-Video model - fast & cost-effective)."""
     import replicate
 
     client = replicate.Client(api_token=REPLICATE_API_TOKEN)
@@ -33,10 +33,11 @@ async def _generate_video(prompt: str) -> bytes:
     output = await loop.run_in_executor(
         None,
         lambda: client.run(
-            "minimax/video-01",
+            "lightricks/ltx-video:8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4",
             input={
                 "prompt": prompt,
-                "prompt_optimizer": True
+                "aspect_ratio": "16:9",
+                "negative_prompt": "low quality, worst quality, deformed, distorted, watermark"
             }
         )
     )
@@ -106,7 +107,7 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
             f"🎬 <b>AI Генерация видео</b>\n\n"
             f"{trial_note}\n\n"
             f"• ⏱ Длительность: <b>5 секунд</b> (HD 720p MP4)\n"
-            f"• ⏳ Время генерации: <b>1-2 минуты</b>\n"
+            f"• ⏳ Время генерации: <b>10-20 секунд</b>\n"
             f"• 🌐 Язык: <b>Узбекский, Русский, Английский</b>\n"
             f"• 💰 Ваш баланс: <b>{balance} кредитов</b>\n\n"
             f"Для продолжения нажмите кнопку ниже 👇"
@@ -116,7 +117,7 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
             f"🎬 <b>AI Video Generator</b>\n\n"
             f"{trial_note}\n\n"
             f"• ⏱ Video duration: <b>5 seconds</b> (HD 720p MP4)\n"
-            f"• ⏳ Generation time: <b>1-2 minutes</b>\n"
+            f"• ⏳ Generation time: <b>10-20 seconds</b>\n"
             f"• 🌐 Languages: <b>Uzbek, Russian, English</b>\n"
             f"• 💰 Your balance: <b>{balance} credits</b>\n\n"
             f"Click the button below to continue 👇"
@@ -126,7 +127,7 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
             f"🎬 <b>AI Video Yaratish</b>\n\n"
             f"{trial_note}\n\n"
             f"• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p MP4)\n"
-            f"• ⏳ Generatsiya vaqti: <b>1-2 daqiqa</b>\n"
+            f"• ⏳ Generatsiya vaqti: <b>10-20 soniya</b>\n"
             f"• 🌐 Til: <b>O'zbek, Rus va Ingliz</b> (avto-tarjima)\n"
             f"• 💰 Balansingiz: <b>{balance} kredit</b>\n\n"
             f"Davom etish uchun quyidagi tugmani bosing 👇"
