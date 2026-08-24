@@ -104,3 +104,47 @@ async def auto_translate_to_en(text: str) -> str:
     except Exception:
         pass
     return text
+
+
+async def enhance_video_prompt(user_prompt: str) -> str:
+    """Enhance user prompt into a rich, detailed, cinematic video generation prompt in English."""
+    if not user_prompt or len(user_prompt.strip()) < 2:
+        return user_prompt
+
+    try:
+        import asyncio
+        import replicate
+        from bot.config import REPLICATE_API_TOKEN
+
+        if REPLICATE_API_TOKEN:
+            client = replicate.Client(api_token=REPLICATE_API_TOKEN)
+            loop = asyncio.get_event_loop()
+
+            system_prompt = (
+                "You are an expert AI video prompt engineer. "
+                "Translate the input from Uzbek, Russian, or English into English and transform it into a single, "
+                "highly detailed, cinematic, visually breathtaking video generation prompt for AI video generators. "
+                "Describe subject, background, lighting, camera movement, style, and atmospheric details. "
+                "Do NOT include conversational text, quotes, or markdown. Output ONLY the raw enhanced prompt string."
+            )
+
+            output = await loop.run_in_executor(
+                None,
+                lambda: client.run(
+                    "meta/meta-llama-3-70b-instruct",
+                    input={
+                        "prompt": f"{system_prompt}\nUser Input: {user_prompt}\nEnhanced Prompt:",
+                        "max_tokens": 160,
+                        "temperature": 0.7
+                    }
+                )
+            )
+
+            enhanced = "".join(output).strip()
+            if len(enhanced) > 15:
+                return enhanced
+    except Exception as e:
+        pass
+
+    # Fallback to simple translation
+    return await auto_translate_to_en(user_prompt)

@@ -242,9 +242,9 @@ async def handle_ai_video(message: Message, bot: Bot):
 
     status = await message.answer(t("ai_video_generating", lang))
     try:
-        from bot.utils.helpers import auto_translate_to_en
-        en_prompt = await auto_translate_to_en(prompt)
-        logger.info(f"User {user_id} video prompt translated: '{prompt}' -> '{en_prompt}'")
+        from bot.utils.helpers import enhance_video_prompt
+        en_prompt = await enhance_video_prompt(prompt)
+        logger.info(f"User {user_id} video prompt enhanced: '{prompt}' -> '{en_prompt}'")
 
         video_bytes = await _generate_video(en_prompt)
         
