@@ -24,12 +24,14 @@ router = Router(name="ai_video")
 
 
 async def _generate_video(prompt: str) -> bytes:
-    """Generate video using Replicate API (Lightricks LTX-Video model - fast & cost-effective)."""
+    """Generate 5-second 720p HD video with synchronized AI audio using Replicate API."""
     import replicate
+    import httpx
 
     client = replicate.Client(api_token=REPLICATE_API_TOKEN)
     loop = asyncio.get_event_loop()
 
+    # Step 1: Generate 5-second 720p HD video (121 frames) via LTX-Video
     output = await loop.run_in_executor(
         None,
         lambda: client.run(
@@ -37,26 +39,49 @@ async def _generate_video(prompt: str) -> bytes:
             input={
                 "prompt": prompt,
                 "aspect_ratio": "16:9",
+                "num_frames": 121,
                 "negative_prompt": "low quality, worst quality, deformed, distorted, watermark"
             }
         )
     )
 
-    if output:
-        if isinstance(output, (list, tuple)) and len(output) > 0:
-            output = output[0]
+    if not output:
+        raise RuntimeError("AI Video generation model did not return output.")
 
-        import httpx
-        if isinstance(output, str):
-            resp = httpx.get(output, timeout=120, follow_redirects=True)
-            return resp.content
-        elif hasattr(output, 'read'):
-            return output.read()
-        elif hasattr(output, 'url'):
-            resp = httpx.get(output.url, timeout=120, follow_redirects=True)
-            return resp.content
+    video_url = output[0] if isinstance(output, (list, tuple)) and len(output) > 0 else output
+    if hasattr(video_url, 'url'):
+        video_url = video_url.url
+    video_url = str(video_url)
 
-    raise RuntimeError("AI Video generation model did not return output.")
+    # Step 2: Add synchronized AI audio / sound effects via MMAudio
+    audio_video_url = None
+    try:
+        audio_output = await loop.run_in_executor(
+            None,
+            lambda: client.run(
+                "zsxkib/mmaudio:62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484",
+                input={
+                    "video": video_url,
+                    "prompt": prompt,
+                    "duration": 5
+                }
+            )
+        )
+        if audio_output:
+            if isinstance(audio_output, (list, tuple)) and len(audio_output) > 0:
+                audio_output = audio_output[0]
+            if hasattr(audio_output, 'url'):
+                audio_output = audio_output.url
+            audio_video_url = str(audio_output)
+    except Exception as e:
+        logger.warning(f"MMAudio audio synthesis fallback: {e}")
+
+    final_url = audio_video_url or video_url
+    resp = httpx.get(final_url, timeout=120, follow_redirects=True)
+    if resp.status_code == 200:
+        return resp.content
+
+    raise RuntimeError("Could not download generated AI Video file.")
 
 
 AI_VIDEO_FREE_LIMIT = 2
@@ -109,8 +134,9 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
         terms_text = (
             f"🎬 <b>AI Генерация видео</b>\n\n"
             f"{trial_note}\n\n"
-            f"• ⏱ Длительность: <b>5 секунд</b> (HD 720p MP4)\n"
-            f"• ⏳ Время генерации: <b>10-20 секунд</b>\n"
+            f"• ⏱ Длительность: <b>5 секунд</b> (HD 720p + AI Звук MP4)\n"
+            f"• 🔊 Аудио: <b>Синхронные звуковые эффекты (MMAudio)</b>\n"
+            f"• ⏳ Время генерации: <b>15-30 секунд</b>\n"
             f"• 🌐 Язык: <b>Узбекский, Русский, Английский</b>\n"
             f"• 💰 Ваш баланс: <b>{balance} кредитов</b>\n\n"
             f"Для продолжения нажмите кнопку ниже 👇"
@@ -119,8 +145,9 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
         terms_text = (
             f"🎬 <b>AI Video Generator</b>\n\n"
             f"{trial_note}\n\n"
-            f"• ⏱ Video duration: <b>5 seconds</b> (HD 720p MP4)\n"
-            f"• ⏳ Generation time: <b>10-20 seconds</b>\n"
+            f"• ⏱ Video duration: <b>5 seconds</b> (HD 720p + AI Audio MP4)\n"
+            f"• 🔊 Audio: <b>Synchronized Sound FX (MMAudio)</b>\n"
+            f"• ⏳ Generation time: <b>15-30 seconds</b>\n"
             f"• 🌐 Languages: <b>Uzbek, Russian, English</b>\n"
             f"• 💰 Your balance: <b>{balance} credits</b>\n\n"
             f"Click the button below to continue 👇"
@@ -129,8 +156,9 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
         terms_text = (
             f"🎬 <b>AI Video Yaratish</b>\n\n"
             f"{trial_note}\n\n"
-            f"• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p MP4)\n"
-            f"• ⏳ Generatsiya vaqti: <b>10-20 soniya</b>\n"
+            f"• ⏱ Video davomiyligi: <b>5 soniya</b> (HD 720p + AI Ovoz MP4)\n"
+            f"• 🔊 Ovoz: <b>Sinxron sound effektlar va audio (MMAudio)</b>\n"
+            f"• ⏳ Generatsiya vaqti: <b>15-30 soniya</b>\n"
             f"• 🌐 Til: <b>O'zbek, Rus va Ingliz</b> (avto-tarjima)\n"
             f"• 💰 Balansingiz: <b>{balance} kredit</b>\n\n"
             f"Davom etish uchun quyidagi tugmani bosing 👇"
