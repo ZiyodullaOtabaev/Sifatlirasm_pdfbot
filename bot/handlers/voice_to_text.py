@@ -1,11 +1,15 @@
 """
 Voice to Text (Audio Transcriber) Handler — 100% Free & Fast AI Transcription.
 - Accurately transcribes Telegram voice messages and audio files in Uzbek, Russian, and English.
-- Uses OpenAI Whisper AI / Incredibly Fast Whisper.
-- Provides 1-click action buttons: "📄 PDF qilish" and "📊 Slayd yasash".
+- Output formatting rules:
+  * Uzbek audio: High-quality Latin script (o', g', sh, ch, q, h)
+  * English audio: High-quality Latin script
+  * Russian audio: High-quality Cyrillic script
+- Provides 1-click action button: "📄 Matndan PDF qilish".
 """
 import os
 import io
+import re
 import asyncio
 import logging
 from typing import Dict
@@ -40,8 +44,83 @@ async def _safe_answer(call: CallbackQuery):
         pass
 
 
+def _fallback_cyrillic_to_latin_uz(text: str) -> str:
+    """Fallback rule-based Cyrillic to Latin Uzbek transliterator."""
+    table = {
+        'А': 'A', 'а': 'a', 'Б': 'B', 'б': 'b', 'В': 'V', 'в': 'v',
+        'Г': 'G', 'г': 'g', 'Д': 'D', 'д': 'd', 'Е': 'E', 'е': 'e',
+        'Ё': 'Yo', 'ё': 'yo', 'Ж': 'J', 'ж': 'j', 'З': 'Z', 'з': 'z',
+        'И': 'I', 'и': 'i', 'Й': 'Y', 'й': 'y', 'К': 'K', 'к': 'k',
+        'Л': 'L', 'л': 'l', 'М': 'M', 'м': 'm', 'Н': 'N', 'н': 'n',
+        'О': 'O', 'о': 'o', 'П': 'P', 'п': 'p', 'Р': 'R', 'р': 'r',
+        'С': 'S', 'с': 's', 'Т': 'T', 'т': 't', 'У': 'U', 'у': 'u',
+        'Ф': 'F', 'ф': 'f', 'Х': 'X', 'х': 'x', 'Ц': 'Ts', 'ц': 'ts',
+        'Ч': 'Ch', 'ч': 'ch', 'Ш': 'Sh', 'ш': 'sh', 'Щ': 'Sh', 'щ': 'sh',
+        'Ъ': "'", 'ъ': "'", 'Ь': '', 'ь': '', 'Э': 'E', 'э': 'e',
+        'Ю': 'Yu', 'ю': 'yu', 'Я': 'Ya', 'я': 'ya',
+        'Ў': "O'", 'ў': "o'", 'Ғ': "G'", 'ғ': "g'", 'Қ': 'Q', 'қ': 'q', 'Ҳ': 'H', 'ҳ': 'h'
+    }
+    return "".join(table.get(ch, ch) for ch in text)
+
+
+async def _format_and_clean_transcription(raw_text: str) -> str:
+    """
+    Format speech transcription:
+    - Uzbek: Output in clean, correct Latin script.
+    - English: Output in clean Latin script.
+    - Russian: Output in clean Russian Cyrillic script.
+    """
+    if not raw_text or len(raw_text.strip()) == 0:
+        return raw_text
+
+    clean_raw = raw_text.strip()
+
+    if REPLICATE_API_TOKEN:
+        try:
+            import replicate
+            client = replicate.Client(api_token=REPLICATE_API_TOKEN)
+            loop = asyncio.get_event_loop()
+
+            system_prompt = (
+                "You are an expert multilingual speech transcriber and text formatter. "
+                "Format the given raw audio transcription according to these exact rules:\n"
+                "1. If the input is in Uzbek (spoken Uzbek or Uzbek Cyrillic): Output in clean, grammatically correct Uzbek LATIN script (using o', g', sh, ch, q, h).\n"
+                "2. If the input is in English: Output in clean, grammatically correct English LATIN script.\n"
+                "3. If the input is in Russian: Output in clean, grammatically correct Russian CYRILLIC script.\n"
+                "4. Fix punctuation, capitalization, and speech filler. Do NOT add conversational commentary, quotes, or markdown. Output ONLY the finalized text."
+            )
+
+            output = await loop.run_in_executor(
+                None,
+                lambda: client.run(
+                    "meta/meta-llama-3-70b-instruct",
+                    input={
+                        "prompt": f"{system_prompt}\n\nRaw transcription: {clean_raw}\n\nFinalized Text:",
+                        "max_tokens": 600,
+                        "temperature": 0.2
+                    }
+                )
+            )
+
+            enhanced = "".join(output).strip()
+            if len(enhanced) > 2:
+                # Remove any accidental leading/trailing quotes
+                if (enhanced.startswith('"') and enhanced.endswith('"')) or (enhanced.startswith("'") and enhanced.endswith("'")):
+                    enhanced = enhanced[1:-1].strip()
+                return enhanced
+        except Exception as e:
+            logger.warning(f"LLM transcription formatting fallback: {e}")
+
+    # Fallback: if Uzbek specific Cyrillic letters exist, convert to Latin
+    uz_specific = ["ў", "Ў", "ғ", "Ғ", "қ", "Қ", "ҳ", "Ҳ"]
+    if any(c in clean_raw for c in uz_specific):
+        return _fallback_cyrillic_to_latin_uz(clean_raw)
+
+    return clean_raw
+
+
 async def _transcribe_audio(audio_path: str) -> str:
-    """Transcribe audio file to text using Whisper AI."""
+    """Transcribe audio file to text using Whisper AI and format script."""
     import httpx
 
     with open(audio_path, "rb") as f:
@@ -78,32 +157,40 @@ async def _transcribe_audio(audio_path: str) -> str:
         predict_resp.raise_for_status()
         prediction = predict_resp.json()
 
+        raw_output_text = ""
         if prediction.get("status") == "succeeded":
             output = prediction.get("output", {})
             if isinstance(output, dict) and "text" in output:
-                return output["text"].strip()
+                raw_output_text = output["text"].strip()
             elif isinstance(output, str):
-                return output.strip()
+                raw_output_text = output.strip()
 
         # Poll if not completed immediately
-        pred_id = prediction.get("id")
-        for _ in range(30):
-            await asyncio.sleep(2)
-            poll_resp = await client.get(
-                f"https://api.replicate.com/v1/predictions/{pred_id}",
-                headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"},
-            )
-            poll_data = poll_resp.json()
-            if poll_data.get("status") == "succeeded":
-                out = poll_data.get("output", {})
-                if isinstance(out, dict) and "text" in out:
-                    return out["text"].strip()
-                elif isinstance(out, str):
-                    return out.strip()
-            elif poll_data.get("status") == "failed":
-                raise RuntimeError(poll_data.get("error", "Whisper transcription failed"))
+        if not raw_output_text and prediction.get("status") != "failed":
+            pred_id = prediction.get("id")
+            for _ in range(30):
+                await asyncio.sleep(2)
+                poll_resp = await client.get(
+                    f"https://api.replicate.com/v1/predictions/{pred_id}",
+                    headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"},
+                )
+                poll_data = poll_resp.json()
+                if poll_data.get("status") == "succeeded":
+                    out = poll_data.get("output", {})
+                    if isinstance(out, dict) and "text" in out:
+                        raw_output_text = out["text"].strip()
+                    elif isinstance(out, str):
+                        raw_output_text = out.strip()
+                    break
+                elif poll_data.get("status") == "failed":
+                    raise RuntimeError(poll_data.get("error", "Whisper transcription failed"))
 
-    raise RuntimeError("Whisper transcription timed out")
+        if not raw_output_text:
+            raise RuntimeError("Whisper returned empty output")
+
+        # Post-process into proper Latin/Cyrillic depending on language
+        final_text = await _format_and_clean_transcription(raw_output_text)
+        return final_text
 
 
 @router.callback_query(F.data == "act_voice_to_text")
@@ -266,29 +353,3 @@ async def cb_voice_to_pdf(call: CallbackQuery, bot: Bot):
     except Exception as e:
         logger.error(f"Voice to PDF error: {e}", exc_info=True)
         await status.edit_text(t("error_occurred", lang))
-
-
-@router.callback_query(F.data == "act_voice_to_slides")
-async def cb_voice_to_slides(call: CallbackQuery, bot: Bot):
-    """Convert transcribed voice text into AI presentation slides."""
-    await _safe_answer(call)
-    user_id = call.from_user.id
-    lang = get_user_language(user_id) or "uz"
-
-    text = USER_VOICE_TEXT.get(user_id, "").strip()
-    if not text:
-        await bot.send_message(user_id, "❌ Matn topilmadi. Qaytadan ovoz yuboring.")
-        return
-
-    from bot.handlers.ai_slides import USER_SLIDE_DATA, _send_gallery_view
-    topic = text[:200]
-    USER_SLIDE_DATA[user_id] = {"topic": topic, "author": ""}
-
-    await bot.send_message(
-        user_id,
-        f"📊 <b>Ovozli konspektingiz taqdimot mavzusi sifatida tanlandi:</b>\n\n"
-        f"<i>\"{topic}\"</i>\n\n"
-        f"🎨 <b>Endi slayd dizayn shablonini tanlang:</b>",
-        parse_mode="HTML"
-    )
-    await _send_gallery_view(bot, user_id, 0, topic, "", lang)

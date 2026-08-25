@@ -59,7 +59,6 @@ def kb_voice_actions(lang: str = "uz") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=t("btn_voice_to_pdf", lang), callback_data="act_voice_to_pdf"),
-            InlineKeyboardButton(text=t("btn_voice_to_slides", lang), callback_data="act_voice_to_slides"),
         ],
         [
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
