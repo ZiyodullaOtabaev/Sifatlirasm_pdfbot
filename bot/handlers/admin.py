@@ -414,39 +414,52 @@ async def cb_admin_new24(call: CallbackQuery, bot: Bot):
     await call.answer()
     if not _is_admin(call.from_user.id):
         return
+    import html
     rows = get_new_users_24h(30)
     lines = []
     for i, r in enumerate(rows, start=1):
-        uname = f"@{r['username']}" if r["username"] else "-"
-        name = (f"{r['first_name'] or ''}").strip() or "-"
-        t = r["created_at"][11:16] if r["created_at"] and len(r["created_at"]) > 16 else ""
-        lines.append(f"{i}. {uname} | {name} | {t}")
+        uname = f"@{html.escape(r['username'])}" if r["username"] else "-"
+        name = html.escape((f"{r['first_name'] or ''} {r['last_name'] or ''}").strip() or "-")
+        t_time = r["created_at"][11:16] if r["created_at"] and len(str(r["created_at"])) >= 16 else ""
+        lines.append(f"{i}. {uname} | {name} | {t_time}")
     text = "<b>🆕 Yangi 24 soat:</b>\n\n" + ("\n".join(lines) if lines else "Hech kim yo'q")
     await bot.send_message(call.from_user.id, text, parse_mode="HTML",
                            reply_markup=kb_admin_back())
 
 
-@router.message(Command("active24h"))
-@router.callback_query(F.data == "admin_active24")
-async def cb_admin_active24(event: Message | CallbackQuery, bot: Bot):
-    """Active users in the last 24 hours."""
-    user_id = event.from_user.id
-    if isinstance(event, CallbackQuery):
-        await event.answer()
-    if not _is_admin(user_id):
-        return
-
+async def _send_active_users_24h(user_id: int, bot: Bot):
+    """Send active 24h users list to admin safely."""
+    import html
     rows = get_active_users_24h(50)
     lines = []
     for i, r in enumerate(rows, start=1):
-        uname = f"@{r['username']}" if r["username"] else f"ID:{r['user_id']}"
-        name = (f"{r['first_name'] or ''}").strip() or "-"
-        t_str = r["updated_at"][11:16] if r.get("updated_at") and len(r["updated_at"]) >= 16 else ""
+        uname = f"@{html.escape(r['username'])}" if r["username"] else f"<code>{r['user_id']}</code>"
+        name = html.escape((f"{r['first_name'] or ''} {r['last_name'] or ''}").strip() or "-")
+        t_str = r["updated_at"][11:16] if r.get("updated_at") and len(str(r["updated_at"])) >= 16 else ""
         uses = r.get("uses_count", 0)
         lines.append(f"{i}. {uname} | {name} | <b>{uses} ta</b> | {t_str}")
 
     text = f"<b>⚡️ Oxirgi 24 soatdagi aktiv foydalanuvchilar (Jami: {len(rows)} ta):</b>\n\n" + ("\n".join(lines) if lines else "Hozircha hech kim yo'q")
+    if len(text) > 4000:
+        text = text[:3900] + "\n\n<i>...(qolganlari qisqartirildi)</i>"
     await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=kb_admin_back())
+
+
+@router.callback_query(F.data == "admin_active24")
+async def cb_admin_active24(call: CallbackQuery, bot: Bot):
+    """Active users in the last 24 hours (callback)."""
+    await call.answer()
+    if not _is_admin(call.from_user.id):
+        return
+    await _send_active_users_24h(call.from_user.id, bot)
+
+
+@router.message(Command("active24h"))
+async def cmd_admin_active24(message: Message, bot: Bot):
+    """Active users in the last 24 hours (command)."""
+    if not _is_admin(message.from_user.id):
+        return
+    await _send_active_users_24h(message.from_user.id, bot)
 
 
 def export_users_to_excel() -> bytes:

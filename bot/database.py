@@ -478,14 +478,23 @@ def get_top_users(limit: int = 30) -> list:
 
 
 def get_active_users_24h(limit: int = 50) -> list:
-    """Get users active in last 24 hours."""
+    """Get users active in last 24 hours (combining users table and usage logs)."""
     with db_connect() as con:
         return con.execute("""
-            SELECT user_id, COALESCE(username,'') as username,
-                   COALESCE(first_name,'') as first_name,
-                   COALESCE(last_name,'') as last_name,
-                   COALESCE(uses_count, 0) as uses_count, updated_at
-            FROM users WHERE updated_at >= datetime('now','-24 hours')
+            SELECT DISTINCT u.user_id,
+                   COALESCE(u.username,'') as username,
+                   COALESCE(u.first_name,'') as first_name,
+                   COALESCE(u.last_name,'') as last_name,
+                   COALESCE(u.uses_count, 0) as uses_count,
+                   COALESCE(l.last_action, u.updated_at) as updated_at
+            FROM users u
+            LEFT JOIN (
+                SELECT user_id, MAX(created_at) as last_action
+                FROM usage_logs
+                WHERE created_at >= datetime('now','-24 hours')
+                GROUP BY user_id
+            ) l ON u.user_id = l.user_id
+            WHERE u.updated_at >= datetime('now','-24 hours') OR l.last_action IS NOT NULL
             ORDER BY updated_at DESC LIMIT ?
         """, (limit,)).fetchall()
 
