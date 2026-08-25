@@ -51,6 +51,8 @@ def db_init():
 
         if "ai_video_count" not in user_cols:
             cur.execute("ALTER TABLE users ADD COLUMN ai_video_count INTEGER DEFAULT 0")
+        if "passport_photo_count" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN passport_photo_count INTEGER DEFAULT 0")
 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS required_channels (
@@ -641,6 +643,20 @@ def inc_user_ai_video_count(user_id: int):
     """Increment AI video count for user."""
     with db_connect() as con:
         con.execute("UPDATE users SET ai_video_count = COALESCE(ai_video_count, 0) + 1 WHERE user_id = ?", (user_id,))
+        con.commit()
+
+
+def get_user_passport_photo_count(user_id: int) -> int:
+    """Get number of 3x4 passport photos created by user."""
+    with db_connect() as con:
+        row = con.execute("SELECT COALESCE(passport_photo_count, 0) as cnt FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        return row["cnt"] if row else 0
+
+
+def inc_user_passport_photo_count(user_id: int):
+    """Increment 3x4 passport photo count for user."""
+    with db_connect() as con:
+        con.execute("UPDATE users SET passport_photo_count = COALESCE(passport_photo_count, 0) + 1 WHERE user_id = ?", (user_id,))
         con.commit()
 
 

@@ -2,7 +2,6 @@
 Background remove handler — AI-powered via Replicate API.
 """
 import os
-import io
 import asyncio
 import logging
 
@@ -10,9 +9,10 @@ from aiogram import Router, Bot
 from aiogram.types import Message, BufferedInputFile
 
 from bot.config import DOWNLOAD_DIR, MAX_FILE_SIZE, REPLICATE_API_TOKEN
-from bot.database import upsert_user, inc_uses_and_log
-from bot.states import get_state, STATE_WAIT_BG_REMOVE
-from bot.utils.helpers import safe_remove
+from bot.database import upsert_user, inc_uses_and_log, get_user_language
+from bot.i18n import t
+from bot.states import get_state, set_state, STATE_WAIT_BG_REMOVE, STATE_NONE
+from bot.utils.helpers import safe_remove, friendly_error
 from bot.handlers.menu import enforce_subscription, show_main_menu
 
 logger = logging.getLogger(__name__)
@@ -97,17 +97,6 @@ async def _remove_background(in_path: str) -> bytes:
     raise RuntimeError("Timeout waiting for background removal")
 
 
-from bot.config import DOWNLOAD_DIR, MAX_FILE_SIZE, REPLICATE_API_TOKEN
-from bot.database import upsert_user, inc_uses_and_log, get_user_language
-from bot.i18n import t
-from bot.states import get_state, set_state, STATE_WAIT_BG_REMOVE, STATE_NONE
-from bot.utils.helpers import safe_remove
-from bot.handlers.menu import enforce_subscription, show_main_menu
-
-logger = logging.getLogger(__name__)
-router = Router(name="bg_remove")
-
-
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_BG_REMOVE)
 async def handle_bg_remove_document_error(message: Message, bot: Bot):
     """Reject documents in bg_remove mode — need a photo."""
@@ -150,7 +139,6 @@ async def handle_bg_remove(message: Message, bot: Bot):
         logger.info(f"User {user_id}: bg_remove success")
     except Exception as e:
         logger.error(f"BG Remove error for user {user_id}: {e}")
-        from bot.utils.helpers import friendly_error
         await message.answer(friendly_error(e))
     finally:
         safe_remove(file_path)

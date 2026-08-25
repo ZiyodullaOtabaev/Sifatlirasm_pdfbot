@@ -293,8 +293,8 @@ async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
             author_name=author_name,
             institution=institution
         )
-        
-        # Deduct cost (0 if free trial, 3 if paid) & log usage
+
+        # Deduct cost only after successful generation
         if cost > 0:
             deduct_user_balance(user_id, cost)
         inc_uses_and_log(user_id, "ai_slides")
@@ -328,10 +328,14 @@ async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
 
     except Exception as e:
         logger.error(f"AI Slides generation error for user {user_id}: {e}")
+        # Kredit ayirilgan bo'lsa qaytarish
+        if cost > 0:
+            from bot.database import add_user_balance
+            add_user_balance(user_id, cost)
         from bot.utils.helpers import friendly_error
         await bot.send_message(
             user_id,
-            f"❌ {friendly_error(e)}\n\n" + t("ai_video_refund_notify", lang),
+            f"❌ {friendly_error(e)}\n\n💰 <b>Kredit balansingizga qaytarildi!</b>",
             parse_mode="HTML"
         )
     finally:

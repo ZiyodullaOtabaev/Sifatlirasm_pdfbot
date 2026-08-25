@@ -28,6 +28,10 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=t("btn_ai_video", lang), callback_data="act_ai_video"),
         ],
         [
+            InlineKeyboardButton(text=t("btn_passport_photo", lang), callback_data="act_passport_photo"),
+            InlineKeyboardButton(text=t("btn_voice_to_text", lang), callback_data="act_voice_to_text"),
+        ],
+        [
             InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
             InlineKeyboardButton(text=t("btn_img_pdf", lang), callback_data="act_img_pdf"),
         ],
@@ -41,10 +45,24 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text=t("btn_ai_image", lang), callback_data="act_ai_image"),
+            InlineKeyboardButton(text=t("btn_ocr", lang), callback_data="act_ocr"),
         ],
         [
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
+        ],
+    ])
+
+
+def kb_voice_actions(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Action buttons after voice transcription."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=t("btn_voice_to_pdf", lang), callback_data="act_voice_to_pdf"),
+            InlineKeyboardButton(text=t("btn_voice_to_slides", lang), callback_data="act_voice_to_slides"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
         ],
     ])
 

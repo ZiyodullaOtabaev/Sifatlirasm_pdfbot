@@ -11,8 +11,8 @@ from aiogram import Router, Bot
 from aiogram.types import Message, BufferedInputFile
 
 from bot.config import DOWNLOAD_DIR, MAX_FILE_SIZE, REPLICATE_API_TOKEN
-from bot.database import upsert_user, inc_uses_and_log
-from bot.states import get_state, STATE_WAIT_OCR
+from bot.database import upsert_user, inc_uses_and_log, get_user_language
+from bot.states import get_state, set_state, STATE_WAIT_OCR, STATE_NONE
 from bot.utils.helpers import safe_remove, friendly_error
 from bot.handlers.menu import enforce_subscription, show_main_menu
 
@@ -77,9 +77,10 @@ async def _ocr_via_replicate(image_path: str) -> str:
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_OCR)
 async def handle_ocr_document_error(message: Message, bot: Bot):
     """Reject documents in OCR mode — need a photo."""
+    lang = get_user_language(message.from_user.id) or "uz"
     from bot.keyboards import kb_cancel
     await message.answer("❌ Rasm yuboring, fayl emas.\n"
-                         "💡 Rasmni siqmay (photo sifatida) yuboring.", reply_markup=kb_cancel())
+                         "💡 Rasmni siqmay (photo sifatida) yuboring.", reply_markup=kb_cancel(lang))
 
 
 @router.message(lambda msg: msg.photo and get_state(msg.from_user.id) == STATE_WAIT_OCR)
@@ -88,8 +89,9 @@ async def handle_ocr(message: Message, bot: Bot):
     user = message.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
 
-    if not await enforce_subscription(bot, user_id):
+    if not await enforce_subscription(bot, user_id, lang):
         return
 
     if not REPLICATE_API_TOKEN:
@@ -133,4 +135,5 @@ async def handle_ocr(message: Message, bot: Bot):
             await status.delete()
         except Exception:
             pass
+    set_state(user_id, STATE_NONE)
     await show_main_menu(bot, message.chat.id)

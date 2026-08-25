@@ -13,10 +13,11 @@ TEXTS = {
         "welcome_text": (
             "👋 <b>Assalomu alaykum!</b>\n\n"
             "🛠 Men sizga quyidagilarda yordam beraman:\n"
-            "• PDF yaratish va boshqarish\n"
-            "• AI orqali rasmlarni yaxshilash\n"
-            "• AI slaydlar va rasmlar yaratish\n"
-            "• 🎬 <b>AI Video yaratish</b>\n\n"
+            "• 👔 3x4 Pasport & Hujjat rasmlari tayyorlash\n"
+            "• 🎙 Ovozli xabarlarni matnga o'girish (Bepul)\n"
+            "• 📊 12 betlik professional AI Slaydlar\n"
+            "• 🎬 5s HD Ovozli AI Video yaratish\n"
+            "• 📝 PDF yaratish, birlashtirish va siqish\n\n"
             "⬇️ Kerakli bo'limni tanlang:"
         ),
         "btn_profile": "👤 Mening profilim",
@@ -27,6 +28,7 @@ TEXTS = {
         "btn_upscale": "✨ Sifat oshirish (AI)",
         "btn_bg_remove": "🎨 Fon olib tashlash",
         "btn_ai_image": "🤖 AI rasm yaratish",
+        "btn_ocr": "📖 Matn ajratish (OCR)",
         "btn_ai_video": "🎬 AI Video yaratish",
         "btn_ai_slides": "📊 AI Slayd Yaratish",
         "btn_change_lang": "🌐 Tilni o'zgartirish",
@@ -59,6 +61,8 @@ TEXTS = {
         "ai_video_refund_notify": "⚠️ <b>Video yaratishda xatolik yuz berdi.</b>\n💰 Kredit balansingizga qaytarildi!",
         "top_up_info": (
             "💳 <b>Rasmiy Xizmat Tariflari va To'lovlar:</b>\n\n"
+            "👔 <b>3x4 Hujjat Rasmi:</b> 2 kredit <i>(1 000 so'm yoki ⭐️ 10 Stars — 3 ta bepul)</i>\n"
+            "🎙 <b>Ovozdan Matn:</b> 100% BEPUL <i>(Cheksiz)</i>\n"
             "🎬 <b>AI Video (1 ta):</b> 4 kredit <i>(1 500 so'm yoki ⭐️ 15 Stars — 2 ta bepul)</i>\n"
             "📊 <b>AI Slayd (12 bet):</b> 7 kredit <i>(2 000 so'm yoki ⭐️ 20 Stars — 1-si bepul)</i>\n"
             "🤖 <b>AI Rasm (1 ta):</b> 2 kredit <i>(500 so'm yoki ⭐️ 10 Stars — 7 ta bepul)</i>\n"
@@ -133,6 +137,37 @@ TEXTS = {
         "compress_pdf_generating": "⏳ PDF fayl siqilmoqda, kuting...",
         "compress_pdf_ready": "✅ <b>PDF fayl muvaffaqiyatli siqildi!</b>",
         "processing": "⏳ Qayta ishlanmoqda, kuting...",
+        "btn_passport_photo": "👔 3x4 Hujjat rasmi",
+        "btn_voice_to_text": "🎙 Ovozdan matn",
+        "btn_voice_to_pdf": "📄 Matndan PDF qilish",
+        "btn_voice_to_slides": "📊 12 betlik Slayd yasash",
+        "passport_photo_prompt": (
+            "👔 <b>3x4 Pasport va Hujjat Rasmi Yaratish</b>\n\n"
+            "🎁 <b>Sizda 3 ta bepul imkoniyat bor!</b>\n\n"
+            "Iltimos, to'g'riga qaragan sifatli selfi yoki portret rasm yuboring.\n\n"
+            "<i>Bot fonni tozalab oq qiladi, 3x4 sm o'lchamga moslaydi va chop etishga tayyor 6 talik varaq (PDF va JPG) hamda 1 dona 3x4 HD rasm beradi.</i>"
+        ),
+        "passport_photo_generating": "⏳ 3x4 hujjat rasmi tayyorlanmoqda, iltimos kuting...",
+        "passport_photo_ready": (
+            "✅ <b>3x4 Hujjat rasmlaringiz tayyor!</b>\n\n"
+            "📸 6 talik chop etishga tayyor 10x15 sm varaq (JPG)\n"
+            "📄 Chop etish uchun PDF hujjat\n"
+            "👤 1 dona toza 3x4 HD rasm (HEMIS / my.gov.uz uchun)"
+        ),
+        "passport_photo_error": "❌ Rasmda inson yuzi aniqlanmadi yoki qayta ishlashda xatolik yuz berdi. Boshqa rasm bilan urinib ko'ring.",
+        "voice_to_text_prompt": (
+            "🎙 <b>Ovozni Matnga O'girish (Voice-to-Text)</b>\n\n"
+            "🎁 <b>Ushbu xizmat mutlaqo BEPUL!</b>\n\n"
+            "Iltimos, Telegram ovozli xabari (Voice) yoki audio fayl (mp3, m4a, ogg) yuboring.\n\n"
+            "<i>O'zbek, Rus yoki Ingliz tilidagi nutq avtomatik aniqlanib, toza matnga aylantiriladi.</i>"
+        ),
+        "voice_to_text_generating": "⏳ Ovozli xabar tinglanmoqda va matnga o'girilmoqda...",
+        "voice_to_text_ready": (
+            "🎙 <b>Ovozli xabar matnga o'girildi:</b>\n\n"
+            "<code>{text}</code>\n\n"
+            "⬇️ <b>Ushbu matn bilan nima qilamiz?</b>"
+        ),
+        "voice_to_text_empty": "❌ Ovozdan matn ajratib bo'lmadi yoki audio juda past/qisqa.",
         "error_occurred": "❌ Xatolik yuz berdi. Qayta urinib ko'ring.",
         "fallback_text_prompt": "💡 Iltimos, pastdagi menyudan kerakli bo'limni tanlang 👇",
         "bot_description": "🤖 Rasmlar va PDF hujjatchalar bilan ishlash, AI Slayd, AI sifat oshirish, fon olib tashlash va AI Video bot.",
@@ -144,10 +179,11 @@ TEXTS = {
         "welcome_text": (
             "👋 <b>Здравствуйте!</b>\n\n"
             "🛠 Я помогу вам в следующем:\n"
-            "• Создание и обработка PDF\n"
-            "• Улучшение качества фото с помощью ИИ\n"
-            "• Генерация ИИ слайдов и изображений\n"
-            "• 🎬 <b>AI Генерация видео</b>\n\n"
+            "• 👔 Создание фото 3x4 на документы\n"
+            "• 🎙 Перевод голоса в текст (Бесплатно)\n"
+            "• 📊 Презентации из 12 слайдов (AI)\n"
+            "• 🎬 Создание HD AI видео со звуком\n"
+            "• 📝 Создание, объединение и сжатие PDF\n\n"
             "⬇️ Выберите нужный раздел:"
         ),
         "btn_profile": "👤 Мой профиль",
@@ -158,6 +194,7 @@ TEXTS = {
         "btn_upscale": "✨ Улучшить качество (AI)",
         "btn_bg_remove": "🎨 Удалить фон",
         "btn_ai_image": "🤖 AI Генерация фото",
+        "btn_ocr": "📖 Распознать текст (OCR)",
         "btn_ai_video": "🎬 AI Генерация видео",
         "btn_ai_slides": "📊 AI Создание слайдов",
         "btn_change_lang": "🌐 Сменить язык",
@@ -190,6 +227,8 @@ TEXTS = {
         "ai_video_refund_notify": "⚠️ <b>Ошибка при создании видео.</b>\n💰 Кредиты возвращены на ваш баланс!",
         "top_up_info": (
             "💳 <b>Официальные Тарифы и Оплата Услуг:</b>\n\n"
+            "👔 <b>Фото 3x4 на Документы:</b> 2 кредита <i>(1 000 сум или ⭐️ 10 Stars — 3 бесплатно)</i>\n"
+            "🎙 <b>Голос в Текст:</b> 100% БЕСПЛАТНО <i>(Безлимит)</i>\n"
             "🎬 <b>AI Видео (1 шт):</b> 4 кредита <i>(1 500 сум или ⭐️ 15 Stars — 2 бесплатно)</i>\n"
             "📊 <b>AI Слайды (12 стр):</b> 7 кредитов <i>(2 000 сум или ⭐️ 20 Stars — 1-я бесплатно)</i>\n"
             "🤖 <b>AI Фото (1 шт):</b> 2 кредита <i>(500 сум или ⭐️ 10 Stars — 7 бесплатно)</i>\n"
@@ -264,6 +303,37 @@ TEXTS = {
         "compress_pdf_generating": "⏳ Сжатие PDF файла, пожалуйста подождите...",
         "compress_pdf_ready": "✅ <b>PDF файл успешно сжат!</b>",
         "processing": "⏳ Обработка, пожалуйста подождите...",
+        "btn_passport_photo": "👔 Фото 3x4 на документы",
+        "btn_voice_to_text": "🎙 Голос в текст",
+        "btn_voice_to_pdf": "📄 Создать PDF из текста",
+        "btn_voice_to_slides": "📊 12 слайдов презентация",
+        "passport_photo_prompt": (
+            "👔 <b>Создание Фото 3x4 на Документы</b>\n\n"
+            "🎁 <b>У вас 3 бесплатные попытки!</b>\n\n"
+            "Пожалуйста, отправьте четкое селфи или портретное фото.\n\n"
+            "<i>Бот сделает белый фон, выровняет пропорции 3x4 и создаст готовый лист на 6 фото для печати (PDF и JPG) и 1 одиночное фото 3x4 HD.</i>"
+        ),
+        "passport_photo_generating": "⏳ Создается фото 3x4, пожалуйста подождите...",
+        "passport_photo_ready": (
+            "✅ <b>Ваши фото 3x4 готовы!</b>\n\n"
+            "📸 Лист 10x15 см на 6 фото для печати (JPG)\n"
+            "📄 Готовый PDF документ для печати\n"
+            "👤 1 одиночное фото 3x4 HD (для HEMIS / my.gov.uz)"
+        ),
+        "passport_photo_error": "❌ Лицо на фото не обнаружено или произошла ошибка. Попробуйте другое фото.",
+        "voice_to_text_prompt": (
+            "🎙 <b>Перевод Голоса в Текст (Voice-to-Text)</b>\n\n"
+            "🎁 <b>Эта услуга абсолютно БЕСПЛАТНА!</b>\n\n"
+            "Пожалуйста, отправьте голосовое сообщение (Voice) или аудиофайл (mp3, m4a, ogg).\n\n"
+            "<i>Узбекская, русская или английская речь будет автоматически переведена в чистый текст.</i>"
+        ),
+        "voice_to_text_generating": "⏳ Распознаем речь и переводим в текст...",
+        "voice_to_text_ready": (
+            "🎙 <b>Распознанный текст:</b>\n\n"
+            "<code>{text}</code>\n\n"
+            "⬇️ <b>Что сделать с этим текстом?</b>"
+        ),
+        "voice_to_text_empty": "❌ Не удалось распознать речь или запись слишком тихая.",
         "error_occurred": "❌ Произошла ошибка. Попробуйте снова.",
         "fallback_text_prompt": "💡 Пожалуйста, выберите нужный раздел в меню ниже 👇",
         "bot_description": "🤖 Бот для работы с фото и PDF, создание AI слайдов, улучшение качества, удаление фона и AI видео.",
@@ -275,10 +345,11 @@ TEXTS = {
         "welcome_text": (
             "👋 <b>Welcome!</b>\n\n"
             "🛠 I can help you with:\n"
-            "• PDF creation and management\n"
-            "• AI Image Quality Enhancement\n"
-            "• AI Presentation Slides & Image Generation\n"
-            "• 🎬 <b>AI Video Generator</b>\n\n"
+            "• 👔 3x4 Passport & ID Photo Maker\n"
+            "• 🎙 Voice to Text Transcriber (Free)\n"
+            "• 📊 12-Slide AI Presentations\n"
+            "• 🎬 5s HD AI Video Generator with Audio\n"
+            "• 📝 PDF creation, merging & compression\n\n"
             "⬇️ Select an option below:"
         ),
         "btn_profile": "👤 My Profile",
@@ -289,6 +360,7 @@ TEXTS = {
         "btn_upscale": "✨ Upscale Quality (AI)",
         "btn_bg_remove": "🎨 Remove BG",
         "btn_ai_image": "🤖 AI Image Generator",
+        "btn_ocr": "📖 Extract Text (OCR)",
         "btn_ai_video": "🎬 AI Video Generator",
         "btn_ai_slides": "📊 AI Slides Generator",
         "btn_change_lang": "🌐 Change Language",
@@ -321,6 +393,8 @@ TEXTS = {
         "ai_video_refund_notify": "⚠️ <b>An error occurred during video generation.</b>\n💰 Credits refunded to your balance!",
         "top_up_info": (
             "💳 <b>Official Tariffs and Payments:</b>\n\n"
+            "👔 <b>3x4 Passport Photo:</b> 2 credits <i>(1,000 UZS or ⭐️ 10 Stars — 3 free)</i>\n"
+            "🎙 <b>Voice to Text:</b> 100% FREE <i>(Unlimited)</i>\n"
             "🎬 <b>AI Video (1 video):</b> 4 credits <i>(1,500 UZS or ⭐️ 15 Stars — 2 free trial)</i>\n"
             "📊 <b>AI Slides (12 pages):</b> 7 credits <i>(2,000 UZS or ⭐️ 20 Stars — 1st free)</i>\n"
             "🤖 <b>AI Image (1 image):</b> 2 credits <i>(500 UZS or ⭐️ 10 Stars — 7 free)</i>\n"
@@ -395,6 +469,37 @@ TEXTS = {
         "compress_pdf_generating": "⏳ Compressing PDF file, please wait...",
         "compress_pdf_ready": "✅ <b>PDF file successfully compressed!</b>",
         "processing": "⏳ Processing, please wait...",
+        "btn_passport_photo": "👔 3x4 Passport Photo",
+        "btn_voice_to_text": "🎙 Voice to Text",
+        "btn_voice_to_pdf": "📄 Convert to PDF",
+        "btn_voice_to_slides": "📊 12 Slides Presentation",
+        "passport_photo_prompt": (
+            "👔 <b>Create 3x4 Passport & ID Photo</b>\n\n"
+            "🎁 <b>You have 3 free generations!</b>\n\n"
+            "Please send a clear front-facing selfie or portrait photo.\n\n"
+            "<i>The bot cleans the background to white, aligns 3x4 cm proportions, and creates a 6-photo printable sheet (PDF & JPG) and 1 single 3x4 HD photo.</i>"
+        ),
+        "passport_photo_generating": "⏳ Generating 3x4 passport photo, please wait...",
+        "passport_photo_ready": (
+            "✅ <b>Your 3x4 ID Photos are ready!</b>\n\n"
+            "📸 6-photo printable 10x15 cm sheet (JPG)\n"
+            "📄 Printable PDF document\n"
+            "👤 1 single 3x4 HD photo (for HEMIS / online forms)"
+        ),
+        "passport_photo_error": "❌ Face could not be detected or an error occurred. Please try another photo.",
+        "voice_to_text_prompt": (
+            "🎙 <b>Voice to Text Transcriber</b>\n\n"
+            "🎁 <b>This service is 100% FREE!</b>\n\n"
+            "Please send a voice message (Voice) or audio file (mp3, m4a, ogg).\n\n"
+            "<i>Uzbek, Russian, or English speech will be accurately transcribed into text.</i>"
+        ),
+        "voice_to_text_generating": "⏳ Transcribing audio, please wait...",
+        "voice_to_text_ready": (
+            "🎙 <b>Transcribed Text:</b>\n\n"
+            "<code>{text}</code>\n\n"
+            "⬇️ <b>What would you like to do with this text?</b>"
+        ),
+        "voice_to_text_empty": "❌ Could not recognize any speech or audio is too quiet.",
         "error_occurred": "❌ An error occurred. Please try again.",
         "fallback_text_prompt": "💡 Please select a section from the menu below 👇",
         "bot_description": "🤖 Image & PDF tools, AI Slides, AI Upscaling, Background Removal & AI Video bot.",
