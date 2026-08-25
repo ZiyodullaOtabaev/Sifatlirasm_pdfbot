@@ -148,12 +148,7 @@ TEXTS = {
             "<i>Bot fonni tozalab oq qiladi, 3x4 sm o'lchamga moslaydi va chop etishga tayyor 6 talik varaq (PDF va JPG) hamda 1 dona 3x4 HD rasm beradi.</i>"
         ),
         "passport_photo_generating": "⏳ 3x4 hujjat rasmi tayyorlanmoqda, iltimos kuting...",
-        "passport_photo_ready": (
-            "✅ <b>3x4 Hujjat rasmlaringiz tayyor!</b>\n\n"
-            "📸 6 talik chop etishga tayyor 10x15 sm varaq (JPG)\n"
-            "📄 Chop etish uchun PDF hujjat\n"
-            "👤 1 dona toza 3x4 HD rasm (HEMIS / my.gov.uz uchun)"
-        ),
+        "passport_photo_ready": "✅ <b>3x4 Hujjat rasmingiz tayyor!</b>",
         "passport_photo_error": "❌ Rasmda inson yuzi aniqlanmadi yoki qayta ishlashda xatolik yuz berdi. Boshqa rasm bilan urinib ko'ring.",
         "voice_to_text_prompt": (
             "🎙 <b>Ovozni Matnga O'girish (Voice-to-Text)</b>\n\n"
@@ -314,12 +309,7 @@ TEXTS = {
             "<i>Бот сделает белый фон, выровняет пропорции 3x4 и создаст готовый лист на 6 фото для печати (PDF и JPG) и 1 одиночное фото 3x4 HD.</i>"
         ),
         "passport_photo_generating": "⏳ Создается фото 3x4, пожалуйста подождите...",
-        "passport_photo_ready": (
-            "✅ <b>Ваши фото 3x4 готовы!</b>\n\n"
-            "📸 Лист 10x15 см на 6 фото для печати (JPG)\n"
-            "📄 Готовый PDF документ для печати\n"
-            "👤 1 одиночное фото 3x4 HD (для HEMIS / my.gov.uz)"
-        ),
+        "passport_photo_ready": "✅ <b>Ваши фото 3x4 готовы!</b>",
         "passport_photo_error": "❌ Лицо на фото не обнаружено или произошла ошибка. Попробуйте другое фото.",
         "voice_to_text_prompt": (
             "🎙 <b>Перевод Голоса в Текст (Voice-to-Text)</b>\n\n"
@@ -480,12 +470,7 @@ TEXTS = {
             "<i>The bot cleans the background to white, aligns 3x4 cm proportions, and creates a 6-photo printable sheet (PDF & JPG) and 1 single 3x4 HD photo.</i>"
         ),
         "passport_photo_generating": "⏳ Generating 3x4 passport photo, please wait...",
-        "passport_photo_ready": (
-            "✅ <b>Your 3x4 ID Photos are ready!</b>\n\n"
-            "📸 6-photo printable 10x15 cm sheet (JPG)\n"
-            "📄 Printable PDF document\n"
-            "👤 1 single 3x4 HD photo (for HEMIS / online forms)"
-        ),
+        "passport_photo_ready": "✅ <b>Your 3x4 ID Photos are ready!</b>",
         "passport_photo_error": "❌ Face could not be detected or an error occurred. Please try another photo.",
         "voice_to_text_prompt": (
             "🎙 <b>Voice to Text Transcriber</b>\n\n"

@@ -50,7 +50,7 @@ def _process_passport_images(img_bytes: bytes) -> Tuple[bytes, bytes, bytes]:
     """
     Process transparent or cutout portrait into:
     1. single_3x4_jpg: (600x800 px)
-    2. sheet_10x15_jpg: (1800x1200 px at 300 DPI, 6 photos)
+    2. sheet_10x15_jpg: (1800x1200 px at 300 DPI, 6 photos with exact symmetry)
     3. sheet_10x15_pdf: (10x15 cm printable PDF)
     """
     im = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
@@ -66,13 +66,13 @@ def _process_passport_images(img_bytes: bytes) -> Tuple[bytes, bytes, bytes]:
         offset = (w - new_w) // 2
         im_cropped = im.crop((offset, 0, offset + new_w, h))
     else:
-        # Too tall, crop height centered slightly towards top for head/face
+        # Too tall, crop height centered naturally for head and shoulders
         new_h = int(w / target_ratio)
-        top_offset = int((h - new_h) * 0.15)
+        top_offset = int((h - new_h) * 0.10)
         top_offset = max(0, min(top_offset, h - new_h))
         im_cropped = im.crop((0, top_offset, w, top_offset + new_h))
 
-    # Single 3x4 photo (600 x 800)
+    # Single 3x4 photo (600 x 800 px)
     single_photo = Image.new("RGB", (600, 800), (255, 255, 255))
     im_resized = im_cropped.resize((600, 800), Image.Resampling.LANCZOS)
     if im_resized.mode == "RGBA":
@@ -87,22 +87,22 @@ def _process_passport_images(img_bytes: bytes) -> Tuple[bytes, bytes, bytes]:
     sheet = Image.new("RGB", (1800, 1200), (255, 255, 255))
     draw = ImageDraw.Draw(sheet)
 
-    # 6 photos in 2 rows of 3 (each photo 480 x 640 px)
-    p_w, p_h = 480, 640
+    # 6 photos in 2 rows of 3 (each photo 420 x 560 px exact 3:4 ratio)
+    p_w, p_h = 420, 560
     im_grid_photo = single_photo.resize((p_w, p_h), Image.Resampling.LANCZOS)
 
-    start_x = 100
-    spacing_x = 90
-    start_y = 50
-    spacing_y = 50
+    start_x = 135
+    spacing_x = 135
+    start_y = 25
+    spacing_y = 30
 
     for row in range(2):
         for col in range(3):
             px = start_x + col * (p_w + spacing_x)
-            py = start_y + row * (p_h - 180) # compact official placement
+            py = start_y + row * (p_h + spacing_y)
             sheet.paste(im_grid_photo, (px, py))
             # Thin border for cutting
-            draw.rectangle([px - 1, py - 1, px + p_w, py + p_h], outline=(210, 210, 210), width=1)
+            draw.rectangle([px, py, px + p_w, py + p_h], outline=(200, 200, 200), width=1)
 
     sheet_buf = io.BytesIO()
     sheet.save(sheet_buf, format="JPEG", quality=95)
@@ -329,7 +329,8 @@ async def handle_passport_photo_input(message: Message, bot: Bot):
         await bot.send_photo(
             message.chat.id,
             sheet_photo,
-            caption=t("passport_photo_ready", lang)
+            caption=t("passport_photo_ready", lang),
+            parse_mode="HTML"
         )
         await bot.send_document(
             message.chat.id,
@@ -340,7 +341,7 @@ async def handle_passport_photo_input(message: Message, bot: Bot):
         await bot.send_document(
             message.chat.id,
             single_doc,
-            caption="👤 <b>1 dona 3x4 HD hujjat rasmi (HEMIS / my.gov.uz uchun)</b>",
+            caption="👤 <b>1 dona 3x4 HD hujjat rasmi</b>",
             parse_mode="HTML"
         )
 
