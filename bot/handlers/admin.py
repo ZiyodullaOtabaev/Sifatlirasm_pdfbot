@@ -432,10 +432,12 @@ async def _send_active_users_24h(user_id: int, bot: Bot):
     import html
     rows = get_active_users_24h(50)
     lines = []
-    for i, r in enumerate(rows, start=1):
-        uname = f"@{html.escape(r['username'])}" if r["username"] else f"<code>{r['user_id']}</code>"
-        name = html.escape((f"{r['first_name'] or ''} {r['last_name'] or ''}").strip() or "-")
-        t_str = r["updated_at"][11:16] if r.get("updated_at") and len(str(r["updated_at"])) >= 16 else ""
+    for i, row in enumerate(rows, start=1):
+        r = dict(row)
+        uname = f"@{html.escape(r['username'])}" if r.get("username") else f"<code>{r['user_id']}</code>"
+        name = html.escape((f"{r.get('first_name') or ''} {r.get('last_name') or ''}").strip() or "-")
+        updated_at = str(r.get("updated_at") or "")
+        t_str = updated_at[11:16] if len(updated_at) >= 16 else ""
         uses = r.get("uses_count", 0)
         lines.append(f"{i}. {uname} | {name} | <b>{uses} ta</b> | {t_str}")
 
