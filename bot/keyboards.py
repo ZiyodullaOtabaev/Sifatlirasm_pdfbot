@@ -22,6 +22,7 @@ def kb_language() -> InlineKeyboardMarkup:
 
 def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
     """Main menu Reply keyboard (collapsible at the bottom of the screen)."""
+    placeholder = "Kerakli bo'limni tanlang 👇" if lang == "uz" else "Выберите раздел 👇" if lang == "ru" else "Select an option 👇"
     return ReplyKeyboardMarkup(
         keyboard=[
             [
@@ -54,6 +55,7 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
         is_persistent=False,
+        input_field_placeholder=placeholder,
     )
 
 

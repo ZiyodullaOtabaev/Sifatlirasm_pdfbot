@@ -39,6 +39,17 @@ async def main():
     # Start bot profile description worker (monthly active users count)
     asyncio.create_task(update_bot_description_worker(bot))
 
+    # Set bot commands for bottom-left blue Menu button
+    try:
+        from aiogram.types import BotCommand
+        await bot.set_my_commands([
+            BotCommand(command="start", description="🏠 Bosh menyu / Главное меню"),
+            BotCommand(command="profile", description="👤 Profil va Balans / Профиль"),
+            BotCommand(command="admin", description="🛠 Admin panel"),
+        ])
+    except Exception as cmd_err:
+        logger.warning(f"Could not set bot commands: {cmd_err}")
+
     logger.info("Bot is starting...")
     await dp.start_polling(bot)
 
