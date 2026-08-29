@@ -48,11 +48,9 @@ async def _safe_answer(call: CallbackQuery):
         pass
 
 
-@router.callback_query(F.data == "act_ai_slides")
-async def cb_ai_slides(call: CallbackQuery, bot: Bot):
-    """Start AI Slides generation flow."""
-    await _safe_answer(call)
-    user = call.from_user
+async def trigger_ai_slides_flow(event: CallbackQuery | Message, bot: Bot):
+    """Trigger AI Slides creation flow."""
+    user = event.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
@@ -93,6 +91,13 @@ async def cb_ai_slides(call: CallbackQuery, bot: Bot):
         parse_mode="HTML",
         reply_markup=kb_cancel(lang)
     )
+
+
+@router.callback_query(F.data == "act_ai_slides")
+async def cb_ai_slides(call: CallbackQuery, bot: Bot):
+    """Start AI Slides generation flow."""
+    await _safe_answer(call)
+    await trigger_ai_slides_flow(call, bot)
 
 
 @router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_AI_SLIDES)

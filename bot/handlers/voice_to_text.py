@@ -193,11 +193,11 @@ async def _transcribe_audio(audio_path: str) -> str:
         return final_text
 
 
-@router.callback_query(F.data == "act_voice_to_text")
-async def cb_voice_to_text_prompt(call: CallbackQuery, bot: Bot):
-    """Handle Voice to Text menu button."""
-    await _safe_answer(call)
-    user = call.from_user
+async def trigger_voice_to_text_flow(event: CallbackQuery | Message, bot: Bot):
+    """Handle Voice to Text menu initiation."""
+    if isinstance(event, CallbackQuery):
+        await _safe_answer(event)
+    user = event.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
@@ -214,23 +214,16 @@ async def cb_voice_to_text_prompt(call: CallbackQuery, bot: Bot):
     )
 
 
+@router.callback_query(F.data == "act_voice_to_text")
+async def cb_voice_to_text_prompt(call: CallbackQuery, bot: Bot):
+    """Handle Voice to Text menu button."""
+    await trigger_voice_to_text_flow(call, bot)
+
+
 @router.message(Command("voice"))
 async def cmd_voice_to_text(message: Message, bot: Bot):
     """Handle /voice command."""
-    user = message.from_user
-    user_id = user.id
-    upsert_user(user_id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user_id) or "uz"
-
-    if not await enforce_subscription(bot, user_id, lang=lang):
-        return
-
-    set_state(user_id, STATE_WAIT_VOICE_TO_TEXT)
-    await message.answer(
-        t("voice_to_text_prompt", lang),
-        parse_mode="HTML",
-        reply_markup=kb_cancel(lang)
-    )
+    await trigger_voice_to_text_flow(message, bot)
 
 
 @router.message(F.voice | F.audio)

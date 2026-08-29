@@ -182,11 +182,11 @@ async def _remove_background(in_path: str) -> bytes:
     raise RuntimeError("AI background removal timed out")
 
 
-@router.callback_query(F.data == "act_passport_photo")
-async def cb_passport_photo_prompt(call: CallbackQuery, bot: Bot):
-    """Handle 3x4 Passport Photo button click."""
-    await _safe_answer(call)
-    user = call.from_user
+async def trigger_passport_photo_flow(event: CallbackQuery | Message, bot: Bot):
+    """Handle 3x4 Passport Photo initiation flow."""
+    if isinstance(event, CallbackQuery):
+        await _safe_answer(event)
+    user = event.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
@@ -233,6 +233,12 @@ async def cb_passport_photo_prompt(call: CallbackQuery, bot: Bot):
         parse_mode="HTML",
         reply_markup=kb_cancel(lang)
     )
+
+
+@router.callback_query(F.data == "act_passport_photo")
+async def cb_passport_photo_prompt(call: CallbackQuery, bot: Bot):
+    """Handle 3x4 Passport Photo button click."""
+    await trigger_passport_photo_flow(call, bot)
 
 
 @router.message(Command("passport"))

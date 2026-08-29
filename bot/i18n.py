@@ -13,10 +13,10 @@ TEXTS = {
         "welcome_text": (
             "👋 <b>Assalomu alaykum!</b>\n\n"
             "🛠 Men sizga quyidagilarda yordam beraman:\n"
-            "• 👔 3x4 Pasport & Hujjat rasmlari tayyorlash\n"
-            "• 🎙 Ovozli xabarlarni matnga o'girish (Bepul)\n"
             "• 📊 12 betlik professional AI Slaydlar\n"
             "• 🎬 5s HD Ovozli AI Video yaratish\n"
+            "• 👔 3x4 Pasport & Hujjat rasmlari tayyorlash\n"
+            "• 🎙 Ovozli xabarlarni matnga o'girish (Bepul)\n"
             "• 📝 PDF yaratish, birlashtirish va siqish\n\n"
             "⬇️ Kerakli bo'limni tanlang:"
         ),
@@ -26,11 +26,10 @@ TEXTS = {
         "btn_merge_pdf": "📎 PDF birlashtirish",
         "btn_compress_pdf": "🗜 PDF siqish",
         "btn_upscale": "✨ Sifat oshirish (AI)",
-        "btn_bg_remove": "🎨 Fon olib tashlash",
         "btn_ai_image": "🤖 AI rasm yaratish",
-        "btn_ocr": "📖 Matn ajratish (OCR)",
         "btn_ai_video": "🎬 AI Video yaratish",
         "btn_ai_slides": "📊 AI Slayd Yaratish",
+        "btn_donate": "💖 Donat",
         "btn_change_lang": "🌐 Tilni o'zgartirish",
         "btn_home": "🏠 Bosh menyu",
         "btn_top_up": "💳 Balansni to'ldirish",
@@ -40,6 +39,18 @@ TEXTS = {
         "btn_skip": "⏩ O'tkazib yuborish",
         "btn_convert_pdf": "📄 PDF shaklida yuklab olish",
         "btn_admin_pay": "👤 Admin orqali to'lash (@ziyodullame)",
+        "donate_text": (
+            "💖 <b>Bot Rivojiga O'z Hissangizni Qo'shing!</b>\n\n"
+            "Ushbu bot sizga har doim tezkor, qulay va sifatli xizmat ko'rsatishi (AI slaydlar, AI video, 3x4 hujjat rasmi, ovozdan matn, PDF vositalari) hamda bepul imkoniyatlarni saqlab qolish uchun kuchli serverlar va yuqori tezlikdagi AI hisoblash quvvatlari (GPU) talab etiladi.\n\n"
+            "Siz taqdim etgan har qanday ixtiyoriy <b>donat (ehson)</b>:\n"
+            "🚀 <i>Botning ishlash va qayta ishlash tezligini oshirishga;</i>\n"
+            "⚡️ <i>Yangi foydali sun'iy intellekt funksiyalarini joriy etishga;</i>\n"
+            "🛠 <i>Serverlarning 24/7 uzluksiz, barqaror va sifatli ishlashini ta'minlashga xizmat qiladi.</i>\n\n"
+            "💳 <b>Plastik karta (Uzcard):</b>\n"
+            "<code>5614682914822756</code>\n\n"
+            "<i>(Karta raqami ustiga bir marta bossangiz, avtomatik nusxalanadi)</i>\n\n"
+            "E'tiboringiz, ishonchingiz va samimiy qo'llab-quvvatlovingiz uchun chin dildan minnatdormiz! 🙏✨"
+        ),
         "profile_text": (
             "👤 <b>Foydalanuvchi Profili</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
@@ -174,10 +185,10 @@ TEXTS = {
         "welcome_text": (
             "👋 <b>Здравствуйте!</b>\n\n"
             "🛠 Я помогу вам в следующем:\n"
-            "• 👔 Создание фото 3x4 на документы\n"
-            "• 🎙 Перевод голоса в текст (Бесплатно)\n"
             "• 📊 Презентации из 12 слайдов (AI)\n"
             "• 🎬 Создание HD AI видео со звуком\n"
+            "• 👔 Создание фото 3x4 на документы\n"
+            "• 🎙 Перевод голоса в текст (Бесплатно)\n"
             "• 📝 Создание, объединение и сжатие PDF\n\n"
             "⬇️ Выберите нужный раздел:"
         ),
@@ -187,11 +198,10 @@ TEXTS = {
         "btn_merge_pdf": "📎 Объединить PDF",
         "btn_compress_pdf": "🗜 Сжать PDF",
         "btn_upscale": "✨ Улучшить качество (AI)",
-        "btn_bg_remove": "🎨 Удалить фон",
         "btn_ai_image": "🤖 AI Генерация фото",
-        "btn_ocr": "📖 Распознать текст (OCR)",
         "btn_ai_video": "🎬 AI Генерация видео",
         "btn_ai_slides": "📊 AI Создание слайдов",
+        "btn_donate": "💖 Донат",
         "btn_change_lang": "🌐 Сменить язык",
         "btn_home": "🏠 Главное меню",
         "btn_top_up": "💳 Пополнить баланс",
@@ -201,6 +211,18 @@ TEXTS = {
         "btn_skip": "⏩ Пропустить",
         "btn_convert_pdf": "📄 Скачать в формате PDF",
         "btn_admin_pay": "👤 Оплата через админа (@ziyodullame)",
+        "donate_text": (
+            "💖 <b>Поддержите Развитие Проекта!</b>\n\n"
+            "Чтобы бот продолжал работать быстро, стабильно и качественно (AI слайды, AI видео, фото 3x4, голос в текст, PDF инструменты), требуются мощные серверы и высокоскоростные мощности AI (GPU).\n\n"
+            "Каждый ваш добровольный <b>донат</b> напрямую помогает:\n"
+            "🚀 <i>Увеличить скорость обработки запросов в боте;</i>\n"
+            "⚡️ <i>Внедрять новые полезные функции искусственного интеллекта;</i>\n"
+            "🛠 <i>Обеспечивать бесперебойную и надежную работу 24/7.</i>\n\n"
+            "💳 <b>Карта (Uzcard):</b>\n"
+            "<code>5614682914822756</code>\n\n"
+            "<i>(Нажмите на номер карты, чтобы скопировать)</i>\n\n"
+            "Искренне благодарим вас за поддержку и доверие! 🙏✨"
+        ),
         "profile_text": (
             "👤 <b>Профиль пользователя</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
@@ -335,10 +357,10 @@ TEXTS = {
         "welcome_text": (
             "👋 <b>Welcome!</b>\n\n"
             "🛠 I can help you with:\n"
-            "• 👔 3x4 Passport & ID Photo Maker\n"
-            "• 🎙 Voice to Text Transcriber (Free)\n"
             "• 📊 12-Slide AI Presentations\n"
             "• 🎬 5s HD AI Video Generator with Audio\n"
+            "• 👔 3x4 Passport & ID Photo Maker\n"
+            "• 🎙 Voice to Text Transcriber (Free)\n"
             "• 📝 PDF creation, merging & compression\n\n"
             "⬇️ Select an option below:"
         ),
@@ -348,11 +370,10 @@ TEXTS = {
         "btn_merge_pdf": "📎 Merge PDF",
         "btn_compress_pdf": "🗜 Compress PDF",
         "btn_upscale": "✨ Upscale Quality (AI)",
-        "btn_bg_remove": "🎨 Remove BG",
         "btn_ai_image": "🤖 AI Image Generator",
-        "btn_ocr": "📖 Extract Text (OCR)",
         "btn_ai_video": "🎬 AI Video Generator",
         "btn_ai_slides": "📊 AI Slides Generator",
+        "btn_donate": "💖 Donate",
         "btn_change_lang": "🌐 Change Language",
         "btn_home": "🏠 Main Menu",
         "btn_top_up": "💳 Top-up Balance",
@@ -362,6 +383,18 @@ TEXTS = {
         "btn_skip": "⏩ Skip",
         "btn_convert_pdf": "📄 Download as PDF",
         "btn_admin_pay": "👤 Pay via Admin (@ziyodullame)",
+        "donate_text": (
+            "💖 <b>Support the Bot Development!</b>\n\n"
+            "To ensure the bot keeps delivering fast, high-quality, and seamless services (AI slides, AI video, 3x4 passport photos, voice-to-text, PDF tools), high-performance cloud servers and advanced AI GPUs are utilized 24/7.\n\n"
+            "Any voluntary <b>donation</b> directly contributes to:\n"
+            "🚀 <i>Boosting the bot's speed and response time;</i>\n"
+            "⚡️ <i>Implementing brand new cutting-edge AI features;</i>\n"
+            "🛠 <i>Maintaining robust 24/7 server uptime and stability.</i>\n\n"
+            "💳 <b>Card (Uzcard):</b>\n"
+            "<code>5614682914822756</code>\n\n"
+            "<i>(Tap the card number to copy instantly)</i>\n\n"
+            "We deeply appreciate your kindness and generous support! 🙏✨"
+        ),
         "profile_text": (
             "👤 <b>User Profile</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"

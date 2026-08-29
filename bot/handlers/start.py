@@ -9,7 +9,7 @@ from aiogram.types import Message
 
 from bot.database import upsert_user, get_user_language, set_user_language, process_referral
 from bot.i18n import t
-from bot.keyboards import kb_main, kb_language
+from bot.keyboards import kb_main, kb_main_reply, kb_language
 from bot.states import set_state, STATE_NONE
 
 logger = logging.getLogger(__name__)
@@ -41,5 +41,5 @@ async def cmd_start(message: Message, bot: Bot):
 
     lang = get_user_language(user.id) or "uz"
     set_user_language(user.id, lang)
-    await message.answer(t("welcome_text", lang), reply_markup=kb_main(lang), parse_mode="HTML")
+    await message.answer(t("welcome_text", lang), reply_markup=kb_main_reply(lang), parse_mode="HTML")
     logger.info(f"User {user.id} ({user.username}) started bot [lang={lang}]")

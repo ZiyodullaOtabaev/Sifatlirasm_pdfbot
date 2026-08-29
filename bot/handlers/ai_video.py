@@ -159,14 +159,14 @@ AI_VIDEO_FREE_LIMIT = 2
 VIDEO_COST = 4
 
 
-@router.callback_query(F.data == "act_ai_video")
-async def cb_ai_video(call: CallbackQuery, bot: Bot):
+async def trigger_ai_video_flow(event: CallbackQuery | Message, bot: Bot):
     """Show AI Video terms and conditions."""
-    try:
-        await call.answer()
-    except Exception:
-        pass
-    user = call.from_user
+    if isinstance(event, CallbackQuery):
+        try:
+            await event.answer()
+        except Exception:
+            pass
+    user = event.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
@@ -241,6 +241,12 @@ async def cb_ai_video(call: CallbackQuery, bot: Bot):
         parse_mode="HTML",
         reply_markup=kb_ai_video_terms(lang)
     )
+
+
+@router.callback_query(F.data == "act_ai_video")
+async def cb_ai_video(call: CallbackQuery, bot: Bot):
+    """Callback query wrapper for AI Video terms."""
+    await trigger_ai_video_flow(call, bot)
 
 
 @router.callback_query(F.data == "act_start_ai_video")

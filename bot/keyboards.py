@@ -1,7 +1,7 @@
 """
 Inline keyboard markups for the bot with multi-language support.
 """
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 from bot.config import CHANNEL_USER
 from bot.i18n import t
@@ -20,8 +20,45 @@ def kb_language() -> InlineKeyboardMarkup:
     ])
 
 
+def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
+    """Main menu Reply keyboard (collapsible at the bottom of the screen)."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text=t("btn_ai_slides", lang)),
+                KeyboardButton(text=t("btn_ai_video", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_passport_photo", lang)),
+                KeyboardButton(text=t("btn_voice_to_text", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_text_pdf", lang)),
+                KeyboardButton(text=t("btn_img_pdf", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_merge_pdf", lang)),
+                KeyboardButton(text=t("btn_compress_pdf", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_upscale", lang)),
+                KeyboardButton(text=t("btn_ai_image", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_donate", lang)),
+                KeyboardButton(text=t("btn_profile", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_change_lang", lang)),
+            ],
+        ],
+        resize_keyboard=True,
+        is_persistent=False,
+    )
+
+
 def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Main menu keyboard localized."""
+    """Main menu inline keyboard localized."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=t("btn_ai_slides", lang), callback_data="act_ai_slides"),
@@ -41,15 +78,23 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text=t("btn_upscale", lang), callback_data="act_upscale"),
-            InlineKeyboardButton(text=t("btn_bg_remove", lang), callback_data="act_bg_remove"),
-        ],
-        [
             InlineKeyboardButton(text=t("btn_ai_image", lang), callback_data="act_ai_image"),
-            InlineKeyboardButton(text=t("btn_ocr", lang), callback_data="act_ocr"),
         ],
         [
+            InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate"),
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
+        ],
+        [
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
+        ],
+    ])
+
+
+def kb_donate(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Donate keyboard."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
         ],
     ])
 
