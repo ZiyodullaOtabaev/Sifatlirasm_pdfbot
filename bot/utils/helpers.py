@@ -87,14 +87,17 @@ def friendly_error(e: Exception) -> str:
 
 
 async def auto_translate_to_en(text: str) -> str:
-    """Automatically translate Uzbek or Russian prompt to English for AI models."""
+    """Automatically translate Uzbek or Russian prompt to English using Google Translate API."""
     if not text or len(text.strip()) < 2:
         return text
     try:
         import urllib.parse
         import httpx
-        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q={urllib.parse.quote(text)}"
-        async with httpx.AsyncClient(timeout=5) as client:
+        url = (
+            "https://translate.googleapis.com/translate_a/single"
+            f"?client=gtx&sl=auto&tl=en&dt=t&q={urllib.parse.quote(text)}"
+        )
+        async with httpx.AsyncClient(timeout=8.0) as client:
             res = await client.get(url)
             if res.status_code == 200:
                 data = res.json()
@@ -107,44 +110,88 @@ async def auto_translate_to_en(text: str) -> str:
 
 
 async def enhance_video_prompt(user_prompt: str) -> str:
-    """Enhance user prompt into a rich, detailed, cinematic video generation prompt in English."""
+    """
+    Enhance user prompt into a rich, detailed, cinematic English video generation prompt.
+    Uses Llama 3 70B via Replicate with 30s timeout and fallback to simple translation.
+    """
     if not user_prompt or len(user_prompt.strip()) < 2:
         return user_prompt
 
+    from bot.config import REPLICATE_API_TOKEN
+
+    if not REPLICATE_API_TOKEN:
+        return await auto_translate_to_en(user_prompt)
+
     try:
-        import asyncio
-        import replicate
-        from bot.config import REPLICATE_API_TOKEN
+        import httpx
+        import gc
 
-        if REPLICATE_API_TOKEN:
-            client = replicate.Client(api_token=REPLICATE_API_TOKEN)
-            loop = asyncio.get_event_loop()
+        system_prompt = (
+            "You are an expert AI video prompt engineer. "
+            "Translate the input from Uzbek, Russian, or English into English and transform it into a single, "
+            "highly detailed, cinematic video generation prompt for AI video generators. "
+            "Describe subject, background, lighting, camera movement, style and atmosphere. "
+            "Do NOT include conversational text, quotes, or markdown. Output ONLY the raw prompt string."
+        )
 
-            system_prompt = (
-                "You are an expert AI video prompt engineer. "
-                "Translate the input from Uzbek, Russian, or English into English and transform it into a single, "
-                "highly detailed, cinematic, visually breathtaking video generation prompt for AI video generators. "
-                "Describe subject, background, lighting, camera movement, style, and atmospheric details. "
-                "Do NOT include conversational text, quotes, or markdown. Output ONLY the raw enhanced prompt string."
+        payload = {
+            "model": "meta/meta-llama-3-70b-instruct",
+            "input": {
+                "prompt": f"{system_prompt}\nUser Input: {user_prompt}\nEnhanced Prompt:",
+                "max_tokens": 150,
+                "temperature": 0.7,
+            },
+        }
+
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(35.0, connect=10.0)
+        ) as client:
+            create_resp = await client.post(
+                "https://api.replicate.com/v1/predictions",
+                headers={
+                    "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
+                    "Content-Type": "application/json",
+                    "Prefer": "wait",
+                },
+                json=payload,
             )
 
-            output = await loop.run_in_executor(
-                None,
-                lambda: client.run(
-                    "meta/meta-llama-3-70b-instruct",
-                    input={
-                        "prompt": f"{system_prompt}\nUser Input: {user_prompt}\nEnhanced Prompt:",
-                        "max_tokens": 160,
-                        "temperature": 0.7
-                    }
-                )
-            )
+            if create_resp.status_code in (429, 503):
+                # Rate-limited — fall back to simple translation
+                return await auto_translate_to_en(user_prompt)
 
-            enhanced = "".join(output).strip()
-            if len(enhanced) > 15:
-                return enhanced
+            if create_resp.status_code == 200 or create_resp.status_code == 201:
+                prediction = create_resp.json()
+                pred_id = prediction.get("id")
+
+                if prediction.get("status") == "succeeded":
+                    output = prediction.get("output", [])
+                    enhanced = "".join(output).strip()
+                    if len(enhanced) > 15:
+                        gc.collect()
+                        return enhanced
+
+                # Poll quickly for up to 30s
+                for _ in range(15):
+                    await asyncio.sleep(2)
+                    poll = await client.get(
+                        f"https://api.replicate.com/v1/predictions/{pred_id}",
+                        headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"},
+                    )
+                    data = poll.json()
+                    if data.get("status") == "succeeded":
+                        output = data.get("output", [])
+                        enhanced = "".join(output).strip()
+                        if len(enhanced) > 15:
+                            gc.collect()
+                            return enhanced
+                        break
+                    elif data.get("status") in ("failed", "canceled"):
+                        break
+
     except Exception as e:
-        pass
+        import logging
+        logging.getLogger(__name__).warning(f"enhance_video_prompt fallback: {e}")
 
-    # Fallback to simple translation
+    # Fallback to simple Google Translate
     return await auto_translate_to_en(user_prompt)

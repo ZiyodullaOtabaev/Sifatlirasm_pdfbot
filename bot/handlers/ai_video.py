@@ -23,65 +23,136 @@ logger = logging.getLogger(__name__)
 router = Router(name="ai_video")
 
 
-async def _generate_video(prompt: str) -> bytes:
-    """Generate 5-second 720p HD video with synchronized AI audio using Replicate API."""
-    import replicate
+async def _call_replicate_with_retry(model: str, input_data: dict, max_retries: int = 3) -> dict:
+    """
+    Create a Replicate prediction and poll until complete.
+    Auto-retries on 429 (rate limit) and timeout errors with exponential back-off.
+    Returns the final prediction dict.
+    """
     import httpx
 
-    client = replicate.Client(api_token=REPLICATE_API_TOKEN)
-    loop = asyncio.get_event_loop()
-
-    # Step 1: Generate 5-second 720p HD video (121 frames) via LTX-Video
-    output = await loop.run_in_executor(
-        None,
-        lambda: client.run(
-            "lightricks/ltx-video:8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4",
-            input={
-                "prompt": prompt,
-                "aspect_ratio": "16:9",
-                "num_frames": 121,
-                "negative_prompt": "low quality, worst quality, deformed, distorted, watermark"
-            }
-        )
+    headers = {
+        "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
+        "Content-Type": "application/json",
+        "Prefer": "wait",
+    }
+    payload = (
+        {"version": model.split(":")[1], "input": input_data}
+        if ":" in model
+        else {"model": model, "input": input_data}
     )
 
+    for attempt in range(1, max_retries + 1):
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=15.0)) as client:
+                create_resp = await client.post(
+                    "https://api.replicate.com/v1/predictions",
+                    headers=headers,
+                    json=payload,
+                )
+
+                if create_resp.status_code == 429:
+                    wait = 6 * attempt
+                    logger.warning(f"Replicate 429 rate-limit on attempt {attempt}. Waiting {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+
+                create_resp.raise_for_status()
+                prediction = create_resp.json()
+                pred_id = prediction.get("id")
+
+                if prediction.get("status") in ("succeeded", "failed", "canceled"):
+                    return prediction
+
+                # Poll until complete (max 180 seconds)
+                for _ in range(90):
+                    await asyncio.sleep(2)
+                    poll = await client.get(
+                        f"https://api.replicate.com/v1/predictions/{pred_id}",
+                        headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"},
+                    )
+                    poll.raise_for_status()
+                    data = poll.json()
+                    s = data.get("status")
+                    if s == "succeeded":
+                        return data
+                    elif s in ("failed", "canceled"):
+                        raise RuntimeError(f"Replicate prediction {s}: {data.get('error', '')}")
+
+                raise RuntimeError("Prediction timed out after 180 seconds")
+
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+            if attempt < max_retries:
+                wait = 5 * attempt
+                logger.warning(f"Timeout attempt {attempt}/{max_retries}. Retrying in {wait}s: {e}")
+                await asyncio.sleep(wait)
+            else:
+                raise RuntimeError(
+                    f"AI xizmati {max_retries} marta urinishdan keyin ham javob bermadi. "
+                    f"Keyinroq qaytib urinib ko'ring."
+                )
+
+    raise RuntimeError("Replicate prediction failed after all retries")
+
+
+async def _extract_url(output) -> str:
+    """Extract URL string from various Replicate output formats."""
+    if isinstance(output, (list, tuple)) and output:
+        output = output[0]
+    if hasattr(output, "url"):
+        return str(output.url)
+    return str(output)
+
+
+async def _generate_video(prompt: str) -> bytes:
+    """
+    Generate 5-second 720p HD video with synchronized AI audio.
+    Uses async polling with 180s timeout and 3x auto-retry on rate-limit/timeout.
+    """
+    import httpx
+    import gc
+
+    # Step 1: Generate video via LTX-Video
+    video_prediction = await _call_replicate_with_retry(
+        model="lightricks/ltx-video:8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4",
+        input_data={
+            "prompt": prompt,
+            "aspect_ratio": "16:9",
+            "num_frames": 121,
+            "negative_prompt": "low quality, worst quality, deformed, distorted, watermark",
+        },
+    )
+
+    output = video_prediction.get("output")
     if not output:
         raise RuntimeError("AI Video generation model did not return output.")
 
-    video_url = output[0] if isinstance(output, (list, tuple)) and len(output) > 0 else output
-    if hasattr(video_url, 'url'):
-        video_url = video_url.url
-    video_url = str(video_url)
+    video_url = await _extract_url(output)
 
-    # Step 2: Add synchronized AI audio / sound effects via MMAudio
-    audio_video_url = None
+    # Step 2: Add synchronized AI audio (MMAudio) — optional, skip if fails
+    audio_video_url: Optional[str] = None
     try:
-        audio_output = await loop.run_in_executor(
-            None,
-            lambda: client.run(
-                "zsxkib/mmaudio:62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484",
-                input={
-                    "video": video_url,
-                    "prompt": prompt,
-                    "duration": 5
-                }
-            )
+        audio_prediction = await _call_replicate_with_retry(
+            model="zsxkib/mmaudio:62871fb59889b2d7c13777f08deb3b36bdff88f7e1d53a50ad7694548a41b484",
+            input_data={"video": video_url, "prompt": prompt, "duration": 5},
+            max_retries=2,
         )
-        if audio_output:
-            if isinstance(audio_output, (list, tuple)) and len(audio_output) > 0:
-                audio_output = audio_output[0]
-            if hasattr(audio_output, 'url'):
-                audio_output = audio_output.url
-            audio_video_url = str(audio_output)
+        audio_out = audio_prediction.get("output")
+        if audio_out:
+            audio_video_url = await _extract_url(audio_out)
     except Exception as e:
-        logger.warning(f"MMAudio audio synthesis fallback: {e}")
+        logger.warning(f"MMAudio fallback (audio step skipped): {e}")
 
     final_url = audio_video_url or video_url
-    resp = httpx.get(final_url, timeout=120, follow_redirects=True)
-    if resp.status_code == 200:
-        return resp.content
 
-    raise RuntimeError("Could not download generated AI Video file.")
+    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+        resp = await client.get(final_url)
+        if resp.status_code == 200:
+            data = resp.content
+            gc.collect()  # free memory after large file download
+            return data
+
+    raise RuntimeError("AI Video faylini yuklab bo'lmadi.")
 
 
 AI_VIDEO_FREE_LIMIT = 2

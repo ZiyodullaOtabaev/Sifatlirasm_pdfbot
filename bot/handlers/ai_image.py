@@ -26,43 +26,109 @@ AI_IMAGE_FREE_LIMIT = 7
 AI_IMAGE_COST = 2
 
 
+async def _call_replicate_with_retry(model: str, input_data: dict, timeout: int = 180, max_retries: int = 3) -> dict:
+    """
+    Create a Replicate prediction and poll until done.
+    Auto-retries on 429 (rate limit) and timeout errors.
+    Returns the final prediction dict.
+    """
+    import httpx
+
+    headers = {
+        "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
+        "Content-Type": "application/json",
+        "Prefer": "wait",
+    }
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=15.0)) as client:
+                # Create prediction
+                create_resp = await client.post(
+                    "https://api.replicate.com/v1/predictions",
+                    headers=headers,
+                    json={"version": model.split(":")[1] if ":" in model else model, "input": input_data}
+                    if ":" in model else
+                    {"model": model, "input": input_data},
+                )
+
+                if create_resp.status_code == 429:
+                    wait = 5 * attempt
+                    logger.warning(f"Replicate 429 rate limit. Waiting {wait}s before retry {attempt}/{max_retries}")
+                    await asyncio.sleep(wait)
+                    continue
+
+                create_resp.raise_for_status()
+                prediction = create_resp.json()
+                pred_id = prediction.get("id")
+
+                if prediction.get("status") in ("succeeded", "failed", "canceled"):
+                    return prediction
+
+                # Poll until complete
+                for _ in range(90):  # up to 90 * 2s = 180s
+                    await asyncio.sleep(2)
+                    poll_resp = await client.get(
+                        f"https://api.replicate.com/v1/predictions/{pred_id}",
+                        headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"},
+                    )
+                    poll_resp.raise_for_status()
+                    poll_data = poll_resp.json()
+                    status = poll_data.get("status")
+                    if status == "succeeded":
+                        return poll_data
+                    elif status in ("failed", "canceled"):
+                        raise RuntimeError(f"Replicate prediction {status}: {poll_data.get('error', '')}")
+
+                raise RuntimeError("Replicate prediction timed out after 180 seconds")
+
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.TimeoutException) as e:
+            if attempt < max_retries:
+                wait = 4 * attempt
+                logger.warning(f"Timeout on attempt {attempt}/{max_retries}. Waiting {wait}s: {e}")
+                await asyncio.sleep(wait)
+            else:
+                raise RuntimeError(f"AI xizmati {max_retries} ta urinishdan keyin ham javob bermadi. Keyinroq qaytib urinib ko'ring.")
+
+    raise RuntimeError("Replicate prediction failed after all retries")
+
+
+async def _extract_url_from_output(output) -> str:
+    """Extract the URL string from various Replicate output formats."""
+    if isinstance(output, (list, tuple)) and len(output) > 0:
+        output = output[0]
+    if hasattr(output, 'url'):
+        return str(output.url)
+    return str(output)
+
+
 async def _generate_image(prompt: str) -> bytes:
-    """Generate image using Flux Schnell via Replicate."""
-    import replicate
+    """Generate image using Flux Schnell via Replicate with robust retry logic."""
+    import httpx
 
-    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
-
-    loop = asyncio.get_event_loop()
-    output = await loop.run_in_executor(
-        None,
-        lambda: replicate.run(
-            "black-forest-labs/flux-schnell",
-            input={
-                "prompt": prompt,
-                "num_outputs": 1,
-                "aspect_ratio": "1:1",
-                "output_format": "png",
-                "output_quality": 90,
-            }
-        )
+    prediction = await _call_replicate_with_retry(
+        model="black-forest-labs/flux-schnell",
+        input_data={
+            "prompt": prompt,
+            "num_outputs": 1,
+            "aspect_ratio": "1:1",
+            "output_format": "png",
+            "output_quality": 90,
+        }
     )
 
-    if output:
-        import httpx
-        if isinstance(output, list):
-            for item in output:
-                if hasattr(item, 'read'):
-                    return item.read()
-                elif isinstance(item, str):
-                    resp = httpx.get(item, follow_redirects=True)
-                    return resp.content
-        elif hasattr(output, 'read'):
-            return output.read()
-        elif isinstance(output, str):
-            resp = httpx.get(output, follow_redirects=True)
+    output = prediction.get("output")
+    if not output:
+        raise RuntimeError("AI rasm generatsiya natija qaytarmadi")
+
+    img_url = await _extract_url_from_output(output)
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.get(img_url, follow_redirects=True)
+        if resp.status_code == 200:
             return resp.content
 
-    raise RuntimeError("AI rasm generatsiya natija qaytarmadi")
+    raise RuntimeError("AI rasm faylini yuklab bo'lmadi")
 
 
 @router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_AI_IMAGE)
