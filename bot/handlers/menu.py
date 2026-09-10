@@ -12,8 +12,7 @@ from bot.i18n import t
 from bot.keyboards import kb_main, kb_main_reply, kb_subscribe, kb_cancel, kb_language
 from bot.states import (
     get_state, set_state, STATE_NONE, STATE_WAIT_TEXT,
-    STATE_WAIT_IMG_PDF, STATE_WAIT_UPSCALE, STATE_WAIT_PDF_MERGE,
-    STATE_WAIT_AI_IMAGE, STATE_WAIT_COMPRESS_PDF,
+    STATE_WAIT_IMG_PDF, STATE_WAIT_PDF_MERGE, STATE_WAIT_COMPRESS_PDF,
 )
 
 logger = logging.getLogger(__name__)
@@ -271,20 +270,6 @@ async def cb_img_pdf(call: CallbackQuery, bot: Bot):
                            reply_markup=kb_cancel(lang))
 
 
-@router.callback_query(F.data == "act_upscale")
-async def cb_upscale(call: CallbackQuery, bot: Bot):
-    """Start upscale flow."""
-    await _safe_answer(call)
-    user = call.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user.id) or "uz"
-    if not await enforce_subscription(bot, user.id, lang):
-        return
-    set_state(user.id, STATE_WAIT_UPSCALE)
-    await bot.send_message(user.id, t("upscale_prompt", lang),
-                           parse_mode="HTML", reply_markup=kb_cancel(lang))
-
-
 @router.callback_query(F.data == "act_merge_pdf")
 async def cb_merge_pdf(call: CallbackQuery, bot: Bot):
     """Start PDF merge flow."""
@@ -311,23 +296,6 @@ async def cb_compress_pdf(call: CallbackQuery, bot: Bot):
     set_state(user.id, STATE_WAIT_COMPRESS_PDF)
     await bot.send_message(user.id, t("compress_pdf_prompt", lang),
                            reply_markup=kb_cancel(lang))
-
-
-@router.callback_query(F.data == "act_ai_image")
-async def cb_ai_image(call: CallbackQuery, bot: Bot):
-    """Start AI image generation flow."""
-    await _safe_answer(call)
-    user = call.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user.id) or "uz"
-    if not await enforce_subscription(bot, user.id, lang):
-        return
-    set_state(user.id, STATE_WAIT_AI_IMAGE)
-    await bot.send_message(
-        user.id,
-        t("ai_image_prompt", lang),
-        parse_mode="HTML", reply_markup=kb_cancel(lang)
-    )
 
 
 @router.callback_query(F.data == "act_donate")
@@ -442,48 +410,6 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
             return
         set_state(user_id, STATE_WAIT_COMPRESS_PDF)
         await message.answer(t("compress_pdf_prompt", lang), reply_markup=kb_cancel(lang), parse_mode="HTML")
-        return
-
-    # 8. Upscale
-    if any(text == t("btn_upscale", l) for l in ("uz", "ru", "en")) or "sifat oshirish" in text.lower() or "улучшить" in text.lower() or "upscale" in text.lower():
-        upsert_user(user_id, user.username, user.first_name, user.last_name)
-        if not await enforce_subscription(bot, user_id, lang):
-            return
-        set_state(user_id, STATE_WAIT_UPSCALE)
-        await message.answer(t("upscale_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
-        return
-
-    # 9. AI Image
-    if any(text == t("btn_ai_image", l) for l in ("uz", "ru", "en")) or "ai rasm" in text.lower() or "генерация фото" in text.lower() or "ai image" in text.lower():
-        upsert_user(user_id, user.username, user.first_name, user.last_name)
-        if not await enforce_subscription(bot, user_id, lang):
-            return
-        set_state(user_id, STATE_WAIT_AI_IMAGE)
-        await message.answer(t("ai_image_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
-        return
-
-    # 10. AI Slides
-    if any(text == t("btn_ai_slides", l) for l in ("uz", "ru", "en")) or "slayd" in text.lower() or "слайд" in text.lower() or "presentation" in text.lower():
-        from bot.handlers.ai_slides import trigger_ai_slides_flow
-        await trigger_ai_slides_flow(message, bot)
-        return
-
-    # 11. AI Video
-    if any(text == t("btn_ai_video", l) for l in ("uz", "ru", "en")) or "video" in text.lower() or "видео" in text.lower():
-        from bot.handlers.ai_video import trigger_ai_video_flow
-        await trigger_ai_video_flow(message, bot)
-        return
-
-    # 12. 3x4 Passport Photo
-    if any(text == t("btn_passport_photo", l) for l in ("uz", "ru", "en")) or "3x4" in text:
-        from bot.handlers.passport_photo import trigger_passport_photo_flow
-        await trigger_passport_photo_flow(message, bot)
-        return
-
-    # 13. Voice to text
-    if any(text == t("btn_voice_to_text", l) for l in ("uz", "ru", "en")) or "ovozdan" in text.lower() or "голос" in text.lower() or "voice" in text.lower():
-        from bot.handlers.voice_to_text import trigger_voice_to_text_flow
-        await trigger_voice_to_text_flow(message, bot)
         return
 
     # Default Fallback

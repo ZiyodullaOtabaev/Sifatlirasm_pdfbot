@@ -124,10 +124,10 @@ async def update_bot_description_worker(bot):
         desc = t("bot_description", "uz")
         short_desc = t("bot_short_description", "uz")
 
-        await bot.set_my_name(name="PDF & AI Video Bot")
+        await bot.set_my_name(name="Sifatli PDF Bot")
         await bot.set_my_description(description=desc)
         await bot.set_my_short_description(short_description=short_desc)
-        logger.info("Updated bot profile name and description cleanly (removed user count)")
+        logger.info("Updated bot profile name and description cleanly (Sifatli PDF Bot)")
     except Exception as e:
         logger.warning(f"Could not update bot profile description: {e}")
 

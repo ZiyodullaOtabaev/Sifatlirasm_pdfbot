@@ -26,24 +26,12 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text=t("btn_ai_slides", lang)),
-                KeyboardButton(text=t("btn_ai_video", lang)),
-            ],
-            [
-                KeyboardButton(text=t("btn_passport_photo", lang)),
-                KeyboardButton(text=t("btn_voice_to_text", lang)),
-            ],
-            [
                 KeyboardButton(text=t("btn_text_pdf", lang)),
                 KeyboardButton(text=t("btn_img_pdf", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_merge_pdf", lang)),
                 KeyboardButton(text=t("btn_compress_pdf", lang)),
-            ],
-            [
-                KeyboardButton(text=t("btn_upscale", lang)),
-                KeyboardButton(text=t("btn_ai_image", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_donate", lang)),
@@ -63,24 +51,12 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
     """Main menu inline keyboard localized."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text=t("btn_ai_slides", lang), callback_data="act_ai_slides"),
-            InlineKeyboardButton(text=t("btn_ai_video", lang), callback_data="act_ai_video"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_passport_photo", lang), callback_data="act_passport_photo"),
-            InlineKeyboardButton(text=t("btn_voice_to_text", lang), callback_data="act_voice_to_text"),
-        ],
-        [
             InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
             InlineKeyboardButton(text=t("btn_img_pdf", lang), callback_data="act_img_pdf"),
         ],
         [
             InlineKeyboardButton(text=t("btn_merge_pdf", lang), callback_data="act_merge_pdf"),
             InlineKeyboardButton(text=t("btn_compress_pdf", lang), callback_data="act_compress_pdf"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_upscale", lang), callback_data="act_upscale"),
-            InlineKeyboardButton(text=t("btn_ai_image", lang), callback_data="act_ai_image"),
         ],
         [
             InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate"),
@@ -247,12 +223,7 @@ def kb_top_up(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
     admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🎬 1 Video (15 ⭐)", callback_data="buy_stars_video_1"),
-            InlineKeyboardButton(text="📊 1 Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
-        ],
-        [
-            InlineKeyboardButton(text="🎬 5 Video (65 ⭐)", callback_data="buy_stars_video_5"),
-            InlineKeyboardButton(text="📊 5 Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
+            InlineKeyboardButton(text="💎 1-Year VIP Pass (50 ⭐)", callback_data="buy_stars_img_pdf_1yr"),
         ],
         [
             InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),

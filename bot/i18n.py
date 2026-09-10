@@ -12,12 +12,12 @@ TEXTS = {
         "lang_selected": "✅ Til muvaffaqiyatli tanlandi: <b>O'zbekcha</b> 🇺🇿",
         "welcome_text": (
             "👋 <b>Assalomu alaykum!</b>\n\n"
-            "🛠 Men sizga quyidagilarda yordam beraman:\n"
-            "• 📊 12 betlik professional AI Slaydlar\n"
-            "• 🎬 5s HD Ovozli AI Video yaratish\n"
-            "• 👔 3x4 Pasport & Hujjat rasmlari tayyorlash\n"
-            "• 🎙 Ovozli xabarlarni matnga o'girish (Bepul)\n"
-            "• 📝 PDF yaratish, birlashtirish va siqish\n\n"
+            "🛠 <b>PDF Asboblar Botiga Xush Kelibsiz!</b>\n"
+            "Men sizga barcha turdagi PDF hujjatlar bilan ishlashda yordam beraman:\n\n"
+            "• 📝 <b>Matn → PDF</b> — Matnlarni chiroyli PDF hujjatga aylantirish\n"
+            "• 🖼 <b>Rasm → PDF</b> — Rasmlardan sifatli va tartibli PDF yaratish\n"
+            "• 📎 <b>PDF birlashtirish</b> — Bir nechta faylni bitta PDF qilish\n"
+            "• 🗜 <b>PDF siqish</b> — Sifatni saqlagan holda fayl hajmini kichraytirish\n\n"
             "⬇️ Kerakli bo'limni tanlang:"
         ),
         "btn_profile": "👤 Mening profilim",
@@ -41,10 +41,10 @@ TEXTS = {
         "btn_admin_pay": "👤 Admin orqali to'lash (@ziyodullame)",
         "donate_text": (
             "💖 <b>Bot Rivojiga O'z Hissangizni Qo'shing!</b>\n\n"
-            "Ushbu bot sizga har doim tezkor, qulay va sifatli xizmat ko'rsatishi (AI slaydlar, AI video, 3x4 hujjat rasmi, ovozdan matn, PDF vositalari) hamda bepul imkoniyatlarni saqlab qolish uchun kuchli serverlar va yuqori tezlikdagi AI hisoblash quvvatlari (GPU) talab etiladi.\n\n"
+            "Ushbu bot sizga har doim tezkor, qulay va sifatli PDF xizmatlarini ko'rsatishi hamda bepul imkoniyatlarni saqlab qolish uchun serverlar 24/7 to'xtovsiz ishlaydi.\n\n"
             "Siz taqdim etgan har qanday ixtiyoriy <b>donat (ehson)</b>:\n"
             "🚀 <i>Botning ishlash va qayta ishlash tezligini oshirishga;</i>\n"
-            "⚡️ <i>Yangi foydali sun'iy intellekt funksiyalarini joriy etishga;</i>\n"
+            "⚡️ <i>Yangi foydali PDF va hujjat funksiyalarini joriy etishga;</i>\n"
             "🛠 <i>Serverlarning 24/7 uzluksiz, barqaror va sifatli ishlashini ta'minlashga xizmat qiladi.</i>\n\n"
             "💳 <b>Plastik karta (Uzcard):</b>\n"
             "<code>5614682914822756</code>\n\n"
@@ -67,17 +67,15 @@ TEXTS = {
             "👥 Jami taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>\n\n"
             "👇 Do'stlaringizga ulashish uchun pastdagi tugmani bosing:"
         ),
-        "referral_share_msg": "🤖 Zo'r AI Video, Slayd va PDF botini topdim! Siz ham sinab ko'ring:",
+        "referral_share_msg": "🤖 Eng qulay va sifatli PDF botini topdim! Siz ham sinab ko'ring:",
         "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi!</b>\n🎁 Sizga <b>+1 kredit bonus</b> berildi!",
-        "ai_video_refund_notify": "⚠️ <b>Video yaratishda xatolik yuz berdi.</b>\n💰 Kredit balansingizga qaytarildi!",
+        "ai_video_refund_notify": "⚠️ <b>Xatolik yuz berdi.</b>\n💰 Kredit balansingizga qaytarildi!",
         "top_up_info": (
-            "💳 <b>Rasmiy Xizmat Tariflari va To'lovlar:</b>\n\n"
-            "👔 <b>3x4 Hujjat Rasmi:</b> 2 kredit <i>(1 000 so'm yoki ⭐️ 10 Stars — 3 ta bepul)</i>\n"
-            "🎙 <b>Ovozdan Matn:</b> 100% BEPUL <i>(Cheksiz)</i>\n"
-            "🎬 <b>AI Video (1 ta):</b> 4 kredit <i>(1 500 so'm yoki ⭐️ 15 Stars — 2 ta bepul)</i>\n"
-            "📊 <b>AI Slayd (12 bet):</b> 7 kredit <i>(2 000 so'm yoki ⭐️ 20 Stars — 1-si bepul)</i>\n"
-            "🤖 <b>AI Rasm (1 ta):</b> 2 kredit <i>(500 so'm yoki ⭐️ 10 Stars — 7 ta bepul)</i>\n"
-            "🖼 <b>Rasm ➡️ PDF:</b> 1 Yillik Cheksiz Pass <i>(5 000 so'm yoki ⭐️ 50 Stars — 50 ta bepul)</i>\n\n"
+            "💳 <b>Rasmiy Xizmat Tariflari va VIP Pass:</b>\n\n"
+            "🖼 <b>Rasm ➡️ PDF 1 Yillik VIP Pass:</b> 5 000 so'm yoki ⭐️ 50 Stars <i>(50 ta bepul)</i>\n"
+            "📝 <b>Matn ➡️ PDF:</b> 100% BEPUL\n"
+            "📎 <b>PDF Birlashtirish:</b> 100% BEPUL\n"
+            "🗜 <b>PDF Siqish:</b> 100% BEPUL\n\n"
             "⭐️ <b>Telegram Stars</b> orqali pastdagi tugmalar bilan 1 soniyada to'lashingiz mumkin!\n"
             "💳 <b>Karta orqali to'lash</b> uchun admin @ziyodullame ga murojaat qiling 👇"
         ),
@@ -176,20 +174,20 @@ TEXTS = {
         "voice_to_text_empty": "❌ Ovozdan matn ajratib bo'lmadi yoki audio juda past/qisqa.",
         "error_occurred": "❌ Xatolik yuz berdi. Qayta urinib ko'ring.",
         "fallback_text_prompt": "💡 Iltimos, pastdagi menyudan kerakli bo'limni tanlang 👇",
-        "bot_description": "🤖 Rasmlar va PDF hujjatchalar bilan ishlash, AI Slayd, AI sifat oshirish, fon olib tashlash va AI Video bot.",
-        "bot_short_description": "⚡️ PDF & AI Video Bot",
+        "bot_description": "🤖 Rasmlar va matnlarni PDF qilish, PDF fayllarni birlashtirish va hajmini sifatli siqish boti.",
+        "bot_short_description": "⚡️ Sifatli PDF Bot",
     },
     "ru": {
         "lang_select_prompt": "🌐 <b>Пожалуйста, выберите язык / Please select a language:</b>",
         "lang_selected": "✅ Язык успешно выбран: <b>Русский</b> 🇷🇺",
         "welcome_text": (
             "👋 <b>Здравствуйте!</b>\n\n"
-            "🛠 Я помогу вам в следующем:\n"
-            "• 📊 Презентации из 12 слайдов (AI)\n"
-            "• 🎬 Создание HD AI видео со звуком\n"
-            "• 👔 Создание фото 3x4 на документы\n"
-            "• 🎙 Перевод голоса в текст (Бесплатно)\n"
-            "• 📝 Создание, объединение и сжатие PDF\n\n"
+            "🛠 <b>Добро пожаловать в PDF Инструменты!</b>\n"
+            "Я помогу вам быстро и удобно работать с PDF документами:\n\n"
+            "• 📝 <b>Текст → PDF</b> — Конвертация текста в аккуратный PDF документ\n"
+            "• 🖼 <b>Фото → PDF</b> — Создание качественного PDF из ваших фото\n"
+            "• 📎 <b>Объединить PDF</b> — Слияние нескольких файлов в один PDF\n"
+            "• 🗜 <b>Сжать PDF</b> — Уменьшение размера файлов без потери качества\n\n"
             "⬇️ Выберите нужный раздел:"
         ),
         "btn_profile": "👤 Мой профиль",
@@ -213,10 +211,10 @@ TEXTS = {
         "btn_admin_pay": "👤 Оплата через админа (@ziyodullame)",
         "donate_text": (
             "💖 <b>Поддержите Развитие Проекта!</b>\n\n"
-            "Чтобы бот продолжал работать быстро, стабильно и качественно (AI слайды, AI видео, фото 3x4, голос в текст, PDF инструменты), требуются мощные серверы и высокоскоростные мощности AI (GPU).\n\n"
+            "Чтобы бот продолжал работать быстро, стабильно и качественно, а все базовые PDF инструменты оставались доступными 24/7, требуются ресурсы надежных серверов.\n\n"
             "Каждый ваш добровольный <b>донат</b> напрямую помогает:\n"
-            "🚀 <i>Увеличить скорость обработки запросов в боте;</i>\n"
-            "⚡️ <i>Внедрять новые полезные функции искусственного интеллекта;</i>\n"
+            "🚀 <i>Увеличить скорость конвертации и обработки в боте;</i>\n"
+            "⚡️ <i>Внедрять новые полезные функции для работы с документами;</i>\n"
             "🛠 <i>Обеспечивать бесперебойную и надежную работу 24/7.</i>\n\n"
             "💳 <b>Карта (Uzcard):</b>\n"
             "<code>5614682914822756</code>\n\n"
@@ -239,17 +237,15 @@ TEXTS = {
             "👥 Всего приглашено: <b>{referral_count} чел.</b>\n\n"
             "👇 Нажмите кнопку ниже, чтобы поделиться ссылкой:"
         ),
-        "referral_share_msg": "🤖 Нашел отличного бота для создания AI видео, презентаций и PDF! Попробуй:",
+        "referral_share_msg": "🤖 Нашел отличного и быстрого PDF бота! Попробуй:",
         "referral_bonus_notify": "🎉 <b>Новый друг присоединился по вашей ссылке!</b>\n🎁 Вам начислен <b>+1 кредит бонус</b>!",
-        "ai_video_refund_notify": "⚠️ <b>Ошибка при создании видео.</b>\n💰 Кредиты возвращены на ваш баланс!",
+        "ai_video_refund_notify": "⚠️ <b>Произошла ошибка.</b>\n💰 Кредиты возвращены на ваш баланс!",
         "top_up_info": (
-            "💳 <b>Официальные Тарифы и Оплата Услуг:</b>\n\n"
-            "👔 <b>Фото 3x4 на Документы:</b> 2 кредита <i>(1 000 сум или ⭐️ 10 Stars — 3 бесплатно)</i>\n"
-            "🎙 <b>Голос в Текст:</b> 100% БЕСПЛАТНО <i>(Безлимит)</i>\n"
-            "🎬 <b>AI Видео (1 шт):</b> 4 кредита <i>(1 500 сум или ⭐️ 15 Stars — 2 бесплатно)</i>\n"
-            "📊 <b>AI Слайды (12 стр):</b> 7 кредитов <i>(2 000 сум или ⭐️ 20 Stars — 1-я бесплатно)</i>\n"
-            "🤖 <b>AI Фото (1 шт):</b> 2 кредита <i>(500 сум или ⭐️ 10 Stars — 7 бесплатно)</i>\n"
-            "🖼 <b>Фото ➡️ PDF:</b> Безлимит на 1 год <i>(5 000 сум или ⭐️ 50 Stars — 50 бесплатно)</i>\n\n"
+            "💳 <b>Официальные Тарифы и VIP Pass:</b>\n\n"
+            "🖼 <b>Фото ➡️ PDF VIP Pass на 1 год:</b> 5 000 сум или ⭐️ 50 Stars <i>(50 бесплатно)</i>\n"
+            "📝 <b>Текст ➡️ PDF:</b> 100% БЕСПЛАТНО\n"
+            "📎 <b>Объединение PDF:</b> 100% БЕСПЛАТНО\n"
+            "🗜 <b>Сжатие PDF:</b> 100% БЕСПЛАТНО\n\n"
             "⭐️ Оплата через <b>Telegram Stars</b> моментально по кнопкам ниже!\n"
             "💳 Для оплаты картой напишите админу @ziyodullame 👇"
         ),
@@ -348,20 +344,20 @@ TEXTS = {
         "voice_to_text_empty": "❌ Не удалось распознать речь или запись слишком тихая.",
         "error_occurred": "❌ Произошла ошибка. Попробуйте снова.",
         "fallback_text_prompt": "💡 Пожалуйста, выберите нужный раздел в меню ниже 👇",
-        "bot_description": "🤖 Бот для работы с фото и PDF, создание AI слайдов, улучшение качества, удаление фона и AI видео.",
-        "bot_short_description": "⚡️ PDF & AI Video Bot",
+        "bot_description": "🤖 Бот для конвертации фото и текста в PDF, объединения файлов и качественного сжатия PDF.",
+        "bot_short_description": "⚡️ Sifatli PDF Bot",
     },
     "en": {
         "lang_select_prompt": "🌐 <b>Please select a language:</b>",
         "lang_selected": "✅ Language successfully set to: <b>English</b> 🇬🇧",
         "welcome_text": (
             "👋 <b>Welcome!</b>\n\n"
-            "🛠 I can help you with:\n"
-            "• 📊 12-Slide AI Presentations\n"
-            "• 🎬 5s HD AI Video Generator with Audio\n"
-            "• 👔 3x4 Passport & ID Photo Maker\n"
-            "• 🎙 Voice to Text Transcriber (Free)\n"
-            "• 📝 PDF creation, merging & compression\n\n"
+            "🛠 <b>Welcome to PDF Toolkit Bot!</b>\n"
+            "I can assist you with all your PDF document needs:\n\n"
+            "• 📝 <b>Text → PDF</b> — Convert text into neatly formatted PDF documents\n"
+            "• 🖼 <b>Image → PDF</b> — Convert single or album images into crisp PDFs\n"
+            "• 📎 <b>Merge PDF</b> — Combine multiple PDF files into one\n"
+            "• 🗜 <b>Compress PDF</b> — Reduce PDF file size without sacrificing quality\n\n"
             "⬇️ Select an option below:"
         ),
         "btn_profile": "👤 My Profile",
@@ -385,10 +381,10 @@ TEXTS = {
         "btn_admin_pay": "👤 Pay via Admin (@ziyodullame)",
         "donate_text": (
             "💖 <b>Support the Bot Development!</b>\n\n"
-            "To ensure the bot keeps delivering fast, high-quality, and seamless services (AI slides, AI video, 3x4 passport photos, voice-to-text, PDF tools), high-performance cloud servers and advanced AI GPUs are utilized 24/7.\n\n"
+            "To ensure the bot continues to provide ultra-fast, convenient, and reliable PDF services while keeping core features 100% accessible 24/7, high-performance cloud servers are maintained.\n\n"
             "Any voluntary <b>donation</b> directly contributes to:\n"
-            "🚀 <i>Boosting the bot's speed and response time;</i>\n"
-            "⚡️ <i>Implementing brand new cutting-edge AI features;</i>\n"
+            "🚀 <i>Boosting the bot's processing and conversion speed;</i>\n"
+            "⚡️ <i>Developing new useful PDF and document tools;</i>\n"
             "🛠 <i>Maintaining robust 24/7 server uptime and stability.</i>\n\n"
             "💳 <b>Card (Uzcard):</b>\n"
             "<code>5614682914822756</code>\n\n"
@@ -411,17 +407,15 @@ TEXTS = {
             "👥 Total invited friends: <b>{referral_count} users</b>\n\n"
             "👇 Click the button below to share with friends:"
         ),
-        "referral_share_msg": "🤖 Found an amazing AI Video, Slides and PDF bot! Try it out:",
+        "referral_share_msg": "🤖 Found an amazing and fast PDF bot! Try it out:",
         "referral_bonus_notify": "🎉 <b>A new friend joined using your link!</b>\n🎁 You received a <b>+1 credit bonus</b>!",
-        "ai_video_refund_notify": "⚠️ <b>An error occurred during video generation.</b>\n💰 Credits refunded to your balance!",
+        "ai_video_refund_notify": "⚠️ <b>An error occurred.</b>\n💰 Credits refunded to your balance!",
         "top_up_info": (
-            "💳 <b>Official Tariffs and Payments:</b>\n\n"
-            "👔 <b>3x4 Passport Photo:</b> 2 credits <i>(1,000 UZS or ⭐️ 10 Stars — 3 free)</i>\n"
-            "🎙 <b>Voice to Text:</b> 100% FREE <i>(Unlimited)</i>\n"
-            "🎬 <b>AI Video (1 video):</b> 4 credits <i>(1,500 UZS or ⭐️ 15 Stars — 2 free trial)</i>\n"
-            "📊 <b>AI Slides (12 pages):</b> 7 credits <i>(2,000 UZS or ⭐️ 20 Stars — 1st free)</i>\n"
-            "🤖 <b>AI Image (1 image):</b> 2 credits <i>(500 UZS or ⭐️ 10 Stars — 7 free)</i>\n"
-            "🖼 <b>Image ➡️ PDF:</b> 1-Year Unlimited Pass <i>(5,000 UZS or ⭐️ 50 Stars — 50 free)</i>\n\n"
+            "💳 <b>Official Tariffs and VIP Pass:</b>\n\n"
+            "🖼 <b>Image ➡️ PDF 1-Year VIP Pass:</b> 5,000 UZS or ⭐️ 50 Stars <i>(50 free)</i>\n"
+            "📝 <b>Text ➡️ PDF:</b> 100% FREE\n"
+            "📎 <b>Merge PDF:</b> 100% FREE\n"
+            "🗜 <b>Compress PDF:</b> 100% FREE\n\n"
             "⭐️ Instant top-up via <b>Telegram Stars</b> using the buttons below!\n"
             "💳 To pay via Card/Admin, contact @ziyodullame 👇"
         ),
@@ -520,8 +514,8 @@ TEXTS = {
         "voice_to_text_empty": "❌ Could not recognize any speech or audio is too quiet.",
         "error_occurred": "❌ An error occurred. Please try again.",
         "fallback_text_prompt": "💡 Please select a section from the menu below 👇",
-        "bot_description": "🤖 Image & PDF tools, AI Slides, AI Upscaling, Background Removal & AI Video bot.",
-        "bot_short_description": "⚡️ PDF & AI Video Bot",
+        "bot_description": "🤖 Fast image and text to PDF conversion, PDF merging and high quality PDF compression bot.",
+        "bot_short_description": "⚡️ Sifatli PDF Bot",
     },
 }
 
