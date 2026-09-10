@@ -1,12 +1,9 @@
 """
-Image processing utilities: AI upscale via Replicate, smart scan, compress PDF.
+Image processing utilities: upscale (local), smart scan, compress PDF.
 """
 import os
-import io
-import base64
 import logging
 import subprocess
-import asyncio
 
 try:
     import cv2
@@ -18,135 +15,38 @@ from PIL import Image
 
 from bot.config import (
     ENABLE_REAL_AI, REAL_ESRGAN_BIN, REAL_ESRGAN_MODELS,
-    REPLICATE_API_TOKEN, UPSCALE_TARGET_HEIGHT,
 )
 
 logger = logging.getLogger(__name__)
 
 
 # ======================
-#   AI UPSCALE (Replicate API)
+#   UPSCALE (local)
 # ======================
 
 async def ai_upscale(in_path: str, out_path: str) -> bool:
     """
-    AI orqali rasmni sifatini oshirish.
+    Rasm sifatini oshirish (to'liq bepul, lokal).
     Tartib:
-      1. Replicate API (agar token mavjud)
-      2. Real-ESRGAN ncnn binary (agar mavjud)
-      3. Pillow LANCZOS (fallback)
-    
+      1. Real-ESRGAN ncnn binary (agar o'rnatilgan bo'lsa)
+      2. Pillow LANCZOS (fallback)
+
     Returns True if successful.
     """
-    # 1-usul: Replicate API
-    if REPLICATE_API_TOKEN:
-        try:
-            success = await _replicate_upscale(in_path, out_path)
-            if success:
-                logger.info("AI upscale via Replicate API - success")
-                return True
-        except Exception as e:
-            logger.warning(f"Replicate API error: {e}")
-
-    # 2-usul: Real-ESRGAN ncnn binary
+    # 1-usul: Real-ESRGAN ncnn binary (lokal, offline)
     if ENABLE_REAL_AI and REAL_ESRGAN_BIN:
         try:
             success = _try_realesrgan_binary(in_path, out_path)
             if success:
-                logger.info("AI upscale via Real-ESRGAN binary - success")
+                logger.info("Upscale via Real-ESRGAN binary - success")
                 return True
         except Exception as e:
             logger.warning(f"Real-ESRGAN binary error: {e}")
 
-    # 3-usul: Pillow LANCZOS fallback
+    # 2-usul: Pillow LANCZOS fallback
     _pillow_upscale(in_path, out_path)
     logger.info("Upscale via Pillow LANCZOS (fallback)")
     return True
-
-
-async def _replicate_upscale(in_path: str, out_path: str) -> bool:
-    """Replicate API orqali Real-ESRGAN upscale."""
-    import replicate
-
-    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
-
-    # Rasmni o'qish va hajmini aniqlash
-    img = Image.open(in_path)
-    width, height = img.size
-
-    # Scale faktorni hisoblash (maqsad: 1080p balandlik)
-    target_h = UPSCALE_TARGET_HEIGHT
-    if height >= target_h:
-        # Allaqachon yetarli sifatda — 2x upscale qilish
-        scale = 2
-    elif height <= 360:
-        # Juda past sifat — 4x
-        scale = 4
-    else:
-        # O'rtacha — kerakli scale'ni hisoblash
-        needed_scale = target_h / height
-        if needed_scale <= 2:
-            scale = 2
-        else:
-            scale = 4
-
-    # Rasmni base64 ga o'girish yoki fayl sifatida yuborish
-    with open(in_path, "rb") as f:
-        image_data = f.read()
-
-    # Replicate API ni async loop'dan chaqirish
-    loop = asyncio.get_event_loop()
-    output = await loop.run_in_executor(
-        None,
-        lambda: replicate.run(
-            "nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa",
-            input={
-                "image": io.BytesIO(image_data),
-                "scale": scale,
-                "face_enhance": False,
-            }
-        )
-    )
-
-    # Natijani saqlash
-    if output:
-        # output FileOutput yoki URL bo'lishi mumkin
-        if hasattr(output, 'read'):
-            # FileOutput object
-            image_bytes = output.read()
-        elif isinstance(output, str):
-            # URL — yuklab olish
-            import httpx
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(output, follow_redirects=True)
-                image_bytes = resp.content
-        else:
-            # Iterator yoki list
-            image_bytes = b""
-            for chunk in output:
-                if isinstance(chunk, bytes):
-                    image_bytes += chunk
-                elif isinstance(chunk, str):
-                    import httpx
-                    resp = httpx.get(chunk, follow_redirects=True)
-                    image_bytes = resp.content
-                    break
-
-        if image_bytes:
-            # Agar maqsad 1080p bo'lsa, resize qilish
-            result_img = Image.open(io.BytesIO(image_bytes))
-            result_w, result_h = result_img.size
-
-            if result_h > target_h:
-                # Proportional resize to target height
-                ratio = target_h / result_h
-                new_w = int(result_w * ratio)
-                result_img = result_img.resize((new_w, target_h), Image.LANCZOS)
-
-            result_img.save(out_path, quality=95, optimize=True)
-            return True
-
-    return False
 
 
 # ======================

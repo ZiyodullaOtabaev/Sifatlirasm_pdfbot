@@ -1,5 +1,5 @@
 """
-AI Presentation / Slide Generation Handler (Paid feature via python-pptx).
+Presentation / Slide Generation Handler (100% free, via python-pptx).
 Supports Visual Template Gallery with photo previews, 12-Slide Standard Deck,
 Author Metadata, References, and PPTX-to-PDF conversion.
 """
@@ -12,14 +12,11 @@ from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
 
 from bot.database import (
     upsert_user,
-    get_user_balance,
-    deduct_user_balance,
     inc_uses_and_log,
-    get_user_language,
-    has_user_used_free_slide
+    get_user_language
 )
 from bot.i18n import t
-from bot.keyboards import kb_cancel, kb_top_up, kb_top_up_slides, kb_template_gallery, kb_slide_result, kb_author_skip
+from bot.keyboards import kb_cancel, kb_template_gallery, kb_slide_result, kb_author_skip
 from bot.states import get_state, set_state, STATE_WAIT_AI_SLIDES, STATE_WAIT_SLIDE_AUTHOR, STATE_NONE
 from bot.handlers.menu import show_main_menu
 from bot.utils.slides_generator import (
@@ -38,8 +35,6 @@ USER_SLIDE_DATA: Dict[int, Dict[str, str]] = {}
 USER_GALLERY_INDEX: Dict[int, int] = {}
 FILE_THEME_CACHE: Dict[str, str] = {}
 
-SLIDE_COST = 7
-
 
 async def _safe_answer(call: CallbackQuery):
     try:
@@ -55,39 +50,11 @@ async def trigger_ai_slides_flow(event: CallbackQuery | Message, bot: Bot):
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
 
-    used_trial = has_user_used_free_slide(user_id)
-    cost = 0 if not used_trial else SLIDE_COST
-
-    balance = get_user_balance(user_id)
-    if cost > 0 and balance < cost:
-        await bot.send_message(
-            user_id,
-            t("ai_slides_insufficient_balance", lang, balance=balance),
-            parse_mode="HTML",
-            reply_markup=kb_top_up_slides(lang)
-        )
-        return
-
-    if not used_trial:
-        if lang == "ru":
-            trial_text = "🎁 <b>У вас есть 1 БЕСПЛАТНАЯ пробная презентация!</b> (0 кредитов)"
-        elif lang == "en":
-            trial_text = "🎁 <b>You have 1 FREE trial presentation!</b> (0 credits)"
-        else:
-            trial_text = "🎁 <b>Sizda 1 ta BEPUL sinov taqdimoti bor!</b> (0 kredit)"
-    else:
-        if lang == "ru":
-            trial_text = "📌 Стоимость презентации: <b>7 кредитов (2 000 сум или ⭐️ 20 Stars)</b>"
-        elif lang == "en":
-            trial_text = "📌 Presentation price: <b>7 credits (2,000 UZS or ⭐️ 20 Stars)</b>"
-        else:
-            trial_text = "📌 Taqdimot narxi: <b>7 kredit (2 000 so'm yoki ⭐️ 20 Stars)</b>"
-
     USER_SLIDE_DATA[user_id] = {}
     set_state(user_id, STATE_WAIT_AI_SLIDES)
     await bot.send_message(
         user_id,
-        t("ai_slides_prompt", lang, balance=balance, trial_text=trial_text),
+        t("ai_slides_prompt", lang),
         parse_mode="HTML",
         reply_markup=kb_cancel(lang)
     )
@@ -107,19 +74,6 @@ async def handle_ai_slides_topic(message: Message, bot: Bot):
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
-
-    used_trial = has_user_used_free_slide(user_id)
-    cost = 0 if not used_trial else SLIDE_COST
-
-    balance = get_user_balance(user_id)
-    if cost > 0 and balance < cost:
-        await message.answer(
-            t("ai_slides_insufficient_balance", lang, balance=balance),
-            parse_mode="HTML",
-            reply_markup=kb_top_up(lang)
-        )
-        set_state(user_id, STATE_NONE)
-        return
 
     topic = message.text.strip()
     if not topic:
@@ -189,7 +143,7 @@ async def _send_gallery_item(bot: Bot, user_id: int, index: int, lang: str = "uz
         f"🖼 <b>Shablon {index + 1}/{total_count}: {theme_info['name']}</b>\n\n"
         f"📌 Mavzu: <b>{topic[:60]}</b>\n"
         f"👤 Muallif: <b>{author[:40]}</b>\n"
-        f"📄 Slaydlar soni: <b>12 bet (FLUX AI Rasmlari bilan)</b>\n\n"
+        f"📄 Slaydlar soni: <b>12 bet</b>\n\n"
         f"👇 Shablonlarni ko'rish uchun strelkalardan foydalaning:"
     )
 
@@ -237,7 +191,7 @@ async def cb_gallery_nav(call: CallbackQuery, bot: Bot):
         f"🖼 <b>Shablon {new_index + 1}/{total_count}: {theme_info['name']}</b>\n\n"
         f"📌 Mavzu: <b>{topic[:60]}</b>\n"
         f"👤 Muallif: <b>{author[:40]}</b>\n"
-        f"📄 Slaydlar soni: <b>12 bet (FLUX AI Rasmlari bilan)</b>\n\n"
+        f"📄 Slaydlar soni: <b>12 bet</b>\n\n"
         f"👇 Shablonlarni ko'rish uchun strelkalardan foydalaning:"
     )
 
@@ -262,7 +216,7 @@ async def cb_gallery_nav(call: CallbackQuery, bot: Bot):
 
 @router.callback_query(F.data.startswith("gallery_select_"))
 async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
-    """Handle template selection from gallery, generate 12-slide PPTX with FLUX AI images, deduct cost, and send file."""
+    """Handle template selection from gallery, generate free 12-slide PPTX and send file."""
     await _safe_answer(call)
     user = call.from_user
     user_id = user.id
@@ -273,20 +227,6 @@ async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
     topic = data.get("topic", "Taqdimot")
     author_name = data.get("author", "")
     institution = data.get("institution", "")
-
-    used_trial = has_user_used_free_slide(user_id)
-    cost = 0 if not used_trial else SLIDE_COST
-
-    balance = get_user_balance(user_id)
-    if cost > 0 and balance < cost:
-        await bot.send_message(
-            user_id,
-            t("ai_slides_insufficient_balance", lang, balance=balance),
-            parse_mode="HTML",
-            reply_markup=kb_top_up_slides(lang)
-        )
-        set_state(user_id, STATE_NONE)
-        return
 
     status = await bot.send_message(user_id, t("ai_slides_generating", lang))
     pptx_path = None
@@ -299,23 +239,15 @@ async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
             institution=institution
         )
 
-        # Deduct cost only after successful generation
-        if cost > 0:
-            deduct_user_balance(user_id, cost)
         inc_uses_and_log(user_id, "ai_slides")
 
-        remaining = get_user_balance(user_id)
         theme_title = SLIDE_THEMES.get(theme_name, {}).get("name", theme_name)
-
-        cost_notice = "🎁 <b>1-Sinov taqdimotingiz BEPUL berildi!</b>" if cost == 0 else f"💰 Yechildi: <b>7 kredit</b> | Qolgan balans: <b>{remaining} kredit</b>"
 
         caption = (
             f"📊 <b>{topic[:60]}</b>\n"
-            f"🤖 AI Engine: <b>Google Gemini & FLUX AI</b>\n"
             f"🎨 Shablon: <b>{theme_title}</b>\n"
             f"👤 Muallif: <b>{author_name or 'Mutaxassis'}</b>\n"
-            f"📄 Slaydlar: <b>12 bet (FLUX AI Rasmlari bilan)</b>\n\n"
-            f"{cost_notice}"
+            f"📄 Slaydlar: <b>12 bet</b>"
         )
 
         file_id = os.path.basename(pptx_path).replace(".pptx", "")
@@ -329,18 +261,14 @@ async def cb_select_gallery_template(call: CallbackQuery, bot: Bot):
             parse_mode="HTML",
             reply_markup=kb_slide_result(lang, file_id)
         )
-        logger.info(f"User {user_id}: generated 12-slide presentation '{topic}' [theme={theme_name}] (cost={cost} credits)")
+        logger.info(f"User {user_id}: generated 12-slide presentation '{topic}' [theme={theme_name}]")
 
     except Exception as e:
         logger.error(f"AI Slides generation error for user {user_id}: {e}")
-        # Kredit ayirilgan bo'lsa qaytarish
-        if cost > 0:
-            from bot.database import add_user_balance
-            add_user_balance(user_id, cost)
         from bot.utils.helpers import friendly_error
         await bot.send_message(
             user_id,
-            f"❌ {friendly_error(e)}\n\n💰 <b>Kredit balansingizga qaytarildi!</b>",
+            f"❌ {friendly_error(e)}",
             parse_mode="HTML"
         )
     finally:

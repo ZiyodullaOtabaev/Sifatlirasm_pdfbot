@@ -1,13 +1,12 @@
 """
-AI Presentation / Slide Generator using python-pptx.
+Presentation / Slide Generator using python-pptx.
 Supports 10 Prestigious Academic Template Themes (Harvard, Oxford, Cambridge, Nature, Stanford),
-Deep AI Content Generation (Llama-3/Gemini), FLUX AI Real Image Generation & Insertion,
 Assertion-Evidence (A-E) Model Headlining, Academic Header & Footer Ribbons,
 Standard 12-Slide Deck architecture, and PPTX to PDF conversion.
+100% offline & free — no external paid API services.
 """
 import os
 import uuid
-import json
 import logging
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
@@ -119,132 +118,15 @@ SLIDE_THEMES = {
 THEME_KEYS = list(SLIDE_THEMES.keys())
 
 
-def generate_deep_ai_slides_content(topic: str) -> Optional[dict]:
-    """
-    Generate deeply researched, 100% topic-tailored Uzbek academic slide content using AI LLM.
-    Returns parsed JSON dictionary or None if generation fails.
-    """
-    token = os.getenv("REPLICATE_API_TOKEN", "")
-    if not token:
-        return None
-
-    prompt = f"""You are a distinguished university professor and academic researcher. Create a deeply researched, highly specific 12-slide academic presentation structure in UZBEK language (Latin script) for the topic: "{topic}".
-
-Do NOT use generic text or placeholders. Provide real facts, specific numbers/statistics, real academic laws/sources, and precise terminology about "{topic}".
-
-Return ONLY a raw valid JSON object (no markdown backticks, no text before or after):
-{{
-  "slide2_text": "2-sentence deep academic overview of {topic}.",
-  "slide2_points": ["Fact 1 with details", "Fact 2 with details", "Fact 3 with details"],
-  "slide2_metric": {{"title": "🎯 Qamrov", "val": "98.4%", "desc": "Academic metric"}},
-  
-  "slide3_agenda": [
-    ["01", "Subtopic 1"],
-    ["02", "Subtopic 2"],
-    ["03", "Subtopic 3"],
-    ["04", "Subtopic 4"],
-    ["05", "Subtopic 5"]
-  ],
-
-  "slide4_title": "📚 3. Nazariy Asoslar: Assertion headline about {topic}",
-  "slide4_text": "Deep theoretical foundation...",
-  "slide4_points": ["Theory concept 1", "Theory concept 2", "Theory concept 3"],
-  "slide4_metric": {{"title": "📖 Standart", "val": "IEEE/ISO", "desc": "Academic standard"}},
-
-  "slide5_title": "⚠️ 4. Dolzarb Muammolar: Assertion headline about challenges",
-  "slide5_text": "Detailed analysis of current obstacles...",
-  "slide5_points": ["Real problem 1", "Real problem 2", "Real problem 3"],
-  "slide5_metric": {{"title": "🛑 Risk Tahlili", "val": "High Focus", "desc": "Critical risk"}},
-
-  "slide6_title": "📊 5. Atrofli Tahlil: Assertion headline about stats",
-  "slide6_text": "Data analysis breakdown...",
-  "slide6_points": ["Specific statistic 1", "Specific statistic 2", "Specific statistic 3"],
-  "slide6_metric": {{"title": "📈 O'sish Sur'ati", "val": "+42.5%", "desc": "Metric trend"}},
-
-  "slide7_title": "💼 6. Amaliy Tajriba: Assertion headline about case studies",
-  "slide7_text": "Real case studies in Uzbekistan or global practice...",
-  "slide7_points": ["Case study 1", "Case study 2", "Case study 3"],
-  "slide7_metric": {{"title": "🏢 Amaliyot", "val": "96.8%", "desc": "Implementation rate"}},
-
-  "slide8_title": "⚡️ 7. Asosiy Afzalliklar: Assertion headline about benefits",
-  "slide8_text": "Concrete benefits and technological impact...",
-  "slide8_points": ["Advantage 1", "Advantage 2", "Advantage 3"],
-  "slide8_metric": {{"title": "🚀 Samara", "val": "4.5x Tezroq", "desc": "Efficiency multiplier"}},
-
-  "slide9_title": "💡 8. Strategik Tavsiyalar: Assertion headline about solutions",
-  "slide9_text": "Step-by-step action plan and recommendations...",
-  "slide9_points": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
-  "slide9_metric": {{"title": "📝 Dastur", "val": "Action Plan", "desc": "Roadmap"}},
-
-  "slide10_title": "🌐 9. Kelajak Istiqbollari: Assertion headline about future",
-  "slide10_text": "Future outlook, trends, and AI integration...",
-  "slide10_points": ["Future trend 1", "Future trend 2", "Future trend 3"],
-  "slide10_metric": {{"title": "🔮 Istiqbol", "val": "Vision 2030", "desc": "Long term target"}},
-
-  "slide11_sources": [
-    "1. Specific law or academic journal 1",
-    "2. Specific academic book or monograph 2",
-    "3. Specific research report or statistical bulletin 3",
-    "4. Specific official government or international report 4"
-  ]
-}}
-"""
-
-    try:
-        import replicate
-        logger.info(f"Calling LLM for deep topic-tailored content: '{topic}'")
-        out = replicate.run(
-            "meta/meta-llama-3-70b-instruct",
-            input={"prompt": prompt, "max_tokens": 2500, "temperature": 0.3}
-        )
-        raw_text = "".join(out).strip()
-        if "```" in raw_text:
-            parts = raw_text.split("```")
-            raw_text = parts[1] if len(parts) > 1 else raw_text
-            if raw_text.startswith("json"):
-                raw_text = raw_text[4:].strip()
-        
-        # Clean control characters that break JSON parsing
-        raw_text = raw_text.replace("\n", " ").replace("\r", " ")
-        parsed = json.loads(raw_text, strict=False)
-        logger.info(f"Successfully generated deep AI content for topic: '{topic}'")
-        return parsed
-    except Exception as e:
-        logger.warning(f"AI content generation fallback: {e}")
-        return None
-
-
 def generate_ai_slide_image(prompt_text: str, download_dir: str = "downloads") -> Optional[str]:
     """
-    Generate an HD topic illustration using Replicate API (FLUX/SDXL) or high-res PIL visual artwork card.
+    Generate a high-res local PIL visual artwork card for the given topic.
     Returns filepath of generated PNG image suitable for python-pptx.
     """
     os.makedirs(download_dir, exist_ok=True)
     out_file = os.path.join(download_dir, f"ai_img_{uuid.uuid4().hex[:8]}.png")
 
-    replicate_token = os.getenv("REPLICATE_API_TOKEN", "")
-    if replicate_token:
-        try:
-            import replicate
-            import io
-            logger.info(f"Generating FLUX AI image for slide topic: '{prompt_text}'")
-            output = replicate.run(
-                "black-forest-labs/flux-1-schnell",
-                input={"prompt": f"Academic illustration of {prompt_text}, clean vector graphic, professional high quality"}
-            )
-            if output and len(output) > 0:
-                import httpx
-                img_url = str(output[0])
-                resp = httpx.get(img_url, timeout=20)
-                if resp.status_code == 200:
-                    img_bytes = io.BytesIO(resp.content)
-                    im = Image.open(img_bytes).convert("RGB")
-                    im.save(out_file, "PNG")
-                    return os.path.abspath(out_file)
-        except Exception as e:
-            logger.warning(f"Replicate AI image generation fallback: {e}")
-
-    # High-Res Artwork Graphic Card Fallback (Saved as PNG)
+    # High-Res Artwork Graphic Card (Saved as PNG)
     try:
         w, h = 600, 800
         img = Image.new("RGB", (w, h), (30, 41, 59))
@@ -296,8 +178,8 @@ def generate_template_preview_image(theme_name: str, download_dir: str = "downlo
 
     # Draw sample bullet points inside preview card
     draw.text((90, 175), "• 12 Betli Standart Akademik & Konferensiya Slaydi", fill=body_rgb)
-    draw.text((90, 215), "• Deep Gemini AI Bilan Yozilgan Aniq Faktlar", fill=body_rgb)
-    draw.text((90, 255), "• Metrika Kartalari va FLUX AI Illyustratsiyalari", fill=body_rgb)
+    draw.text((90, 215), "• Akademik Darajadagi Aniq Faktlar", fill=body_rgb)
+    draw.text((90, 255), "• Metrika Kartalari va Illyustratsiyalar", fill=body_rgb)
     draw.text((90, 295), "• Rasmiy Adabiyotlar hamda Manbalar Ro'yxati", fill=body_rgb)
 
     # Draw right badge box
@@ -324,7 +206,7 @@ def create_presentation_slides(
 ) -> str:
     """
     Generate an ultra-professional 12-slide standard academic presentation PPTX file.
-    Follows Harvard & MIT Assertion-Evidence (A-E) model with deep Gemini AI content & FLUX AI images.
+    Follows Harvard & MIT Assertion-Evidence (A-E) model with standard academic template content.
     Returns absolute filepath of generated .pptx file.
     """
     os.makedirs(download_dir, exist_ok=True)
@@ -340,14 +222,14 @@ def create_presentation_slides(
     author_display = author_name if author_name else "Abdulla Abdullayev"
     institution_display = institution if institution else "Oliy va O'rta Maxsus Ta'lim Muassasasi"
 
-    # Generate deep AI topic-specific presentation content
-    ai_content = generate_deep_ai_slides_content(topic)
+    # Standart shablon kontenti (100% offline, bepul)
+    ai_content = None
 
-    # Generate FLUX AI topic illustrations for Slide 4 and Slide 7
+    # Mavzuga mos illyustratsiya kartochkalari (lokal PIL)
     ai_img_1 = generate_ai_slide_image(topic)
     ai_img_2 = generate_ai_slide_image(f"{topic} analysis")
 
-    # Construct 12-Slide Deck with Deep AI Content if available
+    # Construct 12-Slide Deck with template content
     if ai_content:
         slide2_data = {
             "text": ai_content.get("slide2_text", f"Ushbu taqdimot '{topic}' mavzusini har tomonlama tahlil qiladi."),

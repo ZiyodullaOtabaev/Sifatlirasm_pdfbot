@@ -8,8 +8,6 @@ services:
     envVars:
       - key: BOT_TOKEN
         sync: false
-      - key: REPLICATE_API_TOKEN
-        sync: false
       - key: ADMIN_ID
         sync: false
       - key: CHANNEL_USER

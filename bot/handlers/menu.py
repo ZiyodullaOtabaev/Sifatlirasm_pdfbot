@@ -13,7 +13,7 @@ from bot.keyboards import kb_main, kb_main_reply, kb_subscribe, kb_cancel, kb_la
 from bot.states import (
     get_state, set_state, STATE_NONE, STATE_WAIT_TEXT,
     STATE_WAIT_IMG_PDF, STATE_WAIT_UPSCALE, STATE_WAIT_PDF_MERGE,
-    STATE_WAIT_AI_IMAGE, STATE_WAIT_COMPRESS_PDF,
+    STATE_WAIT_COMPRESS_PDF,
 )
 
 logger = logging.getLogger(__name__)
@@ -226,47 +226,8 @@ async def cb_img_pdf(call: CallbackQuery, bot: Bot):
     if not await enforce_subscription(bot, user_id, lang):
         return
 
-    from bot.database import get_user_img_pdf_count, has_active_img_pdf_pass
-    from bot.keyboards import kb_top_up_img_pdf
-
-    has_pass = has_active_img_pdf_pass(user_id)
-    cnt = get_user_img_pdf_count(user_id)
-
-    if not has_pass and cnt >= 50:
-        if lang == "ru":
-            limit_msg = (
-                "🖼 <b>Фото ➡️ PDF (Безлимит на 1 год)</b>\n\n"
-                "📌 Вы использовали все <b>50 бесплатных</b> конвертаций.\n\n"
-                "Чтобы использовать эту функцию <b>БЕЗЛИМИТНО в течение 1 ГОДА (365 дней)</b>, оплатите <b>5 000 сум (или ⭐️ 50 Stars)</b> 👇"
-            )
-        elif lang == "en":
-            limit_msg = (
-                "🖼 <b>Image ➡️ PDF (1-Year Unlimited Pass)</b>\n\n"
-                "📌 You have used all <b>50 free</b> conversions.\n\n"
-                "To use this feature <b>UNLIMITED for 1 YEAR (365 days)</b>, purchase the pass for <b>5,000 UZS (or ⭐️ 50 Stars)</b> 👇"
-            )
-        else:
-            limit_msg = (
-                "🖼 <b>Rasm ➡️ PDF (1 Yillik Cheksiz Pass)</b>\n\n"
-                "📌 Siz dastlabki <b>50 ta bepul</b> rasmni PDF qilish limitidan to'liq foydalandingiz.\n\n"
-                "Buyog'iga ushbu xizmatni <b>1 YIL (365 kun) davomida BUTUNLAY CHEKSIZ</b> ishlatish uchun <b>5 000 so'm (yoki ⭐️ 50 Stars)</b> to'lov qiling 👇"
-            )
-        await bot.send_message(
-            user_id,
-            limit_msg,
-            parse_mode="HTML",
-            reply_markup=kb_top_up_img_pdf(lang)
-        )
-        return
-
-    status_note = ""
-    if has_pass:
-        status_note = "\n\n💎 <i>(1-Годовой VIP Pass активен!)</i>" if lang == "ru" else "\n\n💎 <i>(1-Year VIP Pass active!)</i>" if lang == "en" else "\n\n💎 <i>(Sizda 1 Yillik Cheksiz VIP Pass faol!)</i>"
-    else:
-        status_note = f"\n\n🎁 <i>(Бесплатный лимит: {cnt}/50)</i>" if lang == "ru" else f"\n\n🎁 <i>(Free trial: {cnt}/50)</i>" if lang == "en" else f"\n\n🎁 <i>(Bepul limit: {cnt}/50)</i>"
-
     set_state(user_id, STATE_WAIT_IMG_PDF)
-    await bot.send_message(user_id, t("img_pdf_prompt", lang) + status_note,
+    await bot.send_message(user_id, t("img_pdf_prompt", lang),
                            parse_mode="HTML",
                            reply_markup=kb_cancel(lang))
 
@@ -311,23 +272,6 @@ async def cb_compress_pdf(call: CallbackQuery, bot: Bot):
     set_state(user.id, STATE_WAIT_COMPRESS_PDF)
     await bot.send_message(user.id, t("compress_pdf_prompt", lang),
                            reply_markup=kb_cancel(lang))
-
-
-@router.callback_query(F.data == "act_ai_image")
-async def cb_ai_image(call: CallbackQuery, bot: Bot):
-    """Start AI image generation flow."""
-    await _safe_answer(call)
-    user = call.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user.id) or "uz"
-    if not await enforce_subscription(bot, user.id, lang):
-        return
-    set_state(user.id, STATE_WAIT_AI_IMAGE)
-    await bot.send_message(
-        user.id,
-        t("ai_image_prompt", lang),
-        parse_mode="HTML", reply_markup=kb_cancel(lang)
-    )
 
 
 @router.callback_query(F.data == "act_donate")
@@ -388,42 +332,9 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
         upsert_user(user_id, user.username, user.first_name, user.last_name)
         if not await enforce_subscription(bot, user_id, lang):
             return
-        from bot.database import get_user_img_pdf_count, has_active_img_pdf_pass
-        from bot.keyboards import kb_top_up_img_pdf
-
-        has_pass = has_active_img_pdf_pass(user_id)
-        cnt = get_user_img_pdf_count(user_id)
-
-        if not has_pass and cnt >= 50:
-            if lang == "ru":
-                limit_msg = (
-                    "🖼 <b>Фото ➡️ PDF (Безлимит на 1 год)</b>\n\n"
-                    "📌 Вы использовали все <b>50 бесплатных</b> конвертаций.\n\n"
-                    "Чтобы использовать эту функцию <b>БЕЗЛИМИТНО в течение 1 ГОДА (365 дней)</b>, оплатите <b>5 000 сум (или ⭐️ 50 Stars)</b> 👇"
-                )
-            elif lang == "en":
-                limit_msg = (
-                    "🖼 <b>Image ➡️ PDF (1-Year Unlimited Pass)</b>\n\n"
-                    "📌 You have used all <b>50 free</b> conversions.\n\n"
-                    "To use this feature <b>UNLIMITED for 1 YEAR (365 days)</b>, purchase the pass for <b>5,000 UZS (or ⭐️ 50 Stars)</b> 👇"
-                )
-            else:
-                limit_msg = (
-                    "🖼 <b>Rasm ➡️ PDF (1 Yillik Cheksiz Pass)</b>\n\n"
-                    "📌 Siz dastlabki <b>50 ta bepul</b> rasmni PDF qilish limitidan to'liq foydalandingiz.\n\n"
-                    "Buyog'iga ushbu xizmatni <b>1 YIL (365 kun) davomida BUTUNLAY CHEKSIZ</b> ishlatish uchun <b>5 000 so'm (yoki ⭐️ 50 Stars)</b> to'lov qiling 👇"
-                )
-            await message.answer(limit_msg, parse_mode="HTML", reply_markup=kb_top_up_img_pdf(lang))
-            return
-
-        status_note = ""
-        if has_pass:
-            status_note = "\n\n💎 <i>(1-Годовой VIP Pass активен!)</i>" if lang == "ru" else "\n\n💎 <i>(1-Year VIP Pass active!)</i>" if lang == "en" else "\n\n💎 <i>(Sizda 1 Yillik Cheksiz VIP Pass faol!)</i>"
-        else:
-            status_note = f"\n\n🎁 <i>(Бесплатный лимит: {cnt}/50)</i>" if lang == "ru" else f"\n\n🎁 <i>(Free trial: {cnt}/50)</i>" if lang == "en" else f"\n\n🎁 <i>(Bepul limit: {cnt}/50)</i>"
 
         set_state(user_id, STATE_WAIT_IMG_PDF)
-        await message.answer(t("img_pdf_prompt", lang) + status_note, parse_mode="HTML", reply_markup=kb_cancel(lang))
+        await message.answer(t("img_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
     # 6. PDF merge
@@ -453,37 +364,16 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
         await message.answer(t("upscale_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
-    # 9. AI Image
-    if any(text == t("btn_ai_image", l) for l in ("uz", "ru", "en")) or "ai rasm" in text.lower() or "генерация фото" in text.lower() or "ai image" in text.lower():
-        upsert_user(user_id, user.username, user.first_name, user.last_name)
-        if not await enforce_subscription(bot, user_id, lang):
-            return
-        set_state(user_id, STATE_WAIT_AI_IMAGE)
-        await message.answer(t("ai_image_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
-        return
-
-    # 10. AI Slides
+    # 9. AI Slides
     if any(text == t("btn_ai_slides", l) for l in ("uz", "ru", "en")) or "slayd" in text.lower() or "слайд" in text.lower() or "presentation" in text.lower():
         from bot.handlers.ai_slides import trigger_ai_slides_flow
         await trigger_ai_slides_flow(message, bot)
         return
 
-    # 11. AI Video
-    if any(text == t("btn_ai_video", l) for l in ("uz", "ru", "en")) or "video" in text.lower() or "видео" in text.lower():
-        from bot.handlers.ai_video import trigger_ai_video_flow
-        await trigger_ai_video_flow(message, bot)
-        return
-
-    # 12. 3x4 Passport Photo
+    # 10. 3x4 Passport Photo
     if any(text == t("btn_passport_photo", l) for l in ("uz", "ru", "en")) or "3x4" in text:
         from bot.handlers.passport_photo import trigger_passport_photo_flow
         await trigger_passport_photo_flow(message, bot)
-        return
-
-    # 13. Voice to text
-    if any(text == t("btn_voice_to_text", l) for l in ("uz", "ru", "en")) or "ovozdan" in text.lower() or "голос" in text.lower() or "voice" in text.lower():
-        from bot.handlers.voice_to_text import trigger_voice_to_text_flow
-        await trigger_voice_to_text_flow(message, bot)
         return
 
     # Default Fallback

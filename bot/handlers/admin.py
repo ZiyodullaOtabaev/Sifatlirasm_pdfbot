@@ -29,10 +29,10 @@ from bot.database import (
     get_broadcast_history, search_user,
 )
 from bot.i18n import t
-from bot.keyboards import kb_admin, kb_admin_back, kb_broadcast_confirm, kb_cancel, kb_user_balance_actions
+from bot.keyboards import kb_admin, kb_admin_back, kb_broadcast_confirm, kb_cancel
 from bot.states import (
     set_state, get_state, STATE_NONE, STATE_WAIT_BROADCAST,
-    STATE_WAIT_ADMIN_BALANCE_INPUT, STATE_WAIT_SEARCH,
+    STATE_WAIT_SEARCH,
     STATE_WAIT_ADMIN_CHANNEL_ID, STATE_WAIT_ADMIN_CHANNEL_TARGET
 )
 from bot.utils.chart import render_usage_chart_png, render_growth_chart_png, render_stats_image
@@ -50,123 +50,6 @@ STATE_WAIT_SCHEDULE_TIME = "wait_schedule_time"
 
 def _is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
-
-
-@router.message(Command("addbalance"))
-async def cmd_addbalance(message: Message, bot: Bot):
-    """Admin command to add paid credits balance to a user: /addbalance <user_id_yoki_username> <amount>"""
-    if not _is_admin(message.from_user.id):
-        return
-
-    args = message.text.split()
-    if len(args) < 3 or not args[2].lstrip("-").isdigit():
-        await message.answer(
-            "⚠️ <b>Noto'g'ri buyruq formati!</b>\n\n"
-            "Foydalanish: <code>/addbalance &lt;user_id yoki username&gt; &lt;miqdor&gt;</code>\n\n"
-            "Misollar:\n"
-            "• <code>/addbalance otabyvaa1 5</code>\n"
-            "• <code>/addbalance 8247903602 10</code>",
-            parse_mode="HTML"
-        )
-        return
-
-    target_query = args[1]
-    amount = int(args[2])
-
-    from bot.database import resolve_user_id, add_user_balance, get_user_balance
-    user_info = resolve_user_id(target_query)
-    if not user_info:
-        await message.answer(
-            f"❌ Foydalanuvchi topilmadi: <b>{target_query}</b>\n"
-            "<i>Foydalanuvchi botga kamida bir marta /start bosgan bo'lishi kerak.</i>",
-            parse_mode="HTML"
-        )
-        return
-
-    target_user_id = user_info["user_id"]
-    username_str = f"@{user_info['username']}" if user_info.get("username") else f"ID: {target_user_id}"
-
-    add_user_balance(target_user_id, amount)
-    new_bal = get_user_balance(target_user_id)
-
-    await message.answer(
-        f"✅ Foydalanuvchi <b>{username_str}</b> (<code>{target_user_id}</code>) balansiga <b>+{amount}</b> kredit qo'shildi!\n"
-        f"💰 Yangi balans: <b>{new_bal} kredit</b>",
-        parse_mode="HTML"
-    )
-
-    # Foydalanuvchiga bildirishnoma yuborish
-    try:
-        from bot.i18n import t
-        from bot.database import get_user_language
-        u_lang = get_user_language(target_user_id) or "uz"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("btn_ai_video", u_lang), callback_data="act_ai_video")]
-        ])
-        await bot.send_message(
-            target_user_id,
-            f"🎉 <b>Balansingiz to'ldirildi!</b>\n\n"
-            f"➕ Qo'shildi: <b>+{amount} kredit</b>\n"
-            f"📊 Umumiy balans: <b>{new_bal} kredit</b>\n\n"
-            f"Video yaratish uchun pastdagi tugmani bosing 👇",
-            parse_mode="HTML",
-            reply_markup=kb
-        )
-    except Exception as e:
-        logger.warning(f"Could not notify user {target_user_id} about balance add: {e}")
-
-
-@router.message(Command("setbalance"))
-async def cmd_setbalance(message: Message, bot: Bot):
-    """Admin command to set exact credits balance for a user: /setbalance <user_id_yoki_username> <amount>"""
-    if not _is_admin(message.from_user.id):
-        return
-
-    args = message.text.split()
-    if len(args) < 3 or not args[2].isdigit():
-        await message.answer(
-            "⚠️ <b>Noto'g'ri buyruq formati!</b>\n\n"
-            "Foydalanish: <code>/setbalance &lt;user_id yoki username&gt; &lt;miqdor&gt;</code>\n\n"
-            "Misol: <code>/setbalance otabyvaa1 10</code>",
-            parse_mode="HTML"
-        )
-        return
-
-    target_query = args[1]
-    amount = int(args[2])
-
-    from bot.database import resolve_user_id, set_user_balance
-    user_info = resolve_user_id(target_query)
-    if not user_info:
-        await message.answer(f"❌ Foydalanuvchi topilmadi: <b>{target_query}</b>", parse_mode="HTML")
-        return
-
-    target_user_id = user_info["user_id"]
-    username_str = f"@{user_info['username']}" if user_info.get("username") else f"ID: {target_user_id}"
-
-    set_user_balance(target_user_id, amount)
-
-    await message.answer(
-        f"✅ Foydalanuvchi <b>{username_str}</b> (<code>{target_user_id}</code>) balansi <b>{amount} kredit</b> ga o'rnatildi!",
-        parse_mode="HTML"
-    )
-
-    try:
-        from bot.i18n import t
-        from bot.database import get_user_language
-        u_lang = get_user_language(target_user_id) or "uz"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("btn_ai_video", u_lang), callback_data="act_ai_video")]
-        ])
-        await bot.send_message(
-            target_user_id,
-            f"📊 <b>Balansingiz o'zgartirildi:</b>\n"
-            f"💰 Joriy balans: <b>{amount} kredit</b>",
-            parse_mode="HTML",
-            reply_markup=kb
-        )
-    except Exception:
-        pass
 
 
 def _parse_inline_buttons(text: str) -> tuple[str, Optional[InlineKeyboardMarkup]]:
@@ -493,7 +376,7 @@ def export_users_to_excel() -> bytes:
         'valign': 'vcenter'
     })
 
-    headers = ["№", "Telegram ID", "Username", "Ism", "Familiya", "Jami Ishlatgan", "Balans", "Qo'shilgan Sana", "Oxirgi Faollik"]
+    headers = ["№", "Telegram ID", "Username", "Ism", "Familiya", "Jami Ishlatgan", "Qo'shilgan Sana", "Oxirgi Faollik"]
     for col_num, header in enumerate(headers):
         worksheet.write(0, col_num, header, header_format)
 
@@ -503,7 +386,6 @@ def export_users_to_excel() -> bytes:
                    COALESCE(first_name,'') as first_name,
                    COALESCE(last_name,'') as last_name,
                    COALESCE(uses_count, 0) as uses_count,
-                   COALESCE(balance, 0) as balance,
                    COALESCE(created_at, '') as created_at,
                    COALESCE(updated_at, '') as updated_at
             FROM users
@@ -517,16 +399,15 @@ def export_users_to_excel() -> bytes:
             worksheet.write(row_idx, 3, r["first_name"] or "-", row_format)
             worksheet.write(row_idx, 4, r["last_name"] or "-", row_format)
             worksheet.write(row_idx, 5, r["uses_count"], num_format)
-            worksheet.write(row_idx, 6, r["balance"], num_format)
-            worksheet.write(row_idx, 7, str(r["created_at"])[:16], num_format)
-            worksheet.write(row_idx, 8, str(r["updated_at"])[:16], num_format)
+            worksheet.write(row_idx, 6, str(r["created_at"])[:16], num_format)
+            worksheet.write(row_idx, 7, str(r["updated_at"])[:16], num_format)
 
     worksheet.set_column(0, 0, 6)
     worksheet.set_column(1, 1, 14)
     worksheet.set_column(2, 2, 18)
     worksheet.set_column(3, 4, 18)
-    worksheet.set_column(5, 6, 14)
-    worksheet.set_column(7, 8, 18)
+    worksheet.set_column(5, 5, 14)
+    worksheet.set_column(6, 7, 18)
 
     workbook.close()
     return output.getvalue()
@@ -606,139 +487,6 @@ async def cb_admin_search(call: CallbackQuery, bot: Bot):
                            reply_markup=kb_admin_back())
 
 
-@router.callback_query(F.data == "admin_add_balance")
-async def cb_admin_add_balance(call: CallbackQuery, bot: Bot):
-    """Start admin add balance flow."""
-    await call.answer()
-    if not _is_admin(call.from_user.id):
-        return
-    set_state(call.from_user.id, STATE_WAIT_ADMIN_BALANCE_INPUT)
-    await bot.send_message(
-        call.from_user.id,
-        "<b>💳 Foydalanuvchiga Kredit Qo'shish</b>\n\n"
-        "Foydalanuvchi <b>Username</b> (masalan <code>otabyvaa1</code>) yoki <b>User ID</b> va <b>kredit soni</b>ni yuboring:\n\n"
-        "<i>Misollar:</i>\n"
-        "• <code>otabyvaa1 5</code>\n"
-        "• <code>8247903602 10</code>",
-        parse_mode="HTML",
-        reply_markup=kb_admin_back()
-    )
-
-
-@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_ADMIN_BALANCE_INPUT and _is_admin(msg.from_user.id))
-async def handle_admin_balance_input(message: Message, bot: Bot):
-    """Process admin balance input."""
-    set_state(message.from_user.id, STATE_NONE)
-    args = message.text.strip().split()
-    if len(args) < 2 or not args[-1].lstrip("-").isdigit():
-        await message.answer(
-            "⚠️ <b>Noto'g'ri shakl!</b>\n\n"
-            "Username/ID va kredit sonini ajratib yozing.\n"
-            "<i>Masalan: <code>otabyvaa1 5</code> yoki <code>8247903602 10</code></i>",
-            parse_mode="HTML",
-            reply_markup=kb_admin_back()
-        )
-        return
-
-    target_query = " ".join(args[:-1])
-    amount = int(args[-1])
-
-    from bot.database import resolve_user_id, add_user_balance, get_user_balance
-    user_info = resolve_user_id(target_query)
-    if not user_info:
-        await message.answer(
-            f"❌ Foydalanuvchi topilmadi: <b>{target_query}</b>\n"
-            "<i>Foydalanuvchi botga kamida bir marta /start bosgan bo'lishi kerak.</i>",
-            parse_mode="HTML",
-            reply_markup=kb_admin_back()
-        )
-        return
-
-    target_user_id = user_info["user_id"]
-    username_str = f"@{user_info['username']}" if user_info.get("username") else f"ID: {target_user_id}"
-
-    add_user_balance(target_user_id, amount)
-    new_bal = get_user_balance(target_user_id)
-
-    await message.answer(
-        f"✅ <b>Balans muvaffaqiyatli to'ldirildi!</b>\n\n"
-        f"👤 Foydalanuvchi: <b>{username_str}</b> (<code>{target_user_id}</code>)\n"
-        f"➕ Qo'shildi: <b>+{amount} kredit</b>\n"
-        f"💰 Yangi balans: <b>{new_bal} kredit</b>",
-        parse_mode="HTML",
-        reply_markup=kb_user_balance_actions(target_user_id)
-    )
-
-    # Foydalanuvchiga bildirishnoma yuborish
-    try:
-        from bot.i18n import t
-        from bot.database import get_user_language
-        u_lang = get_user_language(target_user_id) or "uz"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("btn_ai_video", u_lang), callback_data="act_ai_video")]
-        ])
-        await bot.send_message(
-            target_user_id,
-            f"🎉 <b>Balansingiz to'ldirildi!</b>\n\n"
-            f"➕ Qo'shildi: <b>+{amount} kredit</b>\n"
-            f"📊 Umumiy balans: <b>{new_bal} kredit</b>\n\n"
-            f"Video yaratish uchun pastdagi tugmani bosing 👇",
-            parse_mode="HTML",
-            reply_markup=kb
-        )
-    except Exception as e:
-        logger.warning(f"Could not notify user {target_user_id}: {e}")
-
-
-@router.callback_query(F.data.startswith("adm_addbal_"))
-async def cb_admin_quick_add_balance(call: CallbackQuery, bot: Bot):
-    """Handle quick balance add buttons from admin interface."""
-    await call.answer()
-    if not _is_admin(call.from_user.id):
-        return
-
-    parts = call.data.split("_")
-    if len(parts) < 4:
-        return
-
-    target_user_id = int(parts[2])
-    amount = int(parts[3])
-
-    from bot.database import add_user_balance, get_user_balance, resolve_user_id
-    add_user_balance(target_user_id, amount)
-    new_bal = get_user_balance(target_user_id)
-
-    user_info = resolve_user_id(str(target_user_id))
-    username_str = f"@{user_info['username']}" if user_info and user_info.get("username") else f"ID: {target_user_id}"
-
-    await bot.send_message(
-        call.from_user.id,
-        f"✅ <b>{username_str}</b> (<code>{target_user_id}</code>) balansiga <b>+{amount} kredit</b> qo'shildi!\n"
-        f"💰 Yangi balans: <b>{new_bal} kredit</b>",
-        parse_mode="HTML",
-        reply_markup=kb_user_balance_actions(target_user_id)
-    )
-
-    try:
-        from bot.i18n import t
-        from bot.database import get_user_language
-        u_lang = get_user_language(target_user_id) or "uz"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=t("btn_ai_video", u_lang), callback_data="act_ai_video")]
-        ])
-        await bot.send_message(
-            target_user_id,
-            f"🎉 <b>Balansingiz to'ldirildi!</b>\n\n"
-            f"➕ Qo'shildi: <b>+{amount} kredit</b>\n"
-            f"📊 Umumiy balans: <b>{new_bal} kredit</b>\n\n"
-            f"Video yaratish uchun pastdagi tugmani bosing 👇",
-            parse_mode="HTML",
-            reply_markup=kb
-        )
-    except Exception as e:
-        logger.warning(f"Could not notify user {target_user_id}: {e}")
-
-
 @router.callback_query(F.data == "admin_broadcast")
 async def cb_admin_broadcast(call: CallbackQuery, bot: Bot):
     """Start broadcast from admin panel."""
@@ -783,26 +531,22 @@ async def _do_search(admin_id: int, query: str, bot: Bot):
         )
         return
     lines = []
-    from bot.database import get_user_balance
     for r in rows:
         d = dict(r)
         uname = f"@{d['username']}" if d.get("username") else "-"
         first_name = d.get("first_name") or ""
         last_name = d.get("last_name") or ""
         name = f"{first_name} {last_name}".strip() or "-"
-        bal = get_user_balance(d['user_id'])
         created = str(d.get('created_at', ''))[:10]
         uses = d.get('uses_count', 0)
         lines.append(
             f"👤 <b>{name}</b> ({uname})\n"
-            f"   ID: <code>{d['user_id']}</code> | 💰 Balans: <b>{bal} kredit</b>\n"
+            f"   ID: <code>{d['user_id']}</code>\n"
             f"   Foydalanish: {uses} marta\n"
             f"   Ro'yxatdan: {created}"
         )
     text = f"🔍 Natijalar ({len(rows)}):\n\n" + "\n\n".join(lines)
-    first_uid = dict(rows[0])['user_id']
-    kb = kb_user_balance_actions(first_uid) if len(rows) == 1 else kb_admin_back()
-    await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=kb)
+    await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=kb_admin_back())
 
 
 # ========================

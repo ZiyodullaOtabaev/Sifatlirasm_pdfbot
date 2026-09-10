@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>DocuAI | PDF & AI Video Studio</title>
+  <title>DocuAI | PDF & Slides Studio</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -389,18 +389,6 @@
       color: var(--text-muted);
     }
 
-    .stars-btn {
-      background: var(--amber-gradient);
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-    }
-
     .primary-btn {
       width: 100%;
       background: var(--accent-gradient);
@@ -464,8 +452,8 @@
         <p>PDF & AI Presentation Hub</p>
       </div>
     </div>
-    <div class="user-pill" onclick="switchTab('store')">
-      <span>⭐️ Do'kon</span>
+    <div class="user-pill">
+      <span>💯 Bepul</span>
     </div>
   </div>
 
@@ -474,7 +462,7 @@
     <div class="hero-card">
       <span class="hero-tag">🔥 Yangilik</span>
       <h2>12-Betli AI Slayd Taqdimot</h2>
-      <p>Mavzuingizni yozing, sun'iy intellekt chiroyli rasmli professional PowerPoint yaratib beradi!</p>
+      <p>Mavzuingizni yozing — professional 12 betli taqdimot <b>mutlaqo BEPUL</b> yaratiladi!</p>
     </div>
 
     <div class="section-title">✨ AI Generatsiya</div>
@@ -486,11 +474,11 @@
         <div class="tool-desc">PowerPoint & PDF</div>
       </div>
 
-      <div class="tool-card" onclick="switchTab('video')">
-        <span class="tool-badge">15 ⭐</span>
-        <div class="tool-icon" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">🎬</div>
-        <div class="tool-title">AI Video</div>
-        <div class="tool-desc">Promptdan Video</div>
+      <div class="tool-card" onclick="triggerBotAction('act_passport_photo')">
+        <span class="tool-badge">Bepul</span>
+        <div class="tool-icon" style="background: rgba(236, 72, 153, 0.15); color: #f472b6;">👔</div>
+        <div class="tool-title">3x4 Foto</div>
+        <div class="tool-desc">Hujjat rasmlari</div>
       </div>
     </div>
 
@@ -514,16 +502,10 @@
         <div class="tool-desc">Sifatni 4x oshirish</div>
       </div>
 
-      <div class="tool-card" onclick="triggerBotAction('act_bg_remove')">
-        <div class="tool-icon">🎨</div>
-        <div class="tool-title">Fon O'chirish</div>
-        <div class="tool-desc">HD Background Cut</div>
-      </div>
-
-      <div class="tool-card" onclick="triggerBotAction('act_ocr')">
-        <div class="tool-icon">📖</div>
-        <div class="tool-title">OCR Matn</div>
-        <div class="tool-desc">Rasmdan matn olish</div>
+      <div class="tool-card" onclick="triggerBotAction('act_compress_pdf')">
+        <div class="tool-icon">🗜</div>
+        <div class="tool-title">PDF Siqish</div>
+        <div class="tool-desc">Hajmini kichraytirish</div>
       </div>
 
       <div class="tool-card" onclick="triggerBotAction('act_merge_pdf')">
@@ -537,9 +519,9 @@
   <!-- Tab 2: AI Slides Studio -->
   <div id="view-slides" class="tab-view">
     <div class="hero-card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%); border-color: rgba(16, 185, 129, 0.4);">
-      <span class="hero-tag" style="background: var(--emerald-gradient);">💎 Gemini & FLUX</span>
+      <span class="hero-tag" style="background: var(--emerald-gradient);">💯 Mutlaqo Bepul</span>
       <h2>12-Betli Professional Slaydlar</h2>
-      <p>1-taqdimot BEPUL! Keyingi taqdimotlar: 2 000 so'm (⭐️ 20 Stars).</p>
+      <p>Barcha taqdimotlar <b>100% BEPUL</b> — hech qanday to'lov va limit yo'q!</p>
     </div>
 
     <div class="section-title">🎨 Dizayn Shablonlari</div>
@@ -585,117 +567,6 @@
     </button>
   </div>
 
-  <!-- Tab 3: AI Video Studio -->
-  <div id="view-video" class="tab-view">
-    <div class="studio-box">
-      <label>🎬 Video Tavsifi (Prompt):</label>
-      <textarea id="video-prompt-input" class="studio-input" placeholder="Masalan: Koinotda uchayotgan mushuk, kinematik 4k video..."></textarea>
-
-      <label>🎨 Video Uslubi:</label>
-      <div class="style-chips">
-        <div class="style-chip active" onclick="selectStyle(this, 'Kinematik 4k')">🎬 Kinematik</div>
-        <div class="style-chip" onclick="selectStyle(this, '3D Pixar Animation')">🧸 3D Animatsiya</div>
-        <div class="style-chip" onclick="selectStyle(this, 'Cyberpunk Neon')">🌆 Kiberpank</div>
-        <div class="style-chip" onclick="selectStyle(this, 'Photorealistic Drone')">🚁 Dron Videosi</div>
-      </div>
-
-      <button class="primary-btn" onclick="triggerBotAction('act_ai_video')">
-        🎬 Video Yaratish (15 ⭐️)
-      </button>
-    </div>
-  </div>
-
-  <!-- Tab 4: Stars & Balans Store -->
-  <div id="view-store" class="tab-view">
-    <div class="hero-card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.15) 100%); border-color: rgba(245, 158, 11, 0.4);">
-      <span class="hero-tag" style="background: var(--amber-gradient);">⭐️ Telegram Stars Do'koni</span>
-      <h2>Kredit Paketlari</h2>
-      <p>Telegram Stars orqali xavfsiz va bir soniyada balansingizni to'ldiring.</p>
-    </div>
-
-    <div class="section-title">🎬 AI Video Paketlari</div>
-    <div class="pricing-card" onclick="triggerBotAction('buy_stars_video_1')">
-      <div class="pricing-left">
-        <div class="pricing-icon">🎬</div>
-        <div>
-          <div class="pricing-title">1 ta AI Video</div>
-          <div class="pricing-sub">1 500 so'm qiymatida</div>
-        </div>
-      </div>
-      <button class="stars-btn">15 ⭐</button>
-    </div>
-
-    <div class="pricing-card featured" onclick="triggerBotAction('buy_stars_video_5')">
-      <div class="pricing-left">
-        <div class="pricing-icon">🎬</div>
-        <div>
-          <div class="pricing-title">5 ta AI Video (Tejamkor)</div>
-          <div class="pricing-sub">Chegirma bilan</div>
-        </div>
-      </div>
-      <button class="stars-btn">65 ⭐</button>
-    </div>
-
-    <div class="section-title">📊 AI Slayd Paketlari</div>
-    <div class="pricing-card" onclick="triggerBotAction('buy_stars_slide_1')">
-      <div class="pricing-left">
-        <div class="pricing-icon">📊</div>
-        <div>
-          <div class="pricing-title">1 ta AI Slayd (12 bet)</div>
-          <div class="pricing-sub">2 000 so'm qiymatida</div>
-        </div>
-      </div>
-      <button class="stars-btn">20 ⭐</button>
-    </div>
-
-    <div class="section-title">🤖 AI Rasm Paketlari</div>
-    <div class="pricing-card" onclick="triggerBotAction('buy_stars_image_1')">
-      <div class="pricing-left">
-        <div class="pricing-icon">🤖</div>
-        <div>
-          <div class="pricing-title">1 ta AI Rasm (2 kredit)</div>
-          <div class="pricing-sub">500 so'm qiymatida</div>
-        </div>
-      </div>
-      <button class="stars-btn">10 ⭐</button>
-    </div>
-
-    <div class="pricing-card featured" onclick="triggerBotAction('buy_stars_image_5')">
-      <div class="pricing-left">
-        <div class="pricing-icon">🤖</div>
-        <div>
-          <div class="pricing-title">5 ta AI Rasm (10 kredit)</div>
-          <div class="pricing-sub">Chegirma bilan</div>
-        </div>
-      </div>
-      <button class="stars-btn">45 ⭐</button>
-    </div>
-
-    <div class="section-title">🖼 Rasm ➡️ PDF Obunasi</div>
-    <div class="pricing-card featured" onclick="triggerBotAction('buy_stars_img_pdf_1yr')">
-      <div class="pricing-left">
-        <div class="pricing-icon">💎</div>
-        <div>
-          <div class="pricing-title">1 Yillik Cheksiz Pass</div>
-          <div class="pricing-sub">365 kun cheksiz Rasm->PDF</div>
-        </div>
-      </div>
-      <button class="stars-btn">50 ⭐</button>
-    </div>
-
-    <div class="section-title">💳 Karta Orqali To'lash</div>
-    <div class="pricing-card" onclick="openAdminChat()">
-      <div class="pricing-left">
-        <div class="pricing-icon">👤</div>
-        <div>
-          <div class="pricing-title">Admin (@ziyodullame)</div>
-          <div class="pricing-sub">Uzcard / Humo orqali to'lov</div>
-        </div>
-      </div>
-      <button class="stars-btn" style="background: var(--cyan-gradient);">Yozish</button>
-    </div>
-  </div>
-
   <!-- Bottom Navigation Bar -->
   <div class="bottom-bar">
     <button class="nav-item active" onclick="switchTab('home')">
@@ -706,19 +577,10 @@
       <span class="nav-icon">📊</span>
       <span>AI Slayd</span>
     </button>
-    <button class="nav-item" onclick="switchTab('video')">
-      <span class="nav-icon">🎬</span>
-      <span>AI Video</span>
-    </button>
-    <button class="nav-item" onclick="switchTab('store')">
-      <span class="nav-icon">⭐️</span>
-      <span>Do'kon</span>
-    </button>
   </div>
 
   <script>
     const tg = window.Telegram ? window.Telegram.WebApp : null;
-    let selectedStyle = 'Kinematik 4k';
 
     if (tg) {
       tg.ready();
@@ -735,16 +597,8 @@
       const navButtons = document.querySelectorAll('.nav-item');
       if (tabId === 'home') navButtons[0].classList.add('active');
       if (tabId === 'slides') navButtons[1].classList.add('active');
-      if (tabId === 'video') navButtons[2].classList.add('active');
-      if (tabId === 'store') navButtons[3].classList.add('active');
-      
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
 
-    function selectStyle(el, styleName) {
-      document.querySelectorAll('.style-chip').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      selectedStyle = styleName;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function triggerBotAction(actionName) {
@@ -753,14 +607,6 @@
         tg.close();
       } else {
         alert("Bot harakati: " + actionName);
-      }
-    }
-
-    function openAdminChat() {
-      if (tg) {
-        tg.openTelegramLink("https://t.me/ziyodullame");
-      } else {
-        window.open("https://t.me/ziyodullame", "_blank");
       }
     }
   </script>

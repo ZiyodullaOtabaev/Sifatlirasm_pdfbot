@@ -6,8 +6,6 @@ docker:
 env:
   - key: BOT_TOKEN
     value: your_bot_token_here
-  - key: REPLICATE_API_TOKEN
-    value: your_replicate_token_here
   - key: ADMIN_ID
     value: "5853138968"
   - key: CHANNEL_USER

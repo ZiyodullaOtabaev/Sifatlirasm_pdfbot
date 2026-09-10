@@ -27,11 +27,7 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
         keyboard=[
             [
                 KeyboardButton(text=t("btn_ai_slides", lang)),
-                KeyboardButton(text=t("btn_ai_video", lang)),
-            ],
-            [
                 KeyboardButton(text=t("btn_passport_photo", lang)),
-                KeyboardButton(text=t("btn_voice_to_text", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_text_pdf", lang)),
@@ -43,13 +39,10 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
             ],
             [
                 KeyboardButton(text=t("btn_upscale", lang)),
-                KeyboardButton(text=t("btn_ai_image", lang)),
-            ],
-            [
                 KeyboardButton(text=t("btn_donate", lang)),
-                KeyboardButton(text=t("btn_profile", lang)),
             ],
             [
+                KeyboardButton(text=t("btn_profile", lang)),
                 KeyboardButton(text=t("btn_change_lang", lang)),
             ],
         ],
@@ -64,11 +57,7 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=t("btn_ai_slides", lang), callback_data="act_ai_slides"),
-            InlineKeyboardButton(text=t("btn_ai_video", lang), callback_data="act_ai_video"),
-        ],
-        [
             InlineKeyboardButton(text=t("btn_passport_photo", lang), callback_data="act_passport_photo"),
-            InlineKeyboardButton(text=t("btn_voice_to_text", lang), callback_data="act_voice_to_text"),
         ],
         [
             InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
@@ -80,13 +69,10 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text=t("btn_upscale", lang), callback_data="act_upscale"),
-            InlineKeyboardButton(text=t("btn_ai_image", lang), callback_data="act_ai_image"),
-        ],
-        [
             InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate"),
-            InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
         ],
         [
+            InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
         ],
     ])
@@ -101,23 +87,10 @@ def kb_donate(lang: str = "uz") -> InlineKeyboardMarkup:
     ])
 
 
-def kb_voice_actions(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Action buttons after voice transcription."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=t("btn_voice_to_pdf", lang), callback_data="act_voice_to_pdf"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
-    ])
-
-
 def kb_profile(lang: str = "uz") -> InlineKeyboardMarkup:
     """User profile keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")],
-        [InlineKeyboardButton(text=t("btn_top_up", lang), callback_data="act_show_top_up")],
         [
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
@@ -169,108 +142,6 @@ def kb_slide_result(lang: str = "uz", pptx_file_id: str = "") -> InlineKeyboardM
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def kb_top_up_video(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
-    """Top up balance keyboard specifically for AI Video."""
-    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🎬 1 Video (15 ⭐)", callback_data="buy_stars_video_1"),
-        ],
-        [
-            InlineKeyboardButton(text="🎬 5 Video (65 ⭐)", callback_data="buy_stars_video_5"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
-    ])
-
-
-def kb_top_up_slides(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
-    """Top up balance keyboard specifically for AI Slides."""
-    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📊 1 Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
-        ],
-        [
-            InlineKeyboardButton(text="📊 5 Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
-    ])
-
-
-def kb_top_up_ai_image(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
-    """Top up balance keyboard specifically for AI Image."""
-    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🤖 1 AI Rasm (10 ⭐)", callback_data="buy_stars_image_1"),
-        ],
-        [
-            InlineKeyboardButton(text="🤖 5 AI Rasm (45 ⭐)", callback_data="buy_stars_image_5"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
-    ])
-
-
-def kb_top_up_img_pdf(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
-    """Top up keyboard specifically for Image-to-PDF 1-Year Pass."""
-    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="💎 1-Year Pass (50 ⭐)", callback_data="buy_stars_img_pdf_1yr"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
-    ])
-
-
-def kb_top_up(lang: str = "uz", admin_user: str = "") -> InlineKeyboardMarkup:
-    """General top up balance keyboard with Telegram Stars and Admin contact options."""
-    admin_contact = admin_user.lstrip("@") if admin_user else "ziyodullame"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🎬 1 Video (15 ⭐)", callback_data="buy_stars_video_1"),
-            InlineKeyboardButton(text="📊 1 Slayd (20 ⭐)", callback_data="buy_stars_slide_1"),
-        ],
-        [
-            InlineKeyboardButton(text="🎬 5 Video (65 ⭐)", callback_data="buy_stars_video_5"),
-            InlineKeyboardButton(text="📊 5 Slayd (85 ⭐)", callback_data="buy_stars_slide_5"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_admin_pay", lang), url=f"https://t.me/{admin_contact}"),
-        ],
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
-    ])
-
-
-def kb_ai_video_terms(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Terms confirmation keyboard for AI Video."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("btn_confirm_ai_video", lang), callback_data="act_start_ai_video")],
-        [InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel")],
-    ])
-
-
 def kb_cancel(lang: str = "uz") -> InlineKeyboardMarkup:
     """Cancel / back to menu keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -307,14 +178,11 @@ def kb_admin() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="🔍 Qidirish", callback_data="admin_search"),
         ],
         [
-            InlineKeyboardButton(text="💳 Kredit Qo'shish", callback_data="admin_add_balance"),
             InlineKeyboardButton(text="📢 Kanallar Boshqaruvi", callback_data="admin_channels"),
-        ],
-        [
             InlineKeyboardButton(text="💾 Baza Zaxira", callback_data="admin_backup"),
-            InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
         ],
         [
+            InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
             InlineKeyboardButton(text="📜 BC tarix", callback_data="admin_bc_history"),
         ],
     ])
@@ -368,18 +236,6 @@ def kb_required_channels(channels: list[dict], lang: str = "uz") -> InlineKeyboa
         InlineKeyboardButton(text=t("sub_check_btn", lang), callback_data="act_check_sub")
     ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-def kb_user_balance_actions(user_id: int) -> InlineKeyboardMarkup:
-    """Quick balance add buttons for a specific user in admin panel."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="➕ 1 Kredit", callback_data=f"adm_addbal_{user_id}_1"),
-            InlineKeyboardButton(text="➕ 5 Kredit", callback_data=f"adm_addbal_{user_id}_5"),
-            InlineKeyboardButton(text="➕ 10 Kredit", callback_data=f"adm_addbal_{user_id}_10"),
-        ],
-        [InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin_back")],
-    ])
 
 
 def kb_admin_back() -> InlineKeyboardMarkup:

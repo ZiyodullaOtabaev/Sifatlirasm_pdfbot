@@ -32,14 +32,10 @@ CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
 FREE_USES_BEFORE_SUB = int(os.getenv("FREE_USES_BEFORE_SUB", "15").strip() or "15")
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(20 * 1024 * 1024)))
 
-# AI Upscale
+# AI Upscale (lokal Real-ESRGAN binary — ixtiyoriy, bepul)
 REAL_ESRGAN_BIN = os.getenv("REAL_ESRGAN_BIN", "").strip()
 REAL_ESRGAN_MODELS = os.getenv("REAL_ESRGAN_MODELS", "").strip()
 ENABLE_REAL_AI = os.getenv("ENABLE_REAL_AI", "1").strip() != "0"
-
-# Replicate API (AI upscale via cloud)
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "").strip()
-UPSCALE_TARGET_HEIGHT = int(os.getenv("UPSCALE_TARGET_HEIGHT", "1080"))
 
 # Admin
 ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "").strip()

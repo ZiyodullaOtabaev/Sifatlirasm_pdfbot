@@ -34,25 +34,12 @@ def db_init():
             updated_at TEXT DEFAULT (datetime('now'))
         )
         """)
-        # Migration: ensure language & balance columns exist in existing database
+        # Migration: ensure required columns exist in existing database
         user_cols = [r[1] for r in cur.execute("PRAGMA table_info(users)").fetchall()]
         if "language" not in user_cols:
             cur.execute("ALTER TABLE users ADD COLUMN language TEXT")
-        if "balance" not in user_cols:
-            cur.execute("ALTER TABLE users ADD COLUMN balance INTEGER DEFAULT 0")
         if "referred_by" not in user_cols:
             cur.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER")
-        if "ai_image_count" not in user_cols:
-            cur.execute("ALTER TABLE users ADD COLUMN ai_image_count INTEGER DEFAULT 0")
-        if "img_pdf_count" not in user_cols:
-            cur.execute("ALTER TABLE users ADD COLUMN img_pdf_count INTEGER DEFAULT 0")
-        if "img_pdf_pass_until" not in user_cols:
-            cur.execute("ALTER TABLE users ADD COLUMN img_pdf_pass_until TEXT")
-
-        if "ai_video_count" not in user_cols:
-            cur.execute("ALTER TABLE users ADD COLUMN ai_video_count INTEGER DEFAULT 0")
-        if "passport_photo_count" not in user_cols:
-            cur.execute("ALTER TABLE users ADD COLUMN passport_photo_count INTEGER DEFAULT 0")
 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS required_channels (
@@ -176,47 +163,6 @@ def set_user_language(user_id: int, lang: str):
                 pass
 
 
-def get_user_balance(user_id: int) -> int:
-    """Get paid credits balance for user."""
-    with db_connect() as con:
-        row = con.execute("SELECT balance FROM users WHERE user_id=?", (user_id,)).fetchone()
-        return int(row["balance"]) if row and row["balance"] is not None else 0
-
-
-def add_user_balance(user_id: int, amount: int):
-    """Add credits to user balance."""
-    with db_connect() as con:
-        con.execute(
-            "UPDATE users SET balance = COALESCE(balance, 0) + ?, updated_at=datetime('now') WHERE user_id=?",
-            (amount, user_id)
-        )
-        con.commit()
-
-
-def set_user_balance(user_id: int, amount: int):
-    """Set exact credits balance for user."""
-    with db_connect() as con:
-        con.execute(
-            "UPDATE users SET balance = ?, updated_at=datetime('now') WHERE user_id=?",
-            (amount, user_id)
-        )
-        con.commit()
-
-
-def deduct_user_balance(user_id: int, amount: int = 1) -> bool:
-    """Deduct credits from user balance if sufficient. Returns True if successful."""
-    with db_connect() as con:
-        current = get_user_balance(user_id)
-        if current < amount:
-            return False
-        con.execute(
-            "UPDATE users SET balance = balance - ?, updated_at=datetime('now') WHERE user_id=?",
-            (amount, user_id)
-        )
-        con.commit()
-        return True
-
-
 def resolve_user_id(query: str) -> Optional[dict]:
     """Find user by user_id or username."""
     q = (query or "").strip().lstrip("@")
@@ -224,11 +170,11 @@ def resolve_user_id(query: str) -> Optional[dict]:
         return None
     with db_connect() as con:
         if q.isdigit():
-            row = con.execute("SELECT user_id, username, first_name, balance FROM users WHERE user_id=?", (int(q),)).fetchone()
+            row = con.execute("SELECT user_id, username, first_name FROM users WHERE user_id=?", (int(q),)).fetchone()
             if row:
                 return dict(row)
         # Search by username exact or case-insensitive
-        row = con.execute("SELECT user_id, username, first_name, balance FROM users WHERE LOWER(username) = LOWER(?)", (q,)).fetchone()
+        row = con.execute("SELECT user_id, username, first_name FROM users WHERE LOWER(username) = LOWER(?)", (q,)).fetchone()
         if row:
             return dict(row)
     return None
@@ -251,7 +197,6 @@ def process_referral(new_user_id: int, referrer_id: int) -> bool:
             return False
             
         con.execute("UPDATE users SET referred_by=? WHERE user_id=?", (referrer_id, new_user_id))
-        con.execute("UPDATE users SET balance = COALESCE(balance, 0) + 1 WHERE user_id=?", (referrer_id,))
         con.commit()
         return True
 
@@ -295,16 +240,6 @@ def inc_uses_and_log(user_id: int, action: str):
             (user_id, action, now)
         )
         con.commit()
-
-
-def has_user_used_free_slide(user_id: int) -> bool:
-    """Check if user has already generated an AI slide before (1 free trial check)."""
-    with db_connect() as con:
-        row = con.execute(
-            "SELECT 1 FROM usage_logs WHERE user_id=? AND action='ai_slides' LIMIT 1",
-            (user_id,)
-        ).fetchone()
-        return row is not None
 
 
 def get_all_user_ids() -> List[int]:
@@ -583,86 +518,6 @@ def clear_reminder_on_return(user_id: int):
         con.execute("DELETE FROM retention_log WHERE user_id=?", (user_id,))
         con.commit()
 
-
-def get_user_ai_image_count(user_id: int) -> int:
-    """Get number of AI images generated by user."""
-    with db_connect() as con:
-        row = con.execute("SELECT COALESCE(ai_image_count, 0) as cnt FROM users WHERE user_id = ?", (user_id,)).fetchone()
-        return row["cnt"] if row else 0
-
-
-def inc_user_ai_image_count(user_id: int):
-    """Increment AI image count for user."""
-    with db_connect() as con:
-        con.execute("UPDATE users SET ai_image_count = COALESCE(ai_image_count, 0) + 1 WHERE user_id = ?", (user_id,))
-        con.commit()
-
-
-def get_user_img_pdf_count(user_id: int) -> int:
-    """Get number of Image-to-PDF conversions by user starting from fresh counter."""
-    with db_connect() as con:
-        row = con.execute("SELECT COALESCE(img_pdf_count, 0) as cnt FROM users WHERE user_id = ?", (user_id,)).fetchone()
-        return row["cnt"] if row else 0
-
-
-def inc_user_img_pdf_count(user_id: int):
-    """Increment Image-to-PDF count for user."""
-    with db_connect() as con:
-        con.execute("UPDATE users SET img_pdf_count = COALESCE(img_pdf_count, 0) + 1 WHERE user_id = ?", (user_id,))
-        con.commit()
-
-
-def has_active_img_pdf_pass(user_id: int) -> bool:
-    """Check if user has an active 1-Year unlimited Image-to-PDF pass."""
-    with db_connect() as con:
-        row = con.execute("""
-            SELECT img_pdf_pass_until FROM users 
-            WHERE user_id = ? AND img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
-        """, (user_id,)).fetchone()
-        return bool(row)
-
-
-def activate_img_pdf_pass(user_id: int, days: int = 365):
-    """Activate 1-Year unlimited Image-to-PDF pass for user."""
-    with db_connect() as con:
-        con.execute("""
-            UPDATE users SET img_pdf_pass_until = datetime('now', ? || ' days')
-            WHERE user_id = ?
-        """, (days, user_id))
-        con.commit()
-
-
-def get_user_ai_video_count(user_id: int) -> int:
-    """Get number of AI videos generated by user."""
-    with db_connect() as con:
-        row = con.execute("SELECT COALESCE(ai_video_count, 0) as cnt FROM users WHERE user_id = ?", (user_id,)).fetchone()
-        return row["cnt"] if row else 0
-
-
-def inc_user_ai_video_count(user_id: int):
-    """Increment AI video count for user."""
-    with db_connect() as con:
-        con.execute("UPDATE users SET ai_video_count = COALESCE(ai_video_count, 0) + 1 WHERE user_id = ?", (user_id,))
-        con.commit()
-
-
-def get_user_passport_photo_count(user_id: int) -> int:
-    """Get number of 3x4 passport photos created by user."""
-    with db_connect() as con:
-        row = con.execute("SELECT COALESCE(passport_photo_count, 0) as cnt FROM users WHERE user_id = ?", (user_id,)).fetchone()
-        return row["cnt"] if row else 0
-
-
-def inc_user_passport_photo_count(user_id: int):
-    """Increment 3x4 passport photo count for user."""
-    with db_connect() as con:
-        con.execute("UPDATE users SET passport_photo_count = COALESCE(passport_photo_count, 0) + 1 WHERE user_id = ?", (user_id,))
-        con.commit()
-
-
-# =========================================================================
-# Dynamic Required Channels Management
-# =========================================================================
 
 def get_active_channels() -> list[dict]:
     """Get all active required channels."""

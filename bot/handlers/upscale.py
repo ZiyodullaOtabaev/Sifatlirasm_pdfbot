@@ -1,5 +1,5 @@
 """
-Image upscale handler — AI-powered via Replicate API.
+Image upscale handler — lokal (Real-ESRGAN / Pillow), to'liq bepul.
 """
 import os
 import logging

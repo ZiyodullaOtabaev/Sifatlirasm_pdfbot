@@ -1,21 +1,18 @@
 # Rasm PDF Bot
 
-Telegram bot — rasmlar va matnni PDF ga aylantirish, sifat oshirish, PDF birlashtirish/siqish, fon olib tashlash, AI rasm generatsiya va OCR.
+Telegram bot — rasmlar va matnni PDF ga aylantirish, sifat oshirish, PDF birlashtirish/siqish, 3x4 hujjat rasmi va professional taqdimot (slayd) yaratish. Barcha funksiyalar 100% bepul — hech qanday pullik API xizmati ishlatilmaydi.
 
 ## Imkoniyatlar
 
 | Funksiya | Tavsif |
 |----------|--------|
-| 📊 AI Slayd Yaratish | 12 betli standart akademik PowerPoint va FLUX AI rasmlari |
+| 📊 Slayd Yaratish | 12 betli standart akademik PowerPoint (10 ta professional shablon, PPTX + PDF) |
 | 📝 Matn → PDF | Matnni PDF faylga aylantirish |
-| 🖼 Rasm → PDF | Bir yoki bir necha rasmni PDF ga aylantirish |
-| ✨ Sifat oshirish | Rasm sifatini AI orqali yaxshilash |
+| 🖼 Rasm → PDF | Bir yoki bir necha rasmni PDF ga aylantirish (cheksiz) |
+| ✨ Sifat oshirish | Rasm sifatini lokal usulda yaxshilash (Real-ESRGAN/Pillow) |
 | 📎 PDF birlashtirish | Bir necha PDF ni bittaga qo'shish |
 | 🗜 PDF siqish | PDF hajmini sifatga zarar bermasdan kichraytirish |
-| 📄 Smart Scan | Hujjat skanerlash (perspektiv to'g'rilash) |
-| 🎨 Fon olib tashlash | Rasmdan fonni AI orqali olib tashlash |
-| 🤖 AI rasm | Sun'iy intellekt bilan rasm generatsiya |
-| 📖 OCR | Rasmdan matn ajratish (ingliz, rus) |
+| 👔 3x4 Hujjat rasmi | Pasport/hujjat uchun 3x4 foto + 10x15 chop varag'i |
 | 📢 Broadcast | Admin barcha foydalanuvchilarga xabar yuborish |
 | 🛠 Admin panel | Statistika, grafiklar, top foydalanuvchilar |
 
@@ -29,8 +26,7 @@ Telegram bot — rasmlar va matnni PDF ga aylantirish, sifat oshirish, PDF birla
 - **PyPDF2** — PDF birlashtirish
 - **PyMuPDF** — PDF siqish
 - **OpenCV** — Smart scan, rasm qayta ishlash
-- **EasyOCR** — Rasmdan matn aniqlash
-- **Replicate API** — AI upscale, fon olib tashlash, rasm generatsiya
+- **python-pptx** — PowerPoint taqdimot yaratish
 
 ## Loyiha strukturasi
 
@@ -52,9 +48,9 @@ rasm_pdf_bot/
 │   │   ├── upscale.py      # Sifat oshirish
 │   │   ├── merge_pdf.py    # PDF birlashtirish
 │   │   ├── compress.py     # PDF siqish
-│   │   ├── bg_remove.py    # Fon olib tashlash
-│   │   ├── ai_image.py     # AI rasm generatsiya
-│   │   ├── ocr.py          # OCR (matn ajratish)
+│   │   ├── ai_slides.py    # Taqdimot (slayd) generator
+│   │   ├── passport_photo.py # 3x4 hujjat rasmi
+│   │   ├── profile.py      # Foydalanuvchi profili
 │   │   └── admin.py        # Admin panel & broadcast
 │   └── utils/
 │       ├── __init__.py
@@ -92,7 +88,7 @@ pip install -r requirements.txt
 
 # .env sozlash
 copy .env.example .env
-# .env faylni tahrirlang — BOT_TOKEN va REPLICATE_API_TOKEN kiriting
+# .env faylni tahrirlang — BOT_TOKEN kiriting
 
 # Botni ishga tushirish
 python -m bot.main
@@ -111,15 +107,14 @@ docker-compose down           # To'xtatish
 | O'zgaruvchi | Tavsif | Default |
 |-------------|--------|---------|
 | `BOT_TOKEN` | Telegram bot token (@BotFather) | *majburiy* |
-| `REPLICATE_API_TOKEN` | Replicate API kaliti | *majburiy (AI uchun)* |
 | `CHANNEL_USER` | Obuna tekshirish kanali | `@xonziyy` |
 | `FREE_USES_BEFORE_SUB` | Obunagacha bepul foydalanish | `15` |
 | `ADMIN_IDS` | Admin ID'lar (vergul bilan) | `""` |
 | `MAX_FILE_SIZE` | Maksimal fayl hajmi (bayt) | `20971520` |
 | `DB_PATH` | SQLite baza fayli | `bot.db` |
 | `DOWNLOAD_DIR` | Vaqtinchalik fayllar papkasi | `downloads` |
-| `ENABLE_REAL_AI` | AI upscale yoqish | `1` |
-| `UPSCALE_TARGET_HEIGHT` | Upscale maqsad balandligi (px) | `1080` |
+| `ENABLE_REAL_AI` | Lokal Real-ESRGAN upscale yoqish | `1` |
+| `REAL_ESRGAN_BIN` | Real-ESRGAN binary yo'li (ixtiyoriy) | `""` |
 | `BROADCAST_RATE` | Broadcast tezligi (xabar/sek) | `25` |
 
 ## Admin buyruqlar
