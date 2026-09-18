@@ -33,42 +33,36 @@ TEXTS = {
         "btn_change_lang": "🌐 Tilni o'zgartirish",
         "btn_home": "🏠 Bosh menyu",
         "btn_top_up": "💳 Balansni to'ldirish",
-        "btn_share_ref": "🎁 Do'stlarni taklif qilish (+1 Kredit)",
+        "btn_share_ref": "🎁 Do'stlarga ulashish",
         "btn_share_url": "📲 Telegram'da ulashish",
-        "btn_confirm_ai_video": "✅ Tushundim, video yaratish",
+        "btn_confirm_ai_video": "✅ Tushundim",
         "btn_skip": "⏩ O'tkazib yuborish",
         "btn_convert_pdf": "📄 PDF shaklida yuklab olish",
-        "btn_admin_pay": "👤 Admin orqali to'lash (@ziyodullame)",
+        "btn_admin_pay": "👤 Admin (@ziyodullame)",
         "donate_text": (
-            "💖 <b>Bot Rivojiga O'z Hissangizni Qo'shing!</b>\n\n"
-            "Ushbu bot sizga har doim tezkor, qulay va sifatli PDF xizmatlarini ko'rsatishi hamda bepul imkoniyatlarni saqlab qolish uchun serverlar 24/7 to'xtovsiz ishlaydi.\n\n"
-            "Siz taqdim etgan har qanday ixtiyoriy <b>donat (ehson)</b>:\n"
-            "🚀 <i>Botning ishlash va qayta ishlash tezligini oshirishga;</i>\n"
-            "⚡️ <i>Yangi foydali PDF va hujjat funksiyalarini joriy etishga;</i>\n"
-            "🛠 <i>Serverlarning 24/7 uzluksiz, barqaror va sifatli ishlashini ta'minlashga xizmat qiladi.</i>\n\n"
-            "💳 <b>Plastik karta (Uzcard):</b>\n"
-            "<code>5614682914822756</code>\n\n"
-            "<i>(Karta raqami ustiga bir marta bossangiz, avtomatik nusxalanadi)</i>\n\n"
-            "E'tiboringiz, ishonchingiz va samimiy qo'llab-quvvatlovingiz uchun chin dildan minnatdormiz! 🙏✨"
+            "💖 <b>Bot rivojini qo'llab-quvvatlash (Donat)</b>\n\n"
+            "Bot barcha uchun mutlaqo bepul. Agar bot sizga foyda keltirayotgan bo'lsa va loyihani qo'llab-quvvatlamoqchi bo'lsangiz, ixtiyoriy donat qilishingiz mumkin:\n\n"
+            "💳 <b>Uzcard:</b> <code>5614682914822756</code>\n\n"
+            "<i>(Karta raqami ustiga bir marta bosib nusxalang)</i>\n\n"
+            "E'tiboringiz va ko'maginiz uchun katta rahmat! 🙏✨"
         ),
         "profile_text": (
             "👤 <b>Foydalanuvchi Profili</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Til: <b>{lang_name}</b>\n"
-            "📊 Ishlatishlar soni: <b>{uses_count} marta</b>\n"
-            "💰 Hisob balansi: <b>{balance} kredit</b>\n"
+            "📊 Ishlatilgan xizmatlar: <b>{uses_count} marta</b>\n"
             "👥 Taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>"
         ),
         "referral_page_text": (
-            "🎁 <b>Do'stlarni Taklif Qiling va Kredit Yuting!</b>\n\n"
-            "Har bir sizning havolangiz orqali botga qo'shilgan do'stingiz uchun sizga <b>+1 kredit bonus</b> beriladi!\n\n"
+            "🎁 <b>Do'stlarni Taklif Qiling!</b>\n\n"
+            "Botingizni yaqinlaringiz va do'stlaringizga ulashing, ularga ham tezkor va bepul PDF xizmatlaridan foydalanishga yordam bering!\n\n"
             "🔗 <b>Sizning shaxsiy havolangiz:</b>\n"
             "<code>https://t.me/{bot_username}?start=ref_{user_id}</code>\n\n"
             "👥 Jami taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>\n\n"
             "👇 Do'stlaringizga ulashish uchun pastdagi tugmani bosing:"
         ),
-        "referral_share_msg": "🤖 Eng qulay va sifatli PDF botini topdim! Siz ham sinab ko'ring:",
-        "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi!</b>\n🎁 Sizga <b>+1 kredit bonus</b> berildi!",
+        "referral_share_msg": "🤖 Eng qulay va sifatli bepul PDF botini topdim! Siz ham sinab ko'ring:",
+        "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi!</b>",
         "ai_video_refund_notify": "⚠️ <b>Xatolik yuz berdi.</b>\n💰 Kredit balansingizga qaytarildi!",
         "top_up_info": (
             "💳 <b>Rasmiy Xizmat Tariflari va VIP Pass:</b>\n\n"
@@ -203,42 +197,36 @@ TEXTS = {
         "btn_change_lang": "🌐 Сменить язык",
         "btn_home": "🏠 Главное меню",
         "btn_top_up": "💳 Пополнить баланс",
-        "btn_share_ref": "🎁 Пригласить друзей (+1 Кредит)",
+        "btn_share_ref": "🎁 Поделиться с друзьями",
         "btn_share_url": "📲 Поделиться в Telegram",
-        "btn_confirm_ai_video": "✅ Понятно, создать видео",
+        "btn_confirm_ai_video": "✅ Понятно",
         "btn_skip": "⏩ Пропустить",
         "btn_convert_pdf": "📄 Скачать в формате PDF",
-        "btn_admin_pay": "👤 Оплата через админа (@ziyodullame)",
+        "btn_admin_pay": "👤 Админ (@ziyodullame)",
         "donate_text": (
-            "💖 <b>Поддержите Развитие Проекта!</b>\n\n"
-            "Чтобы бот продолжал работать быстро, стабильно и качественно, а все базовые PDF инструменты оставались доступными 24/7, требуются ресурсы надежных серверов.\n\n"
-            "Каждый ваш добровольный <b>донат</b> напрямую помогает:\n"
-            "🚀 <i>Увеличить скорость конвертации и обработки в боте;</i>\n"
-            "⚡️ <i>Внедрять новые полезные функции для работы с документами;</i>\n"
-            "🛠 <i>Обеспечивать бесперебойную и надежную работу 24/7.</i>\n\n"
-            "💳 <b>Карта (Uzcard):</b>\n"
-            "<code>5614682914822756</code>\n\n"
+            "💖 <b>Поддержка проекта (Донат)</b>\n\n"
+            "Бот полностью бесплатен. Если сервис приносит вам пользу и вы хотите поддержать стабильную работу серверов, вы можете отправить добровольный донат:\n\n"
+            "💳 <b>Uzcard:</b> <code>5614682914822756</code>\n\n"
             "<i>(Нажмите на номер карты, чтобы скопировать)</i>\n\n"
-            "Искренне благодарим вас за поддержку и доверие! 🙏✨"
+            "Большое спасибо за вашу помощь и доверие! 🙏✨"
         ),
         "profile_text": (
             "👤 <b>Профиль пользователя</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
-            "🌐 Язык: <b>{lang_name}</b>\n"
-            "📊 Использований: <b>{uses_count} раз</b>\n"
-            "💰 Баланс аккаунта: <b>{balance} кредитов</b>\n"
+            "🌐 Языk: <b>{lang_name}</b>\n"
+            "📊 Использовано сервисов: <b>{uses_count} раз</b>\n"
             "👥 Приглашено друзей: <b>{referral_count} чел.</b>"
         ),
         "referral_page_text": (
-            "🎁 <b>Приглашайте друзей и получайте кредиты!</b>\n\n"
-            "За каждого друга, перешедшего по вашей ссылке, вы получаете <b>+1 кредит бонус</b>!\n\n"
+            "🎁 <b>Приглашайте друзей!</b>\n\n"
+            "Поделитесь ботом с друзьями и коллегами, чтобы они также могли удобно и бесплатно работать с PDF!\n\n"
             "🔗 <b>Ваша реферальная ссылка:</b>\n"
             "<code>https://t.me/{bot_username}?start=ref_{user_id}</code>\n\n"
             "👥 Всего приглашено: <b>{referral_count} чел.</b>\n\n"
             "👇 Нажмите кнопку ниже, чтобы поделиться ссылкой:"
         ),
-        "referral_share_msg": "🤖 Нашел отличного и быстрого PDF бота! Попробуй:",
-        "referral_bonus_notify": "🎉 <b>Новый друг присоединился по вашей ссылке!</b>\n🎁 Вам начислен <b>+1 кредит бонус</b>!",
+        "referral_share_msg": "🤖 Нашел отличного и бесплатного PDF бота! Попробуй:",
+        "referral_bonus_notify": "🎉 <b>Новый друг присоединился по вашей ссылке!</b>",
         "ai_video_refund_notify": "⚠️ <b>Произошла ошибка.</b>\n💰 Кредиты возвращены на ваш баланс!",
         "top_up_info": (
             "💳 <b>Официальные Тарифы и VIP Pass:</b>\n\n"
@@ -373,42 +361,36 @@ TEXTS = {
         "btn_change_lang": "🌐 Change Language",
         "btn_home": "🏠 Main Menu",
         "btn_top_up": "💳 Top-up Balance",
-        "btn_share_ref": "🎁 Invite Friends (+1 Credit)",
+        "btn_share_ref": "🎁 Share with Friends",
         "btn_share_url": "📲 Share via Telegram",
-        "btn_confirm_ai_video": "✅ I understand, create video",
+        "btn_confirm_ai_video": "✅ Got it",
         "btn_skip": "⏩ Skip",
         "btn_convert_pdf": "📄 Download as PDF",
-        "btn_admin_pay": "👤 Pay via Admin (@ziyodullame)",
+        "btn_admin_pay": "👤 Admin (@ziyodullame)",
         "donate_text": (
-            "💖 <b>Support the Bot Development!</b>\n\n"
-            "To ensure the bot continues to provide ultra-fast, convenient, and reliable PDF services while keeping core features 100% accessible 24/7, high-performance cloud servers are maintained.\n\n"
-            "Any voluntary <b>donation</b> directly contributes to:\n"
-            "🚀 <i>Boosting the bot's processing and conversion speed;</i>\n"
-            "⚡️ <i>Developing new useful PDF and document tools;</i>\n"
-            "🛠 <i>Maintaining robust 24/7 server uptime and stability.</i>\n\n"
-            "💳 <b>Card (Uzcard):</b>\n"
-            "<code>5614682914822756</code>\n\n"
-            "<i>(Tap the card number to copy instantly)</i>\n\n"
-            "We deeply appreciate your kindness and generous support! 🙏✨"
+            "💖 <b>Support the Project (Donate)</b>\n\n"
+            "This bot is completely free for everyone. If you find it helpful and wish to support continuous server uptime and maintenance, voluntary donations are welcomed:\n\n"
+            "💳 <b>Uzcard:</b> <code>5614682914822756</code>\n\n"
+            "<i>(Tap the card number to copy)</i>\n\n"
+            "Thank you so much for your support and generosity! 🙏✨"
         ),
         "profile_text": (
             "👤 <b>User Profile</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Language: <b>{lang_name}</b>\n"
-            "📊 Usage Count: <b>{uses_count} times</b>\n"
-            "💰 Account Balance: <b>{balance} credits</b>\n"
+            "📊 Services Used: <b>{uses_count} times</b>\n"
             "👥 Invited Friends: <b>{referral_count} users</b>"
         ),
         "referral_page_text": (
-            "🎁 <b>Invite Friends & Earn Credits!</b>\n\n"
-            "For every friend who joins the bot using your link, you will receive a <b>+1 credit bonus</b>!\n\n"
+            "🎁 <b>Invite Friends!</b>\n\n"
+            "Share the bot with your friends and colleagues so they can enjoy fast and free PDF tools as well!\n\n"
             "🔗 <b>Your referral link:</b>\n"
             "<code>https://t.me/{bot_username}?start=ref_{user_id}</code>\n\n"
             "👥 Total invited friends: <b>{referral_count} users</b>\n\n"
-            "👇 Click the button below to share with friends:"
+            "👇 Click the button below to share:"
         ),
-        "referral_share_msg": "🤖 Found an amazing and fast PDF bot! Try it out:",
-        "referral_bonus_notify": "🎉 <b>A new friend joined using your link!</b>\n🎁 You received a <b>+1 credit bonus</b>!",
+        "referral_share_msg": "🤖 Found an amazing free PDF toolkit bot! Try it out:",
+        "referral_bonus_notify": "🎉 <b>A new friend joined using your link!</b>",
         "ai_video_refund_notify": "⚠️ <b>An error occurred.</b>\n💰 Credits refunded to your balance!",
         "top_up_info": (
             "💳 <b>Official Tariffs and VIP Pass:</b>\n\n"

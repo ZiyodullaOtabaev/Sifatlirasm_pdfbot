@@ -93,7 +93,7 @@ def kb_profile(lang: str = "uz") -> InlineKeyboardMarkup:
     """User profile keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")],
-        [InlineKeyboardButton(text=t("btn_top_up", lang), callback_data="act_show_top_up")],
+        [InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate")],
         [
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
