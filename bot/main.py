@@ -44,7 +44,7 @@ async def main():
         from aiogram.types import BotCommand
         await bot.set_my_commands([
             BotCommand(command="start", description="🏠 Bosh menyu / Главное меню"),
-            BotCommand(command="profile", description="👤 Profil va Balans / Профиль"),
+            BotCommand(command="profile", description="👤 Profil / Профиль"),
             BotCommand(command="admin", description="🛠 Admin panel"),
         ])
     except Exception as cmd_err:

@@ -29,7 +29,6 @@ TEXTS = {
         "btn_ai_image": "🤖 AI rasm yaratish",
         "btn_ai_video": "🎬 AI Video yaratish",
         "btn_ai_slides": "📊 AI Slayd Yaratish",
-        "btn_donate": "💖 Donat",
         "btn_change_lang": "🌐 Tilni o'zgartirish",
         "btn_home": "🏠 Bosh menyu",
         "btn_top_up": "💳 Balansni to'ldirish",
@@ -39,13 +38,6 @@ TEXTS = {
         "btn_skip": "⏩ O'tkazib yuborish",
         "btn_convert_pdf": "📄 PDF shaklida yuklab olish",
         "btn_admin_pay": "👤 Admin (@ziyodullame)",
-        "donate_text": (
-            "💖 <b>Bot rivojini qo'llab-quvvatlash (Donat)</b>\n\n"
-            "Bot barcha uchun mutlaqo bepul. Agar bot sizga foyda keltirayotgan bo'lsa va loyihani qo'llab-quvvatlamoqchi bo'lsangiz, ixtiyoriy donat qilishingiz mumkin:\n\n"
-            "💳 <b>Uzcard:</b> <code>5614682914822756</code>\n\n"
-            "<i>(Karta raqami ustiga bir marta bosib nusxalang)</i>\n\n"
-            "E'tiboringiz va ko'maginiz uchun katta rahmat! 🙏✨"
-        ),
         "profile_text": (
             "👤 <b>Foydalanuvchi Profili</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
@@ -193,7 +185,6 @@ TEXTS = {
         "btn_ai_image": "🤖 AI Генерация фото",
         "btn_ai_video": "🎬 AI Генерация видео",
         "btn_ai_slides": "📊 AI Создание слайдов",
-        "btn_donate": "💖 Донат",
         "btn_change_lang": "🌐 Сменить язык",
         "btn_home": "🏠 Главное меню",
         "btn_top_up": "💳 Пополнить баланс",
@@ -203,13 +194,6 @@ TEXTS = {
         "btn_skip": "⏩ Пропустить",
         "btn_convert_pdf": "📄 Скачать в формате PDF",
         "btn_admin_pay": "👤 Админ (@ziyodullame)",
-        "donate_text": (
-            "💖 <b>Поддержка проекта (Донат)</b>\n\n"
-            "Бот полностью бесплатен. Если сервис приносит вам пользу и вы хотите поддержать стабильную работу серверов, вы можете отправить добровольный донат:\n\n"
-            "💳 <b>Uzcard:</b> <code>5614682914822756</code>\n\n"
-            "<i>(Нажмите на номер карты, чтобы скопировать)</i>\n\n"
-            "Большое спасибо за вашу помощь и доверие! 🙏✨"
-        ),
         "profile_text": (
             "👤 <b>Профиль пользователя</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
@@ -357,7 +341,6 @@ TEXTS = {
         "btn_ai_image": "🤖 AI Image Generator",
         "btn_ai_video": "🎬 AI Video Generator",
         "btn_ai_slides": "📊 AI Slides Generator",
-        "btn_donate": "💖 Donate",
         "btn_change_lang": "🌐 Change Language",
         "btn_home": "🏠 Main Menu",
         "btn_top_up": "💳 Top-up Balance",
@@ -367,13 +350,6 @@ TEXTS = {
         "btn_skip": "⏩ Skip",
         "btn_convert_pdf": "📄 Download as PDF",
         "btn_admin_pay": "👤 Admin (@ziyodullame)",
-        "donate_text": (
-            "💖 <b>Support the Project (Donate)</b>\n\n"
-            "This bot is completely free for everyone. If you find it helpful and wish to support continuous server uptime and maintenance, voluntary donations are welcomed:\n\n"
-            "💳 <b>Uzcard:</b> <code>5614682914822756</code>\n\n"
-            "<i>(Tap the card number to copy)</i>\n\n"
-            "Thank you so much for your support and generosity! 🙏✨"
-        ),
         "profile_text": (
             "👤 <b>User Profile</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"

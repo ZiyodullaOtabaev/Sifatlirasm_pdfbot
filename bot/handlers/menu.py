@@ -259,18 +259,51 @@ async def cb_compress_pdf(call: CallbackQuery, bot: Bot):
                            reply_markup=kb_cancel(lang))
 
 
-@router.callback_query(F.data == "act_donate")
-async def cb_donate(call: CallbackQuery, bot: Bot):
-    """Handle donate callback."""
-    await _safe_answer(call)
-    lang = get_user_language(call.from_user.id) or "uz"
-    from bot.keyboards import kb_donate
-    await bot.send_message(
-        call.from_user.id,
-        t("donate_text", lang),
-        parse_mode="HTML",
-        reply_markup=kb_donate(lang)
-    )
+@router.message(F.web_app_data)
+async def handle_web_app_data(message: Message, bot: Bot):
+    """Handle action requests sent from Telegram WebApp (Mini App)."""
+    import json
+    user = message.from_user
+    user_id = user.id
+    lang = get_user_language(user_id) or "uz"
+    data_str = message.web_app_data.data or "{}"
+    try:
+        data = json.loads(data_str)
+        action = data.get("action")
+    except Exception:
+        action = None
+
+    if action == "act_text_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_TEXT)
+        await message.answer(t("text_pdf_prompt", lang), reply_markup=kb_cancel(lang), parse_mode="HTML")
+    elif action == "act_img_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_IMG_PDF)
+        await message.answer(t("img_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+    elif action == "act_merge_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_PDF_MERGE)
+        await message.answer(t("merge_pdf_prompt", lang), reply_markup=kb_cancel(lang), parse_mode="HTML")
+    elif action == "act_compress_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_COMPRESS_PDF)
+        await message.answer(t("compress_pdf_prompt", lang), reply_markup=kb_cancel(lang))
+    elif action == "act_profile":
+        from bot.handlers.profile import show_user_profile
+        await show_user_profile(message, bot)
+    elif action == "act_change_lang":
+        await message.answer(t("lang_select_prompt", lang), reply_markup=kb_language(), parse_mode="HTML")
+    else:
+        await show_main_menu(bot, message.chat.id)
 
 
 @router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_NONE)
@@ -284,12 +317,6 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
     # Home / Cancel
     if any(text == t("btn_home", l) for l in ("uz", "ru", "en")) or text in ("🏠 Bosh menyu", "🏠 Главное меню", "🏠 Main Menu", "❌ Bekor qilish", "❌ Отмена", "❌ Cancel"):
         await show_main_menu(bot, message.chat.id)
-        return
-
-    # 1. Donat
-    if any(text == t("btn_donate", l) for l in ("uz", "ru", "en")) or "Donat" in text or "Донат" in text or "Donate" in text:
-        from bot.keyboards import kb_donate
-        await message.answer(t("donate_text", lang), parse_mode="HTML", reply_markup=kb_donate(lang))
         return
 
     # 2. Profile

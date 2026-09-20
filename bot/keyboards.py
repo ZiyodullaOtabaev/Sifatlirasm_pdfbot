@@ -34,10 +34,7 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_compress_pdf", lang)),
             ],
             [
-                KeyboardButton(text=t("btn_donate", lang)),
                 KeyboardButton(text=t("btn_profile", lang)),
-            ],
-            [
                 KeyboardButton(text=t("btn_change_lang", lang)),
             ],
         ],
@@ -59,20 +56,8 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=t("btn_compress_pdf", lang), callback_data="act_compress_pdf"),
         ],
         [
-            InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate"),
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
-        ],
-        [
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
-        ],
-    ])
-
-
-def kb_donate(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Donate keyboard."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
         ],
     ])
 
@@ -93,7 +78,6 @@ def kb_profile(lang: str = "uz") -> InlineKeyboardMarkup:
     """User profile keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")],
-        [InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate")],
         [
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
             InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
