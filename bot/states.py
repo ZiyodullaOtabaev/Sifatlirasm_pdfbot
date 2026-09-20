@@ -23,6 +23,15 @@ STATE_WAIT_VOICE_TO_TEXT = "wait_voice_to_text"
 STATE_WAIT_ADMIN_CHANNEL_ID = "wait_admin_channel_id"
 STATE_WAIT_ADMIN_CHANNEL_TARGET = "wait_admin_channel_target"
 
+# New PDF Tools States
+STATE_WAIT_PDF_TO_IMG = "wait_pdf_to_img"
+STATE_WAIT_SPLIT_PDF = "wait_split_pdf"
+STATE_WAIT_SPLIT_PAGES = "wait_split_pages"
+STATE_WAIT_DELETE_PAGES_PDF = "wait_delete_pages_pdf"
+STATE_WAIT_DELETE_PAGES_INPUT = "wait_delete_pages_input"
+STATE_WAIT_WATERMARK_PDF = "wait_watermark_pdf"
+STATE_WAIT_WATERMARK_TEXT = "wait_watermark_text"
+
 # In-memory state storage
 USER_STATE: Dict[int, str] = {}
 

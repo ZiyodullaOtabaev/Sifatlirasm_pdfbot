@@ -26,12 +26,20 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text=t("btn_text_pdf", lang)),
                 KeyboardButton(text=t("btn_img_pdf", lang)),
+                KeyboardButton(text=t("btn_text_pdf", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_pdf_to_img", lang)),
+                KeyboardButton(text=t("btn_split_pdf", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_merge_pdf", lang)),
                 KeyboardButton(text=t("btn_compress_pdf", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_delete_pages", lang)),
+                KeyboardButton(text=t("btn_watermark_pdf", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_profile", lang)),
@@ -48,12 +56,20 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
     """Main menu inline keyboard localized."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
             InlineKeyboardButton(text=t("btn_img_pdf", lang), callback_data="act_img_pdf"),
+            InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_pdf_to_img", lang), callback_data="act_pdf_to_img"),
+            InlineKeyboardButton(text=t("btn_split_pdf", lang), callback_data="act_split_pdf"),
         ],
         [
             InlineKeyboardButton(text=t("btn_merge_pdf", lang), callback_data="act_merge_pdf"),
             InlineKeyboardButton(text=t("btn_compress_pdf", lang), callback_data="act_compress_pdf"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_delete_pages", lang), callback_data="act_delete_pages"),
+            InlineKeyboardButton(text=t("btn_watermark_pdf", lang), callback_data="act_watermark_pdf"),
         ],
         [
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),

@@ -8,6 +8,7 @@ from bot.handlers.text_pdf import router as text_pdf_router
 from bot.handlers.img_pdf import router as img_pdf_router
 from bot.handlers.merge_pdf import router as merge_pdf_router
 from bot.handlers.compress import router as compress_router
+from bot.handlers.pdf_tools import router as pdf_tools_router
 from bot.handlers.admin import router as admin_router
 from bot.handlers.profile import router as profile_router
 from bot.handlers.menu import router as menu_router
@@ -23,5 +24,6 @@ def get_all_routers() -> list[Router]:
         img_pdf_router,
         merge_pdf_router,
         compress_router,
+        pdf_tools_router,
         menu_router,  # menu eng oxirida — callback'larni ushlaydi
     ]

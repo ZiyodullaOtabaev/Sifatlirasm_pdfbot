@@ -13,6 +13,7 @@ from bot.keyboards import kb_main, kb_main_reply, kb_subscribe, kb_cancel, kb_la
 from bot.states import (
     get_state, set_state, STATE_NONE, STATE_WAIT_TEXT,
     STATE_WAIT_IMG_PDF, STATE_WAIT_PDF_MERGE, STATE_WAIT_COMPRESS_PDF,
+    STATE_WAIT_PDF_TO_IMG, STATE_WAIT_SPLIT_PDF, STATE_WAIT_DELETE_PAGES_PDF, STATE_WAIT_WATERMARK_PDF,
 )
 
 logger = logging.getLogger(__name__)
@@ -297,6 +298,30 @@ async def handle_web_app_data(message: Message, bot: Bot):
             return
         set_state(user_id, STATE_WAIT_COMPRESS_PDF)
         await message.answer(t("compress_pdf_prompt", lang), reply_markup=kb_cancel(lang))
+    elif action == "act_pdf_to_img":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_PDF_TO_IMG)
+        await message.answer(t("pdf_to_img_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+    elif action == "act_split_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_SPLIT_PDF)
+        await message.answer(t("split_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+    elif action == "act_delete_pages":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_DELETE_PAGES_PDF)
+        await message.answer(t("delete_pages_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+    elif action == "act_watermark_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_WATERMARK_PDF)
+        await message.answer(t("watermark_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
     elif action == "act_profile":
         from bot.handlers.profile import show_user_profile
         await show_user_profile(message, bot)
@@ -364,6 +389,42 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
             return
         set_state(user_id, STATE_WAIT_COMPRESS_PDF)
         await message.answer(t("compress_pdf_prompt", lang), reply_markup=kb_cancel(lang), parse_mode="HTML")
+        return
+
+    # 8. PDF -> Rasm
+    if any(text == t("btn_pdf_to_img", l) for l in ("uz", "ru", "en")) or "PDF → Rasm" in text or "PDF → Фото" in text or "PDF → Images" in text:
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_PDF_TO_IMG)
+        await message.answer(t("pdf_to_img_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+        return
+
+    # 9. PDF split
+    if any(text == t("btn_split_pdf", l) for l in ("uz", "ru", "en")) or "ajratish" in text.lower() or "разделить" in text.lower() or "split" in text.lower():
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_SPLIT_PDF)
+        await message.answer(t("split_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+        return
+
+    # 10. Delete pages
+    if any(text == t("btn_delete_pages", l) for l in ("uz", "ru", "en")) or "o'chirish" in text.lower() or "удалить" in text.lower() or "delete" in text.lower():
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_DELETE_PAGES_PDF)
+        await message.answer(t("delete_pages_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+        return
+
+    # 11. Watermark
+    if any(text == t("btn_watermark_pdf", l) for l in ("uz", "ru", "en")) or "suv belgisi" in text.lower() or "водяной" in text.lower() or "watermark" in text.lower():
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_WATERMARK_PDF)
+        await message.answer(t("watermark_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
     # Default Fallback
