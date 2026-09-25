@@ -384,11 +384,36 @@ async def cb_admin_actions(call: CallbackQuery, bot: Bot):
         return
     s = get_admin_summary()
     action_stats = get_action_stats()
+
+    action_map = [
+        ("img_pdf", "🖼 Rasm ➡️ PDF"),
+        ("text_pdf", "📝 Matn ➡️ PDF"),
+        ("pdf_to_img", "🖼 PDF ➡️ Rasm"),
+        ("split_pdf", "✂️ PDF Bo'lish"),
+        ("pdf_merge", "📑 PDF Birlashtirish"),
+        ("compress_pdf", "🗜 PDF Siqish"),
+        ("delete_pdf_pages", "🗑 Sahifani O'chirish"),
+        ("watermark_pdf", "💧 Suv Belgisi Qo'yish"),
+    ]
+
+    lines = ["📋 <b>Faol Xizmatlar Statistikasi:</b>\n"]
+    for key, name in action_map:
+        cnt = action_stats.get(key, 0)
+        lines.append(f"{name}: <b>{cnt:,} marta</b>")
+
+    lines.append("\n" + "—" * 25)
+    lines.append(f"📊 <b>Umumiy foydalanish:</b> <b>{s.get('total_uses', 0):,} marta</b>")
+    lines.append(f"👥 <b>Jami foydalanuvchilar:</b> <b>{s.get('total_users', 0):,} ta</b>")
+
+    text = "\n".join(lines)
+
     png = render_stats_image(s, action_stats)
     photo = BufferedInputFile(png, filename="actions.png")
     await bot.send_photo(call.from_user.id, photo,
-                         caption="📋 Funksiyalar statistikasi",
+                         caption=text,
+                         parse_mode="HTML",
                          reply_markup=kb_admin_back())
+
 
 
 @router.callback_query(F.data == "admin_top30")

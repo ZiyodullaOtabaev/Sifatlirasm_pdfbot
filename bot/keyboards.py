@@ -90,15 +90,23 @@ def kb_voice_actions(lang: str = "uz") -> InlineKeyboardMarkup:
     ])
 
 
-def kb_profile(lang: str = "uz") -> InlineKeyboardMarkup:
-    """User profile keyboard."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")],
-        [
-            InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
-            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
-        ],
+def kb_profile(lang: str = "uz", total_users: int = 0) -> InlineKeyboardMarkup:
+    """User profile keyboard with total users badge."""
+    btn_users_text = {
+        "uz": f"👥 Bot a'zolari: {total_users:,} ta",
+        "ru": f"👥 Пользователи: {total_users:,}",
+        "en": f"👥 Total Users: {total_users:,}",
+    }.get(lang, f"👥 Bot a'zolari: {total_users:,} ta")
+
+    rows = []
+    if total_users > 0:
+        rows.append([InlineKeyboardButton(text=btn_users_text, callback_data="act_noop")])
+    rows.append([InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")])
+    rows.append([
+        InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
+        InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
     ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def kb_referral(lang: str = "uz", share_url: str = "") -> InlineKeyboardMarkup:

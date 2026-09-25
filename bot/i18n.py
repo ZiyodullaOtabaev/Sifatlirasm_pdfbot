@@ -47,7 +47,8 @@ TEXTS = {
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Til: <b>{lang_name}</b>\n"
             "📊 Ishlatilgan xizmatlar: <b>{uses_count} marta</b>\n"
-            "👥 Taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>"
+            "👥 Taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>\n"
+            "🌐 Jami foydalanuvchilarimiz: <b>{total_users:,} ta</b>"
         ),
         "referral_page_text": (
             "🎁 <b>Do'stlarni Taklif Qiling!</b>\n\n"
@@ -220,9 +221,10 @@ TEXTS = {
         "profile_text": (
             "👤 <b>Профиль пользователя</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
-            "🌐 Языk: <b>{lang_name}</b>\n"
+            "🌐 Язык: <b>{lang_name}</b>\n"
             "📊 Использовано сервисов: <b>{uses_count} раз</b>\n"
-            "👥 Приглашено друзей: <b>{referral_count} чел.</b>"
+            "👥 Приглашено друзей: <b>{referral_count} чел.</b>\n"
+            "🌐 Всего пользователей бота: <b>{total_users:,}</b>"
         ),
         "referral_page_text": (
             "🎁 <b>Приглашайте друзей!</b>\n\n"
@@ -397,7 +399,8 @@ TEXTS = {
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Language: <b>{lang_name}</b>\n"
             "📊 Services Used: <b>{uses_count} times</b>\n"
-            "👥 Invited Friends: <b>{referral_count} users</b>"
+            "👥 Invited Friends: <b>{referral_count} users</b>\n"
+            "🌐 Total Bot Users: <b>{total_users:,}</b>"
         ),
         "referral_page_text": (
             "🎁 <b>Invite Friends!</b>\n\n"

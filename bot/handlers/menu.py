@@ -31,27 +31,35 @@ async def _safe_answer(call: CallbackQuery):
 async def check_user_subscriptions(bot: Bot, user_id: int) -> tuple[bool, list[dict]]:
     """
     Check if user is subscribed to all active required channels.
-    Returns: (is_all_subscribed, list_of_unjoined_channels)
+    Two rules:
+    1. Active sponsor/ad channels (from DB required_channels) -> Checked for ALL users from the very beginning (0 uses).
+    2. Admin personal channel (CHANNEL_USER from .env) -> Checked only after user has used bot FREE_USES_BEFORE_SUB (15) times.
     """
-    from bot.database import get_active_channels, record_channel_join
-    from bot.config import ADMIN_IDS, ADMIN_ID
+    from bot.database import get_active_channels, record_channel_join, get_uses
+    from bot.config import ADMIN_IDS, ADMIN_ID, CHANNEL_USER, FREE_USES_BEFORE_SUB
 
-    channels = get_active_channels()
-    if not channels:
-        # Fallback to CHANNEL_USER if configured
-        if CHANNEL_USER:
-            try:
-                member = await bot.get_chat_member(chat_id=CHANNEL_USER, user_id=user_id)
-                if member.status in ("left", "kicked"):
-                    return False, [{"channel_id": CHANNEL_USER, "channel_title": CHANNEL_USER, "invite_link": f"https://t.me/{CHANNEL_USER.lstrip('@')}"}]
-            except Exception:
-                pass
+    active_ad_channels = get_active_channels()
+    channels_to_check = list(active_ad_channels)
+
+    uses = get_uses(user_id)
+    # Shaxsiy kanal (CHANNEL_USER) faqat 15 marta foydalanilgandan so'ng tekshiriladi
+    if uses >= FREE_USES_BEFORE_SUB and CHANNEL_USER:
+        cu_norm = CHANNEL_USER.lower().lstrip("@")
+        already_in_list = any(ch["channel_id"].lower().lstrip("@") == cu_norm for ch in channels_to_check)
+        if not already_in_list:
+            channels_to_check.append({
+                "channel_id": CHANNEL_USER,
+                "channel_title": CHANNEL_USER,
+                "invite_link": f"https://t.me/{cu_norm}"
+            })
+
+    if not channels_to_check:
         return True, []
 
     unjoined = []
     joined_channels = []
 
-    for ch in channels:
+    for ch in channels_to_check:
         ch_id = ch["channel_id"]
         try:
             member = await bot.get_chat_member(chat_id=ch_id, user_id=user_id)
@@ -67,24 +75,25 @@ async def check_user_subscriptions(bot: Bot, user_id: int) -> tuple[bool, list[d
     if unjoined:
         return False, unjoined
 
-    # If all joined, record join counts and check auto-detach targets
+    # If all joined, record join counts and check auto-detach targets for sponsor channels
     admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
     for ch in joined_channels:
         ch_id = ch["channel_id"]
-        is_new, target_reached, cur_subs, target = record_channel_join(ch_id, user_id)
-        if target_reached:
-            title = ch.get("channel_title") or ch_id
-            alert_text = (
-                f"🎯 <b>Kanal Obunachi Maqsadi Bajarildi!</b>\n\n"
-                f"📢 Kanal: <b>{title}</b> ({ch_id})\n"
-                f"👥 Yig'ilgan obunachilar: <b>{cur_subs}/{target} ta</b>\n\n"
-                f"✅ Ushbu kanal majburiy obuna ro'yxatidan <b>avtomatik tarzda uzildi!</b>"
-            )
-            for adm in set(admin_list):
-                try:
-                    await bot.send_message(adm, alert_text, parse_mode="HTML")
-                except Exception:
-                    pass
+        if any(ad_ch["channel_id"] == ch_id for ad_ch in active_ad_channels):
+            is_new, target_reached, cur_subs, target = record_channel_join(ch_id, user_id)
+            if target_reached:
+                title = ch.get("channel_title") or ch_id
+                alert_text = (
+                    f"🎯 <b>Kanal Obunachi Maqsadi Bajarildi!</b>\n\n"
+                    f"📢 Kanal: <b>{title}</b> ({ch_id})\n"
+                    f"👥 Yig'ilgan obunachilar: <b>{cur_subs}/{target} ta</b>\n\n"
+                    f"✅ Ushbu kanal majburiy obuna ro'yxatidan <b>avtomatik tarzda uzildi!</b>"
+                )
+                for adm in set(admin_list):
+                    try:
+                        await bot.send_message(adm, alert_text, parse_mode="HTML")
+                    except Exception:
+                        pass
 
     return True, []
 
@@ -97,10 +106,6 @@ async def check_subscription(bot: Bot, user_id: int) -> bool:
 
 async def enforce_subscription(bot: Bot, user_id: int, lang: str = "uz") -> bool:
     """Check if user can use the service."""
-    uses = get_uses(user_id)
-    if uses < FREE_USES_BEFORE_SUB:
-        return True
-
     from bot.keyboards import kb_required_channels
 
     ok, unjoined = await check_user_subscriptions(bot, user_id)
@@ -199,6 +204,21 @@ async def cb_check_sub(call: CallbackQuery, bot: Bot):
             parse_mode="HTML",
             reply_markup=kb_required_channels(unjoined, lang)
         )
+
+
+@router.callback_query(F.data == "act_noop")
+async def cb_act_noop(call: CallbackQuery):
+    """Handle click on informative buttons (e.g. total users count)."""
+    from bot.database import get_total_users_count, get_user_language
+    lang = get_user_language(call.from_user.id) or "uz"
+    total = get_total_users_count()
+    alerts = {
+        "uz": f"🎉 Botimizdan shu paytgacha {total:,} nafar foydalanuvchi foydalangan!",
+        "ru": f"🎉 Нашим ботом уже воспользовались {total:,} пользователей!",
+        "en": f"🎉 Over {total:,} users have used our bot so far!",
+    }
+    await call.answer(alerts.get(lang, alerts["uz"]), show_alert=True)
+
 
 
 @router.callback_query(F.data == "act_text_pdf")

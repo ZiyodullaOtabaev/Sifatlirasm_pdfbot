@@ -7,7 +7,7 @@ from aiogram import Router, Bot, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 
-from bot.database import get_user_language, get_uses, get_referral_count
+from bot.database import get_user_language, get_uses, get_referral_count, get_total_users_count
 from bot.i18n import t
 from bot.keyboards import kb_profile
 from bot.states import set_state, STATE_NONE
@@ -36,6 +36,7 @@ async def show_user_profile(event: Message | CallbackQuery, bot: Bot):
     lang = get_user_language(user_id) or "uz"
     uses_count = get_uses(user_id)
     ref_count = get_referral_count(user_id)
+    total_users = get_total_users_count()
 
     me = await bot.get_me()
     bot_username = me.username or "unixziyodullabot"
@@ -49,7 +50,8 @@ async def show_user_profile(event: Message | CallbackQuery, bot: Bot):
         lang_name=lang_name,
         uses_count=uses_count,
         referral_count=ref_count,
-        bot_username=bot_username
+        bot_username=bot_username,
+        total_users=total_users
     )
 
     if isinstance(event, CallbackQuery):
@@ -58,14 +60,14 @@ async def show_user_profile(event: Message | CallbackQuery, bot: Bot):
                 text,
                 chat_id=user_id,
                 message_id=event.message.message_id,
-                reply_markup=kb_profile(lang),
+                reply_markup=kb_profile(lang, total_users),
                 parse_mode="HTML"
             )
             return
         except Exception:
             pass
 
-    await bot.send_message(user_id, text, reply_markup=kb_profile(lang), parse_mode="HTML")
+    await bot.send_message(user_id, text, reply_markup=kb_profile(lang, total_users), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "act_share_ref")

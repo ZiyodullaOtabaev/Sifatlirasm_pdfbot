@@ -275,6 +275,12 @@ def get_monthly_users_count() -> int:
         return cnt_30d
 
 
+def get_total_users_count() -> int:
+    """Get total registered users count."""
+    with db_connect() as con:
+        return con.execute("SELECT COUNT(*) c FROM users").fetchone()["c"]
+
+
 def get_uses(user_id: int) -> int:
     """Get total uses count for a user."""
     with db_connect() as con:

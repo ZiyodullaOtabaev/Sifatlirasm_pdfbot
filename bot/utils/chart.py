@@ -38,20 +38,29 @@ def render_usage_chart_png(data: Dict[str, Dict[str, int]], title: str = "So'ngg
         return buf.getvalue()
 
     days_list = list(data.keys())
-    actions = ["text_pdf", "img_pdf", "upscale", "pdf_merge", "word_pdf"]
+    actions = [
+        "img_pdf", "text_pdf", "pdf_to_img", "split_pdf",
+        "pdf_merge", "compress_pdf", "delete_pdf_pages", "watermark_pdf"
+    ]
     colors = {
-        "text_pdf": (59, 130, 246),
         "img_pdf": (16, 185, 129),
-        "upscale": (245, 158, 11),
-        "pdf_merge": (168, 85, 247),
-        "word_pdf": (239, 68, 68),
+        "text_pdf": (59, 130, 246),
+        "pdf_to_img": (245, 158, 11),
+        "split_pdf": (168, 85, 247),
+        "pdf_merge": (239, 68, 68),
+        "compress_pdf": (14, 165, 233),
+        "delete_pdf_pages": (244, 63, 94),
+        "watermark_pdf": (99, 102, 241),
     }
     labels = {
-        "text_pdf": "Matn->PDF",
         "img_pdf": "Rasm->PDF",
-        "upscale": "Upscale",
-        "pdf_merge": "PDF merge",
-        "word_pdf": "Word->PDF",
+        "text_pdf": "Matn->PDF",
+        "pdf_to_img": "PDF->Rasm",
+        "split_pdf": "Bo'lish",
+        "pdf_merge": "Birlashtir",
+        "compress_pdf": "Siqish",
+        "delete_pdf_pages": "O'chirish",
+        "watermark_pdf": "Watermark",
     }
 
     totals = []
@@ -171,7 +180,7 @@ def render_growth_chart_png(data: List[Tuple[str, int]], title: str = "O'sish gr
 
 def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
     """Render admin statistics as image."""
-    W, H = 800, 560
+    W, H = 800, 640
     bg = Image.new("RGB", (W, H), (250, 250, 252))
     d = ImageDraw.Draw(bg)
     font, font_small, font_tiny = _get_fonts()
@@ -180,35 +189,37 @@ def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
 
     y = 65
     stats_lines = [
-        f"Jami foydalanuvchilar: {summary.get('total_users', 0)}",
-        f"Jami foydalanish: {summary.get('total_uses', 0)}",
-        f"Aktiv 24h: {summary.get('active_24h', 0)}",
-        f"Yangi 24h: {summary.get('new_24h', 0)}",
-        f"Aktiv 7 kun: {summary.get('active_7d', 0)}",
-        f"Yangi 7 kun: {summary.get('new_7d', 0)}",
-        f"Aktiv 30 kun: {summary.get('active_30d', 0)}",
-        f"Yangi 30 kun: {summary.get('new_30d', 0)}",
-        f"Bugun ishlatilgan: {summary.get('uses_today', 0)}",
-        f"Haftalik ishlatish: {summary.get('uses_week', 0)}",
+        f"Jami foydalanuvchilar: {summary.get('total_users', 0):,}",
+        f"Jami foydalanish: {summary.get('total_uses', 0):,}",
+        f"Aktiv 24h: {summary.get('active_24h', 0):,}",
+        f"Yangi 24h: {summary.get('new_24h', 0):,}",
+        f"Aktiv 7 kun: {summary.get('active_7d', 0):,}",
+        f"Yangi 7 kun: {summary.get('new_7d', 0):,}",
+        f"Aktiv 30 kun: {summary.get('active_30d', 0):,}",
+        f"Yangi 30 kun: {summary.get('new_30d', 0):,}",
+        f"Bugun ishlatilgan: {summary.get('uses_today', 0):,}",
+        f"Haftalik ishlatish: {summary.get('uses_week', 0):,}",
     ]
     for line in stats_lines:
         d.text((40, y), line, fill=(40, 40, 50), font=font_small)
-        y += 26
+        y += 24
 
-    y += 20
-    d.text((40, y), "Funksiya statistikasi:", fill=(20, 20, 25), font=font_small)
-    y += 30
+    y += 15
+    d.text((40, y), "Faol Funksiyalar Statistikasi:", fill=(20, 20, 25), font=font_small)
+    y += 28
     action_labels = {
-        "text_pdf": "Matn -> PDF",
-        "img_pdf": "Rasm -> PDF",
-        "upscale": "Upscale",
-        "pdf_merge": "PDF merge",
-        "compress_pdf": "PDF siqish",
-        "smart_scan": "Smart Scan",
+        "img_pdf": "🖼 Rasm -> PDF",
+        "text_pdf": "📝 Matn -> PDF",
+        "pdf_to_img": "🖼 PDF -> Rasm",
+        "split_pdf": "✂️ PDF Bo'lish",
+        "pdf_merge": "📑 PDF Birlashtirish",
+        "compress_pdf": "🗜 PDF Siqish",
+        "delete_pdf_pages": "🗑 Sahifani O'chirish",
+        "watermark_pdf": "💧 Suv Belgisi Qo'yish",
     }
-    for action, count in action_stats.items():
-        label = action_labels.get(action, action)
-        d.text((50, y), f"{label}: {count}", fill=(60, 60, 70), font=font_tiny)
+    for action, label in action_labels.items():
+        count = action_stats.get(action, 0)
+        d.text((50, y), f"{label}: {count:,} marta", fill=(60, 60, 70), font=font_tiny)
         y += 22
 
     buf = io.BytesIO()

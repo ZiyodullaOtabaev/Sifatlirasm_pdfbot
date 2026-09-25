@@ -155,8 +155,8 @@ def watermark_pdf(input_pdf: str, output_pdf: str, watermark_text: str) -> int:
         can = canvas.Canvas(packet, pagesize=(w, h))
         can.saveState()
 
-        can.setFillColor(Color(0.4, 0.4, 0.4, alpha=0.25))
-        font_size = max(18, min(int(w / 12), 46))
+        can.setFillColor(Color(0.5, 0.5, 0.5, alpha=0.08))
+        font_size = max(14, min(int(w / 20), 28))
         can.setFont("Helvetica-Bold", font_size)
 
         can.translate(w / 2, h / 2)
