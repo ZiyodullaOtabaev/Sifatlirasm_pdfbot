@@ -72,3 +72,6 @@ CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", str(60 * 60
 
 # Broadcast
 BROADCAST_RATE = int(os.getenv("BROADCAST_RATE", "25"))
+
+# Donation Card Number
+DONATE_CARD = os.getenv("DONATE_CARD", "5614682914822756").strip()

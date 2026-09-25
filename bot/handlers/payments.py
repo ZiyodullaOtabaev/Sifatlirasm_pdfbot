@@ -24,7 +24,15 @@ async def _safe_answer(call: CallbackQuery):
         pass
 
 
+DONATE_STARS_BUNDLES = {
+    "donate_stars_10": {"stars": 10, "label": "⭐️ 10 Stars", "desc": "Sifatli PDF Bot loyihasini qo'llab-quvvatlash uchun donat ❤️"},
+    "donate_stars_25": {"stars": 25, "label": "⭐️ 25 Stars", "desc": "Sifatli PDF Bot serverini qo'llab-quvvatlash uchun donat ❤️"},
+    "donate_stars_50": {"stars": 50, "label": "⭐️ 50 Stars", "desc": "Sifatli PDF Bot yangi bepul funksiyalari uchun donat ❤️"},
+    "donate_stars_100": {"stars": 100, "label": "⭐️ 100 Stars", "desc": "Sifatli PDF Bot loyihasiga homiylik donati ❤️"},
+}
+
 STARS_BUNDLES = {
+    **DONATE_STARS_BUNDLES,
     "stars_video_1": {"credits": 4, "stars": 15, "label": "🎬 1 ta Video (15 ⭐)", "desc": "1 ta AI Video yaratish (4 kredit)"},
     "stars_slide_1": {"credits": 7, "stars": 20, "label": "📊 1 ta Slayd (20 ⭐)", "desc": "1 ta 12 betli AI Slayd (7 kredit)"},
     "stars_image_1": {"credits": 2, "stars": 10, "label": "🤖 1 ta AI Rasm (10 ⭐)", "desc": "1 ta AI Rasm yaratish (2 kredit)"},
@@ -35,9 +43,9 @@ STARS_BUNDLES = {
 }
 
 
-@router.callback_query(F.data.startswith("buy_stars_"))
+@router.callback_query(F.data.startswith("buy_"))
 async def cb_buy_stars(call: CallbackQuery, bot: Bot):
-    """Send invoice for Telegram Stars payment."""
+    """Send invoice for Telegram Stars payment or donation."""
     await _safe_answer(call)
     user_id = call.from_user.id
     lang = get_user_language(user_id) or "uz"
@@ -95,6 +103,31 @@ async def process_successful_payment(message: Message, bot: Bot):
 
     bundle = STARS_BUNDLES.get(payload)
     lang = get_user_language(user_id) or "uz"
+
+    if payload.startswith("donate_stars_"):
+        amount_stars = payment_info.total_amount
+        await message.answer(
+            t("donate_stars_success", lang, amount=amount_stars),
+            parse_mode="HTML"
+        )
+        logger.info(f"User {user_id} donated {amount_stars} Stars!")
+
+        # Notify admins
+        from bot.config import ADMIN_IDS, ADMIN_ID
+        admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
+        uname = f"@{user.username}" if user.username else "mavjud emas"
+        admin_text = (
+            f"⭐️ <b>Yangi Donat Qabul Qilindi!</b> ❤️\n\n"
+            f"👤 Foydalanuvchi: <b>{user.full_name}</b> ({uname} | <code>{user_id}</code>)\n"
+            f"💰 Miqdor: <b>{amount_stars} Stars</b>\n"
+            f"📦 To'plam: <code>{payload}</code>"
+        )
+        for adm in set(admin_list):
+            try:
+                await bot.send_message(adm, admin_text, parse_mode="HTML")
+            except Exception:
+                pass
+        return
 
     if bundle and bundle.get("is_pass"):
         activate_img_pdf_pass(user_id, days=365)

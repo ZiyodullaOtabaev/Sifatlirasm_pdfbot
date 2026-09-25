@@ -45,6 +45,10 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_profile", lang)),
                 KeyboardButton(text=t("btn_change_lang", lang)),
             ],
+            [
+                KeyboardButton(text=t("btn_ads", lang)),
+                KeyboardButton(text=t("btn_donate", lang)),
+            ],
         ],
         resize_keyboard=True,
         is_persistent=False,
@@ -75,7 +79,73 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
             InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
         ],
+        [
+            InlineKeyboardButton(text=t("btn_ads", lang), callback_data="act_ads"),
+            InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate"),
+        ],
     ])
+
+
+def kb_ads(lang: str = "uz", admin_user: str = "ziyodullame") -> InlineKeyboardMarkup:
+    """Keyboard for advertising info page."""
+    admin_contact = admin_user.lstrip("@")
+    btn_contact = {
+        "uz": "💬 Reklama berish (@ziyodullame)",
+        "ru": "💬 Заказать рекламу (@ziyodullame)",
+        "en": "💬 Order Advertising (@ziyodullame)",
+    }.get(lang, "💬 Reklama berish (@ziyodullame)")
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn_contact, url=f"https://t.me/{admin_contact}")],
+        [InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel")],
+    ])
+
+
+def kb_donate(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Keyboard for donation page with Telegram Stars and Card options."""
+    btn_card = {
+        "uz": "💳 Karta orqali donat",
+        "ru": "💳 Перевод на карту",
+        "en": "💳 Donate via Card",
+    }.get(lang, "💳 Karta orqali donat")
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⭐️ 10 Stars", callback_data="buy_donate_stars_10"),
+            InlineKeyboardButton(text="⭐️ 25 Stars", callback_data="buy_donate_stars_25"),
+        ],
+        [
+            InlineKeyboardButton(text="⭐️ 50 Stars", callback_data="buy_donate_stars_50"),
+            InlineKeyboardButton(text="⭐️ 100 Stars", callback_data="buy_donate_stars_100"),
+        ],
+        [
+            InlineKeyboardButton(text=btn_card, callback_data="act_donate_card"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
+
+def kb_donate_card(lang: str = "uz", admin_user: str = "ziyodullame") -> InlineKeyboardMarkup:
+    """Keyboard for card donation page."""
+    admin_contact = admin_user.lstrip("@")
+    btn_receipt = {
+        "uz": "📩 Adminga chek yuborish (@ziyodullame)",
+        "ru": "📩 Отправить чек админу (@ziyodullame)",
+        "en": "📩 Send Receipt to Admin (@ziyodullame)",
+    }.get(lang, "📩 Adminga chek yuborish (@ziyodullame)")
+    btn_back_donate = {
+        "uz": "⬅️ Boshqa usullar (Stars)",
+        "ru": "⬅️ Другие способы (Stars)",
+        "en": "⬅️ Other options (Stars)",
+    }.get(lang, "⬅️ Boshqa usullar (Stars)")
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn_receipt, url=f"https://t.me/{admin_contact}")],
+        [
+            InlineKeyboardButton(text=btn_back_donate, callback_data="act_donate"),
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
 
 
 def kb_voice_actions(lang: str = "uz") -> InlineKeyboardMarkup:

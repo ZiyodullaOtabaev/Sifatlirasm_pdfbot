@@ -42,6 +42,41 @@ TEXTS = {
         "btn_skip": "⏩ O'tkazib yuborish",
         "btn_convert_pdf": "📄 PDF shaklida yuklab olish",
         "btn_admin_pay": "👤 Admin (@ziyodullame)",
+        "btn_ads": "📢 Reklama",
+        "btn_donate": "☕️ Donat",
+        "ads_info_text": (
+            "📢 <b>Botimizda Reklama Joylashtirish</b>\n\n"
+            "Botimiz har kuni yuzlab talabalar, ishchilar va mutaxassislar tomonidan sifatli PDF xizmatlari uchun faol ishlatiladi!\n\n"
+            "📊 <b>Bizning Auditoriya:</b>\n"
+            "👥 Jami foydalanuvchilar: <b>{total_users:,} ta</b>\n"
+            "🎯 Asosiy qatlam: O'quvchilar, talabalar, ofis xodimlari va mutaxassislar.\n\n"
+            "🚀 <b>Mavjud Reklama Turlari:</b>\n"
+            "1. <b>Majburiy Obuna (OP):</b>\n"
+            "   Barcha foydalanuvchilar botdan foydalanishdan oldin sizning kanalingizga a'zo bo'ladi. Eng tezkor va kafolatlangan obunachilar oqimi!\n\n"
+            "2. <b>Broadcast (To'g'ridan-to'g'ri Rassilka):</b>\n"
+            "   Sizning post/reklama xabaringiz barcha bot a'zolariga 1 soniyada yuboriladi.\n\n"
+            "💰 <b>Narxlar va buyurtma berish uchun:</b>\n"
+            "Admin bilan bog'laning: @ziyodullame 👇"
+        ),
+        "donate_text": (
+            "☕️ <b>Botni Qo'llab-quvvatlash (Donat)</b>\n\n"
+            "🤖 <b>Sifatli PDF Bot</b> barcha foydalanuvchilar uchun <b>100% BEPUL</b> va cheklovlarsiz ishlaydi!\n\n"
+            "Loyihamiz doimiy ravishda tez va sifatli ishlashi, server harajatlarini qoplash hamda yangi qulay imkoniyatlar qo'shilishiga hissa qo'shmoqchi bo'lsangiz, istalgan miqdorda donat qilishingiz mumkin ❤️\n\n"
+            "⭐️ <b>Telegram Stars</b> orqali yoki pastdagi tugma bilan <b>Karta orqali</b> o'tkazishingiz mumkin:"
+        ),
+        "donate_card_text": (
+            "💳 <b>Karta Orqali Donat</b>\n\n"
+            "Botimiz rivojiga hissa qo'shish uchun quyidagi karta raqamiga istalgan miqdorda o'tkazma qilishingiz mumkin:\n\n"
+            "💳 Karta raqami: <code>{card_number}</code>\n"
+            "<i>(Raqam ustiga bosing — avtomatik nusxalanadi)</i>\n\n"
+            "❤️ Har bir qo'llab-quvvatlashingiz botni yanada tezroq va bepul rivojlantirishga xizmat qiladi!\n"
+            "Agar xohlasangiz, chekni admin @ziyodullame ga yuborishingiz mumkin 👇"
+        ),
+        "donate_stars_success": (
+            "🎉 <b>Katta rahmat! Donatingiz qabul qilindi!</b> ❤️\n\n"
+            "⭐️ <b>{amount} Stars</b> botimiz serveri va yangi bepul funksiyalar rivoji uchun muvaffaqiyatli yo'naltirildi.\n"
+            "Sizning ko'magingiz biz uchun juda qadrli! 🚀"
+        ),
         "profile_text": (
             "👤 <b>Foydalanuvchi Profili</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
@@ -218,6 +253,39 @@ TEXTS = {
         "btn_skip": "⏩ Пропустить",
         "btn_convert_pdf": "📄 Скачать в формате PDF",
         "btn_admin_pay": "👤 Админ (@ziyodullame)",
+        "btn_ads": "📢 Реклама",
+        "btn_donate": "☕️ Донат",
+        "ads_info_text": (
+            "📢 <b>Размещение рекламы в боте</b>\n\n"
+            "Наш бот ежедневно активно используется студентами, специалистами и офисными сотрудниками!\n\n"
+            "📊 <b>Наша аудитория:</b>\n"
+            "👥 Всего пользователей: <b>{total_users:,}</b>\n\n"
+            "🚀 <b>Форматы рекламы:</b>\n"
+            "1. <b>Обязательная подписка (ОП):</b>\n"
+            "   Пользователи подписываются на ваш канал, чтобы пользоваться ботом. Гарантированный приток живой аудитории!\n\n"
+            "2. <b>Прямая рассылка:</b>\n"
+            "   Ваш рекламный пост рассылается всем активным пользователям бота.\n\n"
+            "💰 <b>По вопросам и ценам:</b>\n"
+            "Напишите администратору: @ziyodullame 👇"
+        ),
+        "donate_text": (
+            "☕️ <b>Поддержка проекта (Донат)</b>\n\n"
+            "🤖 Наш бот работает абсолютно <b>БЕСПЛАТНО</b> для всех!\n\n"
+            "Если вам нравится бот и вы хотите поддержать оплату сервера и разработку новых бесплатных функций, вы можете отправить донат любого размера ❤️\n\n"
+            "⭐️ Через <b>Telegram Stars</b> или переводом на <b>карту</b>:"
+        ),
+        "donate_card_text": (
+            "💳 <b>Донат на банковскую карту</b>\n\n"
+            "Вы можете отправить любую сумму на карту:\n\n"
+            "💳 Номер карты: <code>{card_number}</code>\n"
+            "<i>(Нажмите на номер, чтобы скопировать)</i>\n\n"
+            "❤️ Спасибо за вашу поддержку нашего проекта!\n"
+            "Чек можно отправить админу: @ziyodullame 👇"
+        ),
+        "donate_stars_success": (
+            "🎉 <b>Огромное спасибо за поддержку!</b> ❤️\n\n"
+            "⭐️ <b>{amount} Stars</b> успешно зачислены на развитие и поддержание сервера бота!"
+        ),
         "profile_text": (
             "👤 <b>Профиль пользователя</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
@@ -394,6 +462,39 @@ TEXTS = {
         "btn_skip": "⏩ Skip",
         "btn_convert_pdf": "📄 Download as PDF",
         "btn_admin_pay": "👤 Admin (@ziyodullame)",
+        "btn_ads": "📢 Advertising",
+        "btn_donate": "☕️ Donate",
+        "ads_info_text": (
+            "📢 <b>Advertising in our Bot</b>\n\n"
+            "Our bot is actively used daily by students, office workers, and professionals for PDF tasks!\n\n"
+            "📊 <b>Our Audience:</b>\n"
+            "👥 Total users: <b>{total_users:,}</b>\n\n"
+            "🚀 <b>Ad Formats:</b>\n"
+            "1. <b>Mandatory Subscription (OP):</b>\n"
+            "   Users join your channel before using the bot. Fast and guaranteed 100% real followers!\n\n"
+            "2. <b>Direct Broadcast:</b>\n"
+            "   Your promo message is sent directly to all bot users in seconds.\n\n"
+            "💰 <b>For pricing and inquiries:</b>\n"
+            "Contact admin: @ziyodullame 👇"
+        ),
+        "donate_text": (
+            "☕️ <b>Support our Project (Donate)</b>\n\n"
+            "🤖 Our bot is <b>100% FREE</b> for everyone!\n\n"
+            "If you find this tool helpful and want to support server costs and new free features, you can donate any amount ❤️\n\n"
+            "⭐️ Via <b>Telegram Stars</b> or direct <b>Card transfer</b>:"
+        ),
+        "donate_card_text": (
+            "💳 <b>Donate via Bank Card</b>\n\n"
+            "You can transfer any support amount to the following card:\n\n"
+            "💳 Card number: <code>{card_number}</code>\n"
+            "<i>(Tap to copy number)</i>\n\n"
+            "❤️ Thank you so much for supporting our free service!\n"
+            "You can send receipt to admin: @ziyodullame 👇"
+        ),
+        "donate_stars_success": (
+            "🎉 <b>Thank you so much for your support!</b> ❤️\n\n"
+            "⭐️ <b>{amount} Stars</b> were successfully received to support our server and free features!"
+        ),
         "profile_text": (
             "👤 <b>User Profile</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"

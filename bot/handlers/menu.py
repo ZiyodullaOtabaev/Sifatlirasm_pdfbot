@@ -4,10 +4,11 @@ Menu navigation and subscription check handlers with multi-language support.
 import logging
 
 from aiogram import Router, Bot, F
+from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.config import CHANNEL_USER, FREE_USES_BEFORE_SUB
-from bot.database import upsert_user, get_uses, get_user_language, set_user_language
+from bot.database import upsert_user, get_uses, get_user_language, set_user_language, get_total_users_count
 from bot.i18n import t
 from bot.keyboards import kb_main, kb_main_reply, kb_subscribe, kb_cancel, kb_language
 from bot.states import (
@@ -218,6 +219,85 @@ async def cb_act_noop(call: CallbackQuery):
         "en": f"🎉 Over {total:,} users have used our bot so far!",
     }
     await call.answer(alerts.get(lang, alerts["uz"]), show_alert=True)
+
+
+@router.message(Command("reklama"))
+@router.callback_query(F.data.in_({"act_ads", "act_reklama"}))
+async def show_ads_info(event: Message | CallbackQuery, bot: Bot):
+    """Show advertising opportunities and contact info."""
+    user_id = event.from_user.id
+    if isinstance(event, CallbackQuery):
+        await _safe_answer(event)
+    set_state(user_id, STATE_NONE)
+    lang = get_user_language(user_id) or "uz"
+    total_users = get_total_users_count()
+    from bot.keyboards import kb_ads
+    text = t("ads_info_text", lang, total_users=total_users)
+
+    if isinstance(event, CallbackQuery):
+        try:
+            await bot.edit_message_text(
+                text,
+                chat_id=user_id,
+                message_id=event.message.message_id,
+                reply_markup=kb_ads(lang),
+                parse_mode="HTML"
+            )
+            return
+        except Exception:
+            pass
+    await bot.send_message(user_id, text, reply_markup=kb_ads(lang), parse_mode="HTML")
+
+
+@router.message(Command("donate"))
+@router.callback_query(F.data == "act_donate")
+async def show_donate_info(event: Message | CallbackQuery, bot: Bot):
+    """Show donation options (Stars and Card)."""
+    user_id = event.from_user.id
+    if isinstance(event, CallbackQuery):
+        await _safe_answer(event)
+    set_state(user_id, STATE_NONE)
+    lang = get_user_language(user_id) or "uz"
+    from bot.keyboards import kb_donate
+    text = t("donate_text", lang)
+
+    if isinstance(event, CallbackQuery):
+        try:
+            await bot.edit_message_text(
+                text,
+                chat_id=user_id,
+                message_id=event.message.message_id,
+                reply_markup=kb_donate(lang),
+                parse_mode="HTML"
+            )
+            return
+        except Exception:
+            pass
+    await bot.send_message(user_id, text, reply_markup=kb_donate(lang), parse_mode="HTML")
+
+
+@router.callback_query(F.data == "act_donate_card")
+async def cb_donate_card(call: CallbackQuery, bot: Bot):
+    """Show bank card number for donation."""
+    await _safe_answer(call)
+    user_id = call.from_user.id
+    set_state(user_id, STATE_NONE)
+    lang = get_user_language(user_id) or "uz"
+    from bot.config import DONATE_CARD
+    from bot.keyboards import kb_donate_card
+    text = t("donate_card_text", lang, card_number=DONATE_CARD)
+
+    try:
+        await bot.edit_message_text(
+            text,
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            reply_markup=kb_donate_card(lang),
+            parse_mode="HTML"
+        )
+    except Exception:
+        await bot.send_message(user_id, text, reply_markup=kb_donate_card(lang), parse_mode="HTML")
+
 
 
 
@@ -445,6 +525,16 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
             return
         set_state(user_id, STATE_WAIT_WATERMARK_PDF)
         await message.answer(t("watermark_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+        return
+
+    # 12. Reklama
+    if any(text == t("btn_ads", l) for l in ("uz", "ru", "en")) or "reklama" in text.lower() or "реклама" in text.lower() or "advertising" in text.lower():
+        await show_ads_info(message, bot)
+        return
+
+    # 13. Donat
+    if any(text == t("btn_donate", l) for l in ("uz", "ru", "en")) or "donat" in text.lower() or "донат" in text.lower() or "donate" in text.lower():
+        await show_donate_info(message, bot)
         return
 
     # Default Fallback
