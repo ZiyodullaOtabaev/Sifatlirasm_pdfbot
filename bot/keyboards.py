@@ -340,14 +340,6 @@ def kb_admin() -> InlineKeyboardMarkup:
     """Admin panel keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
-            InlineKeyboardButton(text="📈 7 kun", callback_data="admin_chart7"),
-        ],
-        [
-            InlineKeyboardButton(text="📉 30 kun", callback_data="admin_chart30"),
-            InlineKeyboardButton(text="📋 Funksiyalar", callback_data="admin_actions"),
-        ],
-        [
             InlineKeyboardButton(text="🏆 TOP-30", callback_data="admin_top30"),
             InlineKeyboardButton(text="⚡️ Aktiv 24h", callback_data="admin_active24"),
         ],

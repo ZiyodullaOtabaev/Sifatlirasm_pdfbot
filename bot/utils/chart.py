@@ -208,14 +208,14 @@ def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
     d.text((40, y), "Faol Funksiyalar Statistikasi:", fill=(20, 20, 25), font=font_small)
     y += 28
     action_labels = {
-        "img_pdf": "🖼 Rasm -> PDF",
-        "text_pdf": "📝 Matn -> PDF",
-        "pdf_to_img": "🖼 PDF -> Rasm",
-        "split_pdf": "✂️ PDF Bo'lish",
-        "pdf_merge": "📑 PDF Birlashtirish",
-        "compress_pdf": "🗜 PDF Siqish",
-        "delete_pdf_pages": "🗑 Sahifani O'chirish",
-        "watermark_pdf": "💧 Suv Belgisi Qo'yish",
+        "img_pdf": "• Rasm -> PDF",
+        "text_pdf": "• Matn -> PDF",
+        "pdf_to_img": "• PDF -> Rasm",
+        "split_pdf": "• PDF Bo'lish",
+        "pdf_merge": "• PDF Birlashtirish",
+        "compress_pdf": "• PDF Siqish",
+        "delete_pdf_pages": "• Sahifani O'chirish",
+        "watermark_pdf": "• Suv Belgisi Qo'yish",
     }
     for action, label in action_labels.items():
         count = action_stats.get(action, 0)
