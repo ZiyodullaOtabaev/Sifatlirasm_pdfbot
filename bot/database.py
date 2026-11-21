@@ -235,15 +235,15 @@ def resolve_user_id(query: str) -> Optional[dict]:
 
 
 def process_referral(new_user_id: int, referrer_id: int) -> bool:
-    """Record referral and award bonus if valid and new."""
+    """Record referral and award +3 bonus uses if valid and new."""
     if new_user_id == referrer_id:
         return False
     with db_connect() as con:
-        user_row = con.execute("SELECT referred_by, created_at FROM users WHERE user_id=?", (new_user_id,)).fetchone()
+        user_row = con.execute("SELECT referred_by, uses_count, created_at FROM users WHERE user_id=?", (new_user_id,)).fetchone()
         if not user_row:
             return False
-        # Only grant if not already referred
-        if user_row["referred_by"] is not None:
+        # Only grant if not already referred and is a new user (0 uses)
+        if user_row["referred_by"] is not None or int(user_row["uses_count"] or 0) > 0:
             return False
         
         referrer_row = con.execute("SELECT user_id FROM users WHERE user_id=?", (referrer_id,)).fetchone()
@@ -251,7 +251,7 @@ def process_referral(new_user_id: int, referrer_id: int) -> bool:
             return False
             
         con.execute("UPDATE users SET referred_by=? WHERE user_id=?", (referrer_id, new_user_id))
-        con.execute("UPDATE users SET balance = COALESCE(balance, 0) + 1 WHERE user_id=?", (referrer_id,))
+        con.execute("UPDATE users SET balance = COALESCE(balance, 0) + 3 WHERE user_id=?", (referrer_id,))
         con.commit()
         return True
 
@@ -288,10 +288,29 @@ def get_uses(user_id: int) -> int:
         return int(row["uses_count"]) if row and row["uses_count"] is not None else 0
 
 
-def inc_uses_and_log(user_id: int, action: str):
-    """Increment uses counter and log the action."""
-    now = datetime.now(timezone.utc).isoformat()
+def get_user_daily_uses(user_id: int) -> int:
+    """Get number of actions performed by user today (Tashkent UTC+5 day)."""
     with db_connect() as con:
+        row = con.execute("""
+            SELECT COUNT(*) c FROM usage_logs
+            WHERE user_id = ?
+              AND date(created_at, '+5 hours') = date('now', '+5 hours')
+        """, (user_id,)).fetchone()
+        return int(row["c"]) if row else 0
+
+
+def inc_uses_and_log(user_id: int, action: str):
+    """Increment uses counter, deduct 1 bonus credit if daily free limit exceeded (and not VIP), and log the action."""
+    from bot.config import DAILY_FREE_LIMIT, ADMIN_IDS
+    now = datetime.now(timezone.utc).isoformat()
+    is_vip = (user_id in ADMIN_IDS) or has_active_img_pdf_pass(user_id)
+    daily_used = get_user_daily_uses(user_id)
+    with db_connect() as con:
+        if not is_vip and daily_used >= DAILY_FREE_LIMIT:
+            con.execute(
+                "UPDATE users SET balance = MAX(0, COALESCE(balance, 0) - 1) WHERE user_id = ?",
+                (user_id,)
+            )
         con.execute(
             "UPDATE users SET uses_count = COALESCE(uses_count,0)+1, updated_at=datetime('now') WHERE user_id=?",
             (user_id,)
@@ -619,7 +638,7 @@ def inc_user_img_pdf_count(user_id: int):
 
 
 def has_active_img_pdf_pass(user_id: int) -> bool:
-    """Check if user has an active 1-Year unlimited Image-to-PDF pass."""
+    """Check if user has an active VIP subscription pass."""
     with db_connect() as con:
         row = con.execute("""
             SELECT img_pdf_pass_until FROM users 
@@ -628,13 +647,34 @@ def has_active_img_pdf_pass(user_id: int) -> bool:
         return bool(row)
 
 
-def activate_img_pdf_pass(user_id: int, days: int = 365):
-    """Activate 1-Year unlimited Image-to-PDF pass for user."""
+def get_vip_until(user_id: int) -> Optional[str]:
+    """Return active VIP expiration date (YYYY-MM-DD) or None."""
     with db_connect() as con:
-        con.execute("""
-            UPDATE users SET img_pdf_pass_until = datetime('now', ? || ' days')
-            WHERE user_id = ?
-        """, (days, user_id))
+        row = con.execute("""
+            SELECT substr(datetime(img_pdf_pass_until, '+5 hours'), 1, 10) AS exp_date
+            FROM users
+            WHERE user_id = ? AND img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
+        """, (user_id,)).fetchone()
+        return row["exp_date"] if row else None
+
+
+def activate_img_pdf_pass(user_id: int, days: int = 30):
+    """Activate or extend VIP subscription pass for user by `days` days."""
+    with db_connect() as con:
+        row = con.execute("""
+            SELECT img_pdf_pass_until FROM users
+            WHERE user_id = ? AND img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
+        """, (user_id,)).fetchone()
+        if row and row["img_pdf_pass_until"]:
+            con.execute("""
+                UPDATE users SET img_pdf_pass_until = datetime(img_pdf_pass_until, '+' || ? || ' days')
+                WHERE user_id = ?
+            """, (days, user_id))
+        else:
+            con.execute("""
+                UPDATE users SET img_pdf_pass_until = datetime('now', '+' || ? || ' days')
+                WHERE user_id = ?
+            """, (days, user_id))
         con.commit()
 
 

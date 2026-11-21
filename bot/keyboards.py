@@ -30,24 +30,23 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_text_pdf", lang)),
             ],
             [
-                KeyboardButton(text=t("btn_pdf_to_img", lang)),
-                KeyboardButton(text=t("btn_split_pdf", lang)),
-            ],
-            [
                 KeyboardButton(text=t("btn_merge_pdf", lang)),
                 KeyboardButton(text=t("btn_compress_pdf", lang)),
             ],
             [
-                KeyboardButton(text=t("btn_delete_pages", lang)),
+                KeyboardButton(text=t("btn_pdf_to_img", lang)),
                 KeyboardButton(text=t("btn_watermark_pdf", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_profile", lang)),
-                KeyboardButton(text=t("btn_change_lang", lang)),
+                KeyboardButton(text=t("btn_vip", lang)),
             ],
             [
                 KeyboardButton(text=t("btn_ads", lang)),
                 KeyboardButton(text=t("btn_donate", lang)),
+            ],
+            [
+                KeyboardButton(text=t("btn_change_lang", lang)),
             ],
         ],
         resize_keyboard=True,
@@ -64,24 +63,23 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
         ],
         [
-            InlineKeyboardButton(text=t("btn_pdf_to_img", lang), callback_data="act_pdf_to_img"),
-            InlineKeyboardButton(text=t("btn_split_pdf", lang), callback_data="act_split_pdf"),
-        ],
-        [
             InlineKeyboardButton(text=t("btn_merge_pdf", lang), callback_data="act_merge_pdf"),
             InlineKeyboardButton(text=t("btn_compress_pdf", lang), callback_data="act_compress_pdf"),
         ],
         [
-            InlineKeyboardButton(text=t("btn_delete_pages", lang), callback_data="act_delete_pages"),
+            InlineKeyboardButton(text=t("btn_pdf_to_img", lang), callback_data="act_pdf_to_img"),
             InlineKeyboardButton(text=t("btn_watermark_pdf", lang), callback_data="act_watermark_pdf"),
         ],
         [
             InlineKeyboardButton(text=t("btn_profile", lang), callback_data="act_profile"),
-            InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
+            InlineKeyboardButton(text=t("btn_vip", lang), callback_data="act_vip"),
         ],
         [
             InlineKeyboardButton(text=t("btn_ads", lang), callback_data="act_ads"),
             InlineKeyboardButton(text=t("btn_donate", lang), callback_data="act_donate"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
         ],
     ])
 
@@ -171,12 +169,56 @@ def kb_profile(lang: str = "uz", total_users: int = 0) -> InlineKeyboardMarkup:
     rows = []
     if total_users > 0:
         rows.append([InlineKeyboardButton(text=btn_users_text, callback_data="act_noop")])
+    rows.append([InlineKeyboardButton(text=t("btn_vip", lang), callback_data="act_vip")])
     rows.append([InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")])
     rows.append([
         InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
         InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def kb_vip_plans(lang: str = "uz") -> InlineKeyboardMarkup:
+    """Hybrid payment keyboard for VIP subscriptions (Stars + Card + Referral)."""
+    if lang == "ru":
+        s_30, s_365 = "⭐️ 1 Мес VIP (50 ⭐)", "⭐️ 1 Год VIP (150 ⭐)"
+        c_30, c_365 = "💳 Карта: 1 Мес (9 000 сум)", "💳 Карта: 1 Год (29 000 сум)"
+    elif lang == "en":
+        s_30, s_365 = "⭐️ 1-Mo VIP (50 ⭐)", "⭐️ 1-Yr VIP (150 ⭐)"
+        c_30, c_365 = "💳 Card: 1-Mo (9,000 UZS)", "💳 Card: 1-Yr (29,000 UZS)"
+    else:
+        s_30, s_365 = "⭐️ 1 Oylik VIP (50 ⭐)", "⭐️ 1 Yillik VIP (150 ⭐)"
+        c_30, c_365 = "💳 Karta: 1 Oy (9 000 so'm)", "💳 Karta: 1 Yil (29 000 so'm)"
+
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=s_30, callback_data="buy_vip_stars_30"),
+            InlineKeyboardButton(text=s_365, callback_data="buy_vip_stars_365"),
+        ],
+        [
+            InlineKeyboardButton(text=c_30, callback_data="act_vip_card_30"),
+            InlineKeyboardButton(text=c_365, callback_data="act_vip_card_365"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_home", lang), callback_data="act_cancel"),
+        ],
+    ])
+
+
+def kb_admin_approve_vip(user_id: int) -> InlineKeyboardMarkup:
+    """1-click admin buttons to approve or reject a user's VIP payment receipt."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ 1 Oylik VIP (30 kun)", callback_data=f"adm_vip_ok_{user_id}_30"),
+            InlineKeyboardButton(text="👑 1 Yillik VIP (365 kun)", callback_data=f"adm_vip_ok_{user_id}_365"),
+        ],
+        [
+            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"adm_vip_no_{user_id}"),
+        ],
+    ])
 
 
 def kb_referral(lang: str = "uz", share_url: str = "") -> InlineKeyboardMarkup:

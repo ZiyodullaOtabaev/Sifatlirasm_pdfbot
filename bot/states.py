@@ -31,6 +31,7 @@ STATE_WAIT_DELETE_PAGES_PDF = "wait_delete_pages_pdf"
 STATE_WAIT_DELETE_PAGES_INPUT = "wait_delete_pages_input"
 STATE_WAIT_WATERMARK_PDF = "wait_watermark_pdf"
 STATE_WAIT_WATERMARK_TEXT = "wait_watermark_text"
+STATE_WAIT_PAYMENT_RECEIPT = "wait_payment_receipt"
 
 # In-memory state storage
 USER_STATE: Dict[int, str] = {}

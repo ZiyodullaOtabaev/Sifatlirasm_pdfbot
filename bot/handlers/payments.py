@@ -1,20 +1,28 @@
 """
-Telegram Stars Payment and Admin Contact Handlers.
+Telegram Stars Payment, In-Bot Card Receipt Verification, and Admin 1-Click VIP Approval Handlers.
 """
 import logging
+from typing import Dict
 from aiogram import Router, Bot, F
 from aiogram.types import (
     Message, CallbackQuery, PreCheckoutQuery,
     LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-from bot.database import get_user_language, add_user_balance, get_user_balance, activate_img_pdf_pass
+from bot.config import DONATE_CARD, ADMIN_IDS, ADMIN_ID
+from bot.database import (
+    get_user_language, add_user_balance, get_user_balance,
+    activate_img_pdf_pass, get_vip_until, upsert_user,
+)
 from bot.i18n import t
-from bot.keyboards import kb_top_up
-from bot.states import set_state, STATE_NONE
+from bot.keyboards import kb_top_up, kb_cancel, kb_vip_plans, kb_admin_approve_vip, kb_main_reply
+from bot.states import get_state, set_state, STATE_NONE, STATE_WAIT_PAYMENT_RECEIPT
 
 logger = logging.getLogger(__name__)
 router = Router(name="payments")
+
+# Store selected card VIP plan per user: user_id -> days (30 or 365)
+PENDING_VIP_PLAN: Dict[int, int] = {}
 
 
 async def _safe_answer(call: CallbackQuery):
@@ -33,11 +41,27 @@ DONATE_STARS_BUNDLES = {
 
 STARS_BUNDLES = {
     **DONATE_STARS_BUNDLES,
+    "vip_stars_30": {
+        "credits": 0,
+        "stars": 50,
+        "days": 30,
+        "label": "💎 1 Oylik VIP Obuna (50 ⭐)",
+        "desc": "30 kun davomida barcha PDF xizmatlardan cheksiz va majburiy obunalarsiz foydalanish",
+        "is_pass": True,
+    },
+    "vip_stars_365": {
+        "credits": 0,
+        "stars": 150,
+        "days": 365,
+        "label": "👑 1 Yillik VIP Obuna (150 ⭐)",
+        "desc": "365 kun davomida barcha PDF xizmatlardan cheksiz va majburiy obunalarsiz foydalanish",
+        "is_pass": True,
+    },
     "stars_video_1": {"credits": 4, "stars": 15, "label": "🎬 1 ta Video (15 ⭐)", "desc": "1 ta AI Video yaratish (4 kredit)"},
     "stars_slide_1": {"credits": 7, "stars": 20, "label": "📊 1 ta Slayd (20 ⭐)", "desc": "1 ta 12 betli AI Slayd (7 kredit)"},
     "stars_image_1": {"credits": 2, "stars": 10, "label": "🤖 1 ta AI Rasm (10 ⭐)", "desc": "1 ta AI Rasm yaratish (2 kredit)"},
     "stars_image_5": {"credits": 10, "stars": 45, "label": "🤖 5 ta AI Rasm (45 ⭐)", "desc": "5 ta AI Rasm yaratish (10 kredit)"},
-    "stars_img_pdf_1yr": {"credits": 0, "stars": 50, "label": "🖼 1 Yillik Cheksiz Pass (50 ⭐)", "desc": "1 yil davomida Rasm->PDF cheksiz foydalanish", "is_pass": True},
+    "stars_img_pdf_1yr": {"credits": 0, "stars": 50, "days": 365, "label": "🖼 1 Yillik Cheksiz Pass (50 ⭐)", "desc": "1 yil davomida Rasm->PDF cheksiz foydalanish", "is_pass": True},
     "stars_video_5": {"credits": 20, "stars": 65, "label": "🎬 5 ta Video (65 ⭐)", "desc": "5 ta AI Video uchun kreditlar (Chegirma bilan)"},
     "stars_slide_5": {"credits": 35, "stars": 85, "label": "📊 5 ta Slayd (85 ⭐)", "desc": "5 ta 12 betli AI Slayd uchun kreditlar (Chegirma bilan)"},
 }
@@ -130,28 +154,30 @@ async def process_successful_payment(message: Message, bot: Bot):
         return
 
     if bundle and bundle.get("is_pass"):
-        activate_img_pdf_pass(user_id, days=365)
-        if lang == "ru":
-            pass_success_text = (
-                f"🎉 <b>Поздравляем! 1-Годовой Безлимитный Pass активирован!</b>\n\n"
-                f"⭐️ Оплачено: <b>{payment_info.total_amount} Stars</b>\n"
-                f"🖼 Функция <b>Фото ➡️ PDF</b> доступна вам абсолютно БЕЗЛИМИТНО на 1 год (365 дней)! 🚀"
-            )
-        elif lang == "en":
-            pass_success_text = (
-                f"🎉 <b>Congratulations! 1-Year Unlimited Pass is activated!</b>\n\n"
-                f"⭐️ Paid: <b>{payment_info.total_amount} Stars</b>\n"
-                f"🖼 <b>Image ➡️ PDF</b> feature is now completely UNLIMITED for 1 Year (365 days)! 🚀"
-            )
-        else:
-            pass_success_text = (
-                f"🎉 <b>Tabriklaymiz! 1 Yillik Cheksiz Pass faollashtirildi!</b>\n\n"
-                f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
-                f"🖼 <b>Rasm ➡️ PDF</b> funksiyasini 1 yil (365 kun) davomida butunlay cheksiz ishlatishingiz mumkin! 🚀"
-            )
+        days = int(bundle.get("days", 30))
+        activate_img_pdf_pass(user_id, days=days)
+        vip_until = get_vip_until(user_id) or ""
+        await message.answer(
+            t("vip_activated_notify", lang, days=days, vip_until=vip_until),
+            parse_mode="HTML",
+            reply_markup=kb_main_reply(lang)
+        )
+        logger.info(f"User {user_id} activated {days}-day VIP pass with {payment_info.total_amount} Stars")
 
-        await message.answer(pass_success_text, parse_mode="HTML")
-        logger.info(f"User {user_id} activated 1-Year Image-to-PDF pass with {payment_info.total_amount} Stars")
+        # Notify admins
+        admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
+        uname = f"@{user.username}" if user.username else "mavjud emas"
+        admin_text = (
+            f"💎 <b>Stars orqali yangi VIP Obuna sotib olindi!</b>\n\n"
+            f"👤 Foydalanuvchi: <b>{user.full_name}</b> ({uname} | <code>{user_id}</code>)\n"
+            f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
+            f"⏳ Muddati: <b>+{days} kun</b> (<b>{vip_until}</b> gacha)"
+        )
+        for adm in set(admin_list):
+            try:
+                await bot.send_message(adm, admin_text, parse_mode="HTML")
+            except Exception:
+                pass
         return
 
     credits_to_add = bundle["credits"] if bundle else 5
@@ -193,4 +219,195 @@ async def process_successful_payment(message: Message, bot: Bot):
         reply_markup=kb
     )
     logger.info(f"User {user_id} paid {payment_info.total_amount} Stars for {credits_to_add} credits. New balance: {new_bal}")
+
+
+# ========================================================
+# CARD VIP PAYMENT & 1-CLICK ADMIN RECEIPT VERIFICATION
+# ========================================================
+
+@router.callback_query(F.data.in_({"act_vip_card_30", "act_vip_card_365"}))
+async def cb_vip_card_payment(call: CallbackQuery, bot: Bot):
+    """Show card payment instructions and wait for user's payment receipt photo."""
+    await _safe_answer(call)
+    user = call.from_user
+    user_id = user.id
+    upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
+
+    is_yearly = call.data == "act_vip_card_365"
+    days = 365 if is_yearly else 30
+    price_uzs = "29 000" if is_yearly else "9 000"
+    if lang == "ru":
+        plan_name = "👑 VIP на 1 год (365 дней)" if is_yearly else "💎 VIP на 1 месяц (30 дней)"
+    elif lang == "en":
+        plan_name = "👑 1-Year VIP (365 days)" if is_yearly else "💎 1-Month VIP (30 days)"
+    else:
+        plan_name = "👑 1 Yillik VIP (365 kun)" if is_yearly else "💎 1 Oylik VIP (30 kun)"
+
+    PENDING_VIP_PLAN[user_id] = days
+    set_state(user_id, STATE_WAIT_PAYMENT_RECEIPT)
+
+    text = t(
+        "vip_card_payment_text",
+        lang,
+        plan_name=plan_name,
+        price_uzs=price_uzs,
+        card_number=DONATE_CARD,
+    )
+    try:
+        await bot.edit_message_text(
+            text,
+            chat_id=user_id,
+            message_id=call.message.message_id,
+            reply_markup=kb_cancel(lang),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await bot.send_message(user_id, text, reply_markup=kb_cancel(lang), parse_mode="HTML")
+
+
+@router.message(lambda msg: (msg.photo or msg.document) and get_state(msg.from_user.id) == STATE_WAIT_PAYMENT_RECEIPT)
+async def handle_payment_receipt(message: Message, bot: Bot):
+    """Receive user's payment screenshot/receipt and forward to admins with 1-click approve buttons."""
+    user = message.from_user
+    user_id = user.id
+    upsert_user(user_id, user.username, user.first_name, user.last_name)
+    lang = get_user_language(user_id) or "uz"
+
+    days = PENDING_VIP_PLAN.pop(user_id, 30)
+    plan_str = "👑 1 Yillik VIP (29 000 so'm)" if days == 365 else "💎 1 Oylik VIP (9 000 so'm)"
+    set_state(user_id, STATE_NONE)
+
+    await message.answer(
+        t("vip_receipt_received", lang),
+        parse_mode="HTML",
+        reply_markup=kb_main_reply(lang),
+    )
+
+    admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
+    uname = f"@{user.username}" if user.username else "username yo'q"
+    admin_caption = (
+        f"🧾 <b>Yangi VIP Obuna To'lov Cheki!</b>\n\n"
+        f"👤 Foydalanuvchi: <b>{user.full_name}</b> ({uname})\n"
+        f"🆔 ID: <code>{user_id}</code>\n"
+        f"📦 Tanlagan tarifi: <b>{plan_str}</b>\n\n"
+        f"👇 Tekshirib, quyidagi tugmalardan birini bosing:"
+    )
+
+    for adm in set(admin_list):
+        try:
+            if message.photo:
+                await bot.send_photo(
+                    adm,
+                    photo=message.photo[-1].file_id,
+                    caption=admin_caption,
+                    parse_mode="HTML",
+                    reply_markup=kb_admin_approve_vip(user_id),
+                )
+            elif message.document:
+                await bot.send_document(
+                    adm,
+                    document=message.document.file_id,
+                    caption=admin_caption,
+                    parse_mode="HTML",
+                    reply_markup=kb_admin_approve_vip(user_id),
+                )
+        except Exception as e:
+            logger.error(f"Could not forward VIP receipt to admin {adm}: {e}")
+
+
+@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_PAYMENT_RECEIPT)
+async def handle_payment_receipt_text_warning(message: Message, bot: Bot):
+    """Remind user to send a screenshot image if they send plain text while waiting for receipt."""
+    user_id = message.from_user.id
+    lang = get_user_language(user_id) or "uz"
+    text = (message.text or "").strip()
+
+    if any(text == t("btn_home", l) for l in ("uz", "ru", "en")) or text in ("🏠 Bosh menyu", "❌ Bekor qilish", "Cancel", "Отмена"):
+        PENDING_VIP_PLAN.pop(user_id, None)
+        set_state(user_id, STATE_NONE)
+        from bot.handlers.menu import show_main_menu
+        await show_main_menu(bot, message.chat.id)
+        return
+
+    msg_warn = {
+        "uz": "📸 Iltimos, to'lov chekining <b>rasmini (skrinshot)</b> yuboring yoki bekor qilish uchun 🏠 Bosh menyu tugmasini bosing.",
+        "ru": "📸 Пожалуйста, отправьте <b>фото (скриншот)</b> чека об оплате или нажмите 🏠 Главное меню для отмены.",
+        "en": "📸 Please send a <b>photo (screenshot)</b> of your payment receipt or tap 🏠 Main Menu to cancel.",
+    }.get(lang, "📸 Iltimos, to'lov chekining rasmini (skrinshot) yuboring.")
+    await message.answer(msg_warn, parse_mode="HTML", reply_markup=kb_cancel(lang))
+
+
+@router.callback_query(F.data.startswith("adm_vip_ok_"))
+async def cb_admin_approve_vip(call: CallbackQuery, bot: Bot):
+    """Admin 1-click approval for user's VIP subscription."""
+    if call.from_user.id not in ADMIN_IDS and call.from_user.id != ADMIN_ID:
+        await call.answer("⛔️ Faqat admin uchun!", show_alert=True)
+        return
+
+    await _safe_answer(call)
+    parts = call.data.replace("adm_vip_ok_", "").split("_")
+    if len(parts) < 2:
+        return
+
+    target_user_id = int(parts[0])
+    days = int(parts[1])
+
+    activate_img_pdf_pass(target_user_id, days=days)
+    vip_until = get_vip_until(target_user_id) or ""
+
+    # Update admin message
+    status_line = f"\n\n✅ <b>TASDIQLANDI:</b> +{days} kun VIP (<b>{vip_until}</b> gacha)"
+    try:
+        old_caption = call.message.caption or call.message.text or ""
+        await call.message.edit_caption(caption=old_caption + status_line, parse_mode="HTML", reply_markup=None)
+    except Exception:
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+    # Notify user
+    u_lang = get_user_language(target_user_id) or "uz"
+    try:
+        await bot.send_message(
+            target_user_id,
+            t("vip_activated_notify", u_lang, days=days, vip_until=vip_until),
+            parse_mode="HTML",
+            reply_markup=kb_main_reply(u_lang),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to notify user {target_user_id} of VIP activation: {e}")
+
+
+@router.callback_query(F.data.startswith("adm_vip_no_"))
+async def cb_admin_reject_vip(call: CallbackQuery, bot: Bot):
+    """Admin 1-click rejection for invalid receipt."""
+    if call.from_user.id not in ADMIN_IDS and call.from_user.id != ADMIN_ID:
+        await call.answer("⛔️ Faqat admin uchun!", show_alert=True)
+        return
+
+    await _safe_answer(call)
+    target_user_id = int(call.data.replace("adm_vip_no_", ""))
+
+    status_line = "\n\n❌ <b>RAD ETILDI</b>"
+    try:
+        old_caption = call.message.caption or call.message.text or ""
+        await call.message.edit_caption(caption=old_caption + status_line, parse_mode="HTML", reply_markup=None)
+    except Exception:
+        try:
+            await call.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+    u_lang = get_user_language(target_user_id) or "uz"
+    try:
+        await bot.send_message(
+            target_user_id,
+            t("vip_rejected_notify", u_lang),
+            parse_mode="HTML",
+            reply_markup=kb_vip_plans(u_lang),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to notify user {target_user_id} of VIP rejection: {e}")
 

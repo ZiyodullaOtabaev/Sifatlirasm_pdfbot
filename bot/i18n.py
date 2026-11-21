@@ -81,20 +81,72 @@ TEXTS = {
             "👤 <b>Foydalanuvchi Profili</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Til: <b>{lang_name}</b>\n"
-            "📊 Ishlatilgan xizmatlar: <b>{uses_count} marta</b>\n"
-            "👥 Taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>\n"
+            "👑 Maqom: <b>{vip_status}</b>\n"
+            "📅 Bugungi bepul limit: <b>{daily_used} / {daily_limit} ta</b>\n"
+            "🎁 Bonus zaxira: <b>{bonus_balance} ta</b>\n"
+            "📊 Jami ishlatilgan: <b>{uses_count} marta</b>\n"
+            "👥 Taklif qilingan do'stlar: <b>{referral_count} ta</b>\n"
             "🌐 Jami foydalanuvchilarimiz: <b>{total_users:,} ta</b>"
         ),
         "referral_page_text": (
-            "🎁 <b>Do'stlarni Taklif Qiling!</b>\n\n"
-            "Botingizni yaqinlaringiz va do'stlaringizga ulashing, ularga ham tezkor va bepul PDF xizmatlaridan foydalanishga yordam bering!\n\n"
+            "🎁 <b>Do'stlarni Taklif Qiling va Bepul Limit Oling!</b>\n\n"
+            "Har bir taklif qilgan yangi do'stingiz uchun sizga <b>+3 ta qo'shimcha bonus limit</b> taqdim etiladi!\n\n"
             "🔗 <b>Sizning shaxsiy havolangiz:</b>\n"
             "<code>https://t.me/{bot_username}?start=ref_{user_id}</code>\n\n"
             "👥 Jami taklif qilgan do'stlaringiz: <b>{referral_count} ta</b>\n\n"
             "👇 Do'stlaringizga ulashish uchun pastdagi tugmani bosing:"
         ),
-        "referral_share_msg": "🤖 Eng qulay va sifatli bepul PDF botini topdim! Siz ham sinab ko'ring:",
-        "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi!</b>",
+        "referral_share_msg": "🤖 Eng qulay va sifatli PDF botini topdim! Siz ham sinab ko'ring:",
+        "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi! Sizga +3 ta bonus limit taqdim etildi!</b> 🎁",
+        "btn_vip": "💎 VIP Obuna",
+        "daily_limit_reached": (
+            "⏳ <b>Kunlik bepul limitingiz tugadi ({used}/{limit} ta)!</b>\n\n"
+            "Har kuni soat 00:00 da sizga yana <b>{limit} ta bepul</b> imkoniyat beriladi.\n"
+            "Kutmasdan hoziroq cheksiz foydalanish uchun:\n\n"
+            "1️⃣ <b>💎 VIP Obuna xarid qiling:</b>\n"
+            "• <b>1 Oylik VIP:</b> 9 000 so'm yoki ⭐️ 50 Stars\n"
+            "• <b>1 Yillik VIP:</b> 29 000 so'm yoki ⭐️ 150 Stars\n"
+            "<i>(Cheksiz PDF yaratish, birlashtirish, siqish + Majburiy obunalarsiz!)</i>\n\n"
+            "2️⃣ <b>🎁 Yoki do'stlaringizni taklif qiling:</b>\n"
+            "Har bir yangi do'stingiz uchun <b>+3 ta bepul bonus limit</b> olasiz!"
+        ),
+        "vip_info_text": (
+            "💎 <b>VIP Obuna — Cheksiz Imkoniyatlar!</b>\n\n"
+            "👑 Sizning holatingiz: <b>{vip_status}</b>\n"
+            "📅 Bugungi bepul limit: <b>{daily_used} / {daily_limit} ta</b>\n"
+            "🎁 Bonus zaxira: <b>{bonus_balance} ta</b>\n\n"
+            "✨ <b>VIP Obuna afzalliklari:</b>\n"
+            "• ♾ Barcha PDF xizmatlardan <b>cheksiz</b> foydalanish\n"
+            "• 🚫 <b>Majburiy obuna kanallarisiz</b> va reklamalarsiz ishlash\n"
+            "• ⚡️ Tezkor qayta ishlash\n\n"
+            "💳 <b>Tariflar:</b>\n"
+            "• 💎 <b>1 Oylik VIP (30 kun):</b> 9 000 so'm yoki ⭐️ 50 Stars\n"
+            "• 👑 <b>1 Yillik VIP (365 kun):</b> 29 000 so'm yoki ⭐️ 150 Stars\n\n"
+            "⬇️ O'zingizga qulay to'lov usulini tanlang:"
+        ),
+        "vip_card_payment_text": (
+            "💳 <b>Karta Orqali VIP Obuna Xarid Qilish</b>\n\n"
+            "Tanlangan tarif: <b>{plan_name}</b>\n"
+            "To'lov summasi: <b>{price_uzs} so'm</b>\n\n"
+            "Quyidagi karta raqamiga to'lovni amalga oshiring:\n"
+            "💳 Karta: <code>{card_number}</code>\n"
+            "<i>(Raqam ustiga bossangiz avtomatik nusxalanadi)</i>\n\n"
+            "📸 <b>To'lov qilgach, to'lov cheki (skrinshot) rasmini shu yerga yuboring!</b>\n"
+            "Admin tasdiqlashi bilan VIP obunangiz avtomatik yoqiladi 🚀"
+        ),
+        "vip_receipt_received": (
+            "✅ <b>To'lov chekingiz qabul qilindi va Adminga yuborildi!</b>\n\n"
+            "⏳ Tez orada tekshirilib, <b>VIP obunangiz</b> avtomatik tarzda faollashtiriladi va sizga xabar keladi."
+        ),
+        "vip_activated_notify": (
+            "🎉 <b>Tabriklaymiz! VIP Obunangiz faollashtirildi!</b> 💎\n\n"
+            "⏳ Muddati: <b>{days} kun</b> (<b>{vip_until}</b> gacha)\n"
+            "♾ Endi barcha PDF xizmatlardan <b>cheksiz</b> va majburiy obunalarsiz foydalanishingiz mumkin! 🚀"
+        ),
+        "vip_rejected_notify": (
+            "❌ <b>Yuborgan to'lov chekingiz tasdiqlanmadi.</b>\n\n"
+            "Iltimos, to'lov to'g'ri amalga oshirilganini tekshirib qayta yuboring yoki admin @ziyodullame bilan bog'laning."
+        ),
         "ai_video_refund_notify": "⚠️ <b>Xatolik yuz berdi.</b>\n💰 Kredit balansingizga qaytarildi!",
         "top_up_info": (
             "💳 <b>Rasmiy Xizmat Tariflari va VIP Pass:</b>\n\n"
@@ -290,20 +342,72 @@ TEXTS = {
             "👤 <b>Профиль пользователя</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Язык: <b>{lang_name}</b>\n"
-            "📊 Использовано сервисов: <b>{uses_count} раз</b>\n"
+            "👑 Статус: <b>{vip_status}</b>\n"
+            "📅 Дневной бесплатный лимит: <b>{daily_used} / {daily_limit}</b>\n"
+            "🎁 Бонусный запас: <b>{bonus_balance}</b>\n"
+            "📊 Всего использовано: <b>{uses_count} раз</b>\n"
             "👥 Приглашено друзей: <b>{referral_count} чел.</b>\n"
             "🌐 Всего пользователей бота: <b>{total_users:,}</b>"
         ),
         "referral_page_text": (
-            "🎁 <b>Приглашайте друзей!</b>\n\n"
-            "Поделитесь ботом с друзьями и коллегами, чтобы они также могли удобно и бесплатно работать с PDF!\n\n"
+            "🎁 <b>Приглашайте друзей и получайте бонусы!</b>\n\n"
+            "За каждого приглашенного нового друга вы получаете <b>+3 дополнительных бонусных лимита</b>!\n\n"
             "🔗 <b>Ваша реферальная ссылка:</b>\n"
             "<code>https://t.me/{bot_username}?start=ref_{user_id}</code>\n\n"
             "👥 Всего приглашено: <b>{referral_count} чел.</b>\n\n"
             "👇 Нажмите кнопку ниже, чтобы поделиться ссылкой:"
         ),
-        "referral_share_msg": "🤖 Нашел отличного и бесплатного PDF бота! Попробуй:",
-        "referral_bonus_notify": "🎉 <b>Новый друг присоединился по вашей ссылке!</b>",
+        "referral_share_msg": "🤖 Нашел отличного PDF бота! Попробуй:",
+        "referral_bonus_notify": "🎉 <b>Новый друг присоединился по вашей ссылке! Вам начислено +3 бонусных лимита!</b> 🎁",
+        "btn_vip": "💎 VIP Подписка",
+        "daily_limit_reached": (
+            "⏳ <b>Ваш дневной бесплатный лимит исчерпан ({used}/{limit})!</b>\n\n"
+            "Каждый день в 00:00 вам снова начисляется <b>{limit} бесплатных</b> операций.\n"
+            "Чтобы пользоваться без ограничений прямо сейчас:\n\n"
+            "1️⃣ <b>💎 Оформите VIP Подписку:</b>\n"
+            "• <b>VIP на 1 месяц:</b> 9 000 сум или ⭐️ 50 Stars\n"
+            "• <b>VIP на 1 год:</b> 29 000 сум или ⭐️ 150 Stars\n"
+            "<i>(Безлимитные PDF инструменты + Без обязательных подписок!)</i>\n\n"
+            "2️⃣ <b>🎁 Или пригласите друзей:</b>\n"
+            "За каждого нового друга вы получите <b>+3 бонусных лимита</b>!"
+        ),
+        "vip_info_text": (
+            "💎 <b>VIP Подписка — Безлимитный Доступ!</b>\n\n"
+            "👑 Ваш статус: <b>{vip_status}</b>\n"
+            "📅 Дневной бесплатный лимит: <b>{daily_used} / {daily_limit}</b>\n"
+            "🎁 Бонусный запас: <b>{bonus_balance}</b>\n\n"
+            "✨ <b>Преимущества VIP Подписки:</b>\n"
+            "• ♾ <b>Безлимитное</b> использование всех PDF инструментов\n"
+            "• 🚫 Работа <b>без обязательной подписки</b> на каналы и без рекламы\n"
+            "• ⚡️ Быстрая обработка файлов\n\n"
+            "💳 <b>Тарифы:</b>\n"
+            "• 💎 <b>VIP на 1 месяц (30 дней):</b> 9 000 сум или ⭐️ 50 Stars\n"
+            "• 👑 <b>VIP на 1 год (365 дней):</b> 29 000 сум или ⭐️ 150 Stars\n\n"
+            "⬇️ Выберите удобный способ оплаты:"
+        ),
+        "vip_card_payment_text": (
+            "💳 <b>Оплата VIP Подписки на Карту</b>\n\n"
+            "Выбранный тариф: <b>{plan_name}</b>\n"
+            "Сумма к оплате: <b>{price_uzs} сум</b>\n\n"
+            "Переведите указанную сумму на карту:\n"
+            "💳 Карта: <code>{card_number}</code>\n"
+            "<i>(Нажмите на номер, чтобы скопировать)</i>\n\n"
+            "📸 <b>После оплаты отправьте фото/скриншот чека прямо сюда в бот!</b>\n"
+            "После подтверждения админом VIP подписка включится автоматически 🚀"
+        ),
+        "vip_receipt_received": (
+            "✅ <b>Ваш чек принят и отправлен администратору!</b>\n\n"
+            "⏳ В ближайшее время ваша <b>VIP подписка</b> будет активирована, и вы получите уведомление."
+        ),
+        "vip_activated_notify": (
+            "🎉 <b>Поздравляем! Ваша VIP Подписка активирована!</b> 💎\n\n"
+            "⏳ Срок: <b>{days} дней</b> (до <b>{vip_until}</b>)\n"
+            "♾ Теперь все PDF сервисы доступны вам <b>безлимитно</b> и без обязательных подписок! 🚀"
+        ),
+        "vip_rejected_notify": (
+            "❌ <b>Отправленный вами чек не был подтвержден.</b>\n\n"
+            "Пожалуйста, проверьте правильность платежа и отправьте чек повторно или свяжитесь с админом @ziyodullame."
+        ),
         "ai_video_refund_notify": "⚠️ <b>Произошла ошибка.</b>\n💰 Кредиты возвращены на ваш баланс!",
         "top_up_info": (
             "💳 <b>Официальные Тарифы и VIP Pass:</b>\n\n"
@@ -499,20 +603,72 @@ TEXTS = {
             "👤 <b>User Profile</b>\n\n"
             "🆔 ID: <code>{user_id}</code>\n"
             "🌐 Language: <b>{lang_name}</b>\n"
-            "📊 Services Used: <b>{uses_count} times</b>\n"
+            "👑 Status: <b>{vip_status}</b>\n"
+            "📅 Daily Free Limit: <b>{daily_used} / {daily_limit}</b>\n"
+            "🎁 Bonus Balance: <b>{bonus_balance}</b>\n"
+            "📊 Total Services Used: <b>{uses_count} times</b>\n"
             "👥 Invited Friends: <b>{referral_count} users</b>\n"
             "🌐 Total Bot Users: <b>{total_users:,}</b>"
         ),
         "referral_page_text": (
-            "🎁 <b>Invite Friends!</b>\n\n"
-            "Share the bot with your friends and colleagues so they can enjoy fast and free PDF tools as well!\n\n"
+            "🎁 <b>Invite Friends & Get Free Bonus Uses!</b>\n\n"
+            "For every new friend you invite, you receive <b>+3 extra bonus uses</b>!\n\n"
             "🔗 <b>Your referral link:</b>\n"
             "<code>https://t.me/{bot_username}?start=ref_{user_id}</code>\n\n"
             "👥 Total invited friends: <b>{referral_count} users</b>\n\n"
             "👇 Click the button below to share:"
         ),
-        "referral_share_msg": "🤖 Found an amazing free PDF toolkit bot! Try it out:",
-        "referral_bonus_notify": "🎉 <b>A new friend joined using your link!</b>",
+        "referral_share_msg": "🤖 Found an amazing PDF toolkit bot! Try it out:",
+        "referral_bonus_notify": "🎉 <b>A new friend joined using your link! You received +3 bonus uses!</b> 🎁",
+        "btn_vip": "💎 VIP Subscription",
+        "daily_limit_reached": (
+            "⏳ <b>Your daily free limit is reached ({used}/{limit})!</b>\n\n"
+            "Every day at 00:00 you get <b>{limit} free</b> uses again.\n"
+            "To continue with unlimited access right now:\n\n"
+            "1️⃣ <b>💎 Get a VIP Subscription:</b>\n"
+            "• <b>1-Month VIP:</b> 9,000 UZS or ⭐️ 50 Stars\n"
+            "• <b>1-Year VIP:</b> 29,000 UZS or ⭐️ 150 Stars\n"
+            "<i>(Unlimited PDF tools + No mandatory channel subscriptions!)</i>\n\n"
+            "2️⃣ <b>🎁 Or invite your friends:</b>\n"
+            "Get <b>+3 free bonus uses</b> for every new friend!"
+        ),
+        "vip_info_text": (
+            "💎 <b>VIP Subscription — Unlimited Access!</b>\n\n"
+            "👑 Your Status: <b>{vip_status}</b>\n"
+            "📅 Daily Free Limit: <b>{daily_used} / {daily_limit}</b>\n"
+            "🎁 Bonus Balance: <b>{bonus_balance}</b>\n\n"
+            "✨ <b>VIP Benefits:</b>\n"
+            "• ♾ <b>Unlimited</b> use of all PDF tools\n"
+            "• 🚫 <b>No mandatory channel subscriptions</b> or ads\n"
+            "• ⚡️ Priority document processing\n\n"
+            "💳 <b>Plans:</b>\n"
+            "• 💎 <b>1-Month VIP (30 days):</b> 9,000 UZS or ⭐️ 50 Stars\n"
+            "• 👑 <b>1-Year VIP (365 days):</b> 29,000 UZS or ⭐️ 150 Stars\n\n"
+            "⬇️ Choose your preferred payment method:"
+        ),
+        "vip_card_payment_text": (
+            "💳 <b>Buy VIP Subscription via Bank Card</b>\n\n"
+            "Selected plan: <b>{plan_name}</b>\n"
+            "Amount to pay: <b>{price_uzs} UZS</b>\n\n"
+            "Transfer the amount to the following card:\n"
+            "💳 Card: <code>{card_number}</code>\n"
+            "<i>(Tap the card number to copy)</i>\n\n"
+            "📸 <b>After paying, send the payment receipt (screenshot) photo directly here to the bot!</b>\n"
+            "Once approved by the admin, your VIP status will be activated automatically 🚀"
+        ),
+        "vip_receipt_received": (
+            "✅ <b>Your payment receipt has been received and sent to the Admin!</b>\n\n"
+            "⏳ Your <b>VIP Subscription</b> will be activated shortly and you will be notified."
+        ),
+        "vip_activated_notify": (
+            "🎉 <b>Congratulations! Your VIP Subscription is now active!</b> 💎\n\n"
+            "⏳ Duration: <b>{days} days</b> (until <b>{vip_until}</b>)\n"
+            "♾ You now have <b>unlimited</b> access to all PDF tools with no mandatory channel subscriptions! 🚀"
+        ),
+        "vip_rejected_notify": (
+            "❌ <b>Your payment receipt could not be verified.</b>\n\n"
+            "Please check your payment and send the screenshot again, or contact admin @ziyodullame."
+        ),
         "ai_video_refund_notify": "⚠️ <b>An error occurred.</b>\n💰 Credits refunded to your balance!",
         "top_up_info": (
             "💳 <b>Official Tariffs and VIP Pass:</b>\n\n"

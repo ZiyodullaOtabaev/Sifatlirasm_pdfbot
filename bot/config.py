@@ -30,6 +30,7 @@ CHANNEL_USER = os.getenv("CHANNEL_USER", "@xonziyy").strip()
 
 # Limits
 FREE_USES_BEFORE_SUB = int(os.getenv("FREE_USES_BEFORE_SUB", "15").strip() or "15")
+DAILY_FREE_LIMIT = int(os.getenv("DAILY_FREE_LIMIT", "5").strip() or "5")
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(20 * 1024 * 1024)))
 
 # AI Upscale

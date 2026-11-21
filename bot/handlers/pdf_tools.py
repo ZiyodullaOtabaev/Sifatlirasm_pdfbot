@@ -1,9 +1,7 @@
 """
 PDF Tools Handlers:
 1. PDF to Images (PDF -> JPG)
-2. Split PDF (Extract pages)
-3. Delete Pages from PDF
-4. Watermark PDF
+2. Watermark PDF
 All 100% free, run locally on server without any paid APIs.
 """
 import os
@@ -20,12 +18,10 @@ from bot.keyboards import kb_cancel
 from bot.states import (
     get_state, set_state, STATE_NONE,
     STATE_WAIT_PDF_TO_IMG,
-    STATE_WAIT_SPLIT_PDF, STATE_WAIT_SPLIT_PAGES,
-    STATE_WAIT_DELETE_PAGES_PDF, STATE_WAIT_DELETE_PAGES_INPUT,
     STATE_WAIT_WATERMARK_PDF, STATE_WAIT_WATERMARK_TEXT,
 )
 from bot.utils.pdf_tools import (
-    pdf_to_images, split_pdf, delete_pdf_pages, watermark_pdf,
+    pdf_to_images, watermark_pdf,
 )
 from bot.utils.helpers import safe_remove, friendly_error
 from bot.handlers.menu import enforce_subscription, show_main_menu, _safe_answer
@@ -62,34 +58,6 @@ async def cb_pdf_to_img(call: CallbackQuery, bot: Bot):
     await bot.send_message(user.id, t("pdf_to_img_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
 
 
-@router.callback_query(F.data == "act_split_pdf")
-async def cb_split_pdf(call: CallbackQuery, bot: Bot):
-    """Start Split PDF flow."""
-    await _safe_answer(call)
-    user = call.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user.id) or "uz"
-    if not await enforce_subscription(bot, user.id, lang):
-        return
-    cleanup_session(user.id)
-    set_state(user.id, STATE_WAIT_SPLIT_PDF)
-    await bot.send_message(user.id, t("split_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
-
-
-@router.callback_query(F.data == "act_delete_pages")
-async def cb_delete_pages(call: CallbackQuery, bot: Bot):
-    """Start Delete Pages flow."""
-    await _safe_answer(call)
-    user = call.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
-    lang = get_user_language(user.id) or "uz"
-    if not await enforce_subscription(bot, user.id, lang):
-        return
-    cleanup_session(user.id)
-    set_state(user.id, STATE_WAIT_DELETE_PAGES_PDF)
-    await bot.send_message(user.id, t("delete_pages_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
-
-
 @router.callback_query(F.data == "act_watermark_pdf")
 async def cb_watermark_pdf(call: CallbackQuery, bot: Bot):
     """Start Watermark PDF flow."""
@@ -110,16 +78,17 @@ async def cb_watermark_pdf(call: CallbackQuery, bot: Bot):
 
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) in (
     STATE_WAIT_PDF_TO_IMG,
-    STATE_WAIT_SPLIT_PDF,
-    STATE_WAIT_DELETE_PAGES_PDF,
     STATE_WAIT_WATERMARK_PDF,
 ))
 async def handle_pdf_tool_document(message: Message, bot: Bot):
-    """Handle incoming PDF document for one of the 4 new PDF tools."""
+    """Handle incoming PDF document for PDF to Image or Watermark."""
     user = message.from_user
     user_id = user.id
     lang = get_user_language(user_id) or "uz"
     state = get_state(user_id)
+
+    if not await enforce_subscription(bot, user_id, lang):
+        return
 
     doc = message.document
     file_name = (doc.file_name or "").lower()
@@ -178,7 +147,7 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
         await show_main_menu(bot, message.chat.id)
         return
 
-    # 2, 3, 4: Multi-step tools (Split, Delete, Watermark)
+    # 2. Watermark PDF
     from pypdf import PdfReader
     try:
         reader = PdfReader(file_path)
@@ -196,21 +165,7 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
         "total": total_pages,
     }
 
-    if state == STATE_WAIT_SPLIT_PDF:
-        set_state(user_id, STATE_WAIT_SPLIT_PAGES)
-        await message.answer(
-            t("split_pdf_pages_prompt", lang).format(total=total_pages),
-            parse_mode="HTML",
-            reply_markup=kb_cancel(lang)
-        )
-    elif state == STATE_WAIT_DELETE_PAGES_PDF:
-        set_state(user_id, STATE_WAIT_DELETE_PAGES_INPUT)
-        await message.answer(
-            t("delete_pages_input_prompt", lang).format(total=total_pages),
-            parse_mode="HTML",
-            reply_markup=kb_cancel(lang)
-        )
-    elif state == STATE_WAIT_WATERMARK_PDF:
+    if state == STATE_WAIT_WATERMARK_PDF:
         set_state(user_id, STATE_WAIT_WATERMARK_TEXT)
         await message.answer(
             t("watermark_text_prompt", lang),
@@ -220,20 +175,15 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
 
 
 # ========================================================
-# 3. TEXT HANDLERS FOR MULTI-STEP OPERATIONS
+# 3. TEXT HANDLERS FOR WATERMARK OPERATION
 # ========================================================
 
-@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) in (
-    STATE_WAIT_SPLIT_PAGES,
-    STATE_WAIT_DELETE_PAGES_INPUT,
-    STATE_WAIT_WATERMARK_TEXT,
-))
+@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_WATERMARK_TEXT)
 async def handle_pdf_tool_text_input(message: Message, bot: Bot):
-    """Handle the second step (parameters input) for Split, Delete Pages, and Watermark."""
+    """Handle the second step (text input) for Watermark."""
     user = message.from_user
     user_id = user.id
     lang = get_user_language(user_id) or "uz"
-    state = get_state(user_id)
     text = (message.text or "").strip()
 
     # Cancel check
@@ -255,98 +205,34 @@ async def handle_pdf_tool_text_input(message: Message, bot: Bot):
     doc_name = session["name"]
     base_name = os.path.splitext(doc_name)[0]
 
-    # 1. SPLIT PDF
-    if state == STATE_WAIT_SPLIT_PAGES:
-        out_pdf = os.path.join(DOWNLOAD_DIR, f"{user_id}_split.pdf")
-        status = await message.answer(t("split_pdf_generating", lang), parse_mode="HTML")
+    out_pdf = os.path.join(DOWNLOAD_DIR, f"{user_id}_watermark.pdf")
+    status = await message.answer(t("watermark_generating", lang), parse_mode="HTML")
+    try:
+        total = watermark_pdf(in_pdf, out_pdf, text)
+        result_doc = FSInputFile(out_pdf, filename=f"watermarked_{base_name}.pdf")
+        await bot.send_document(
+            user_id,
+            result_doc,
+            caption=t("watermark_ready", lang).format(count=total),
+            parse_mode="HTML"
+        )
+        inc_uses_and_log(user_id, "watermark_pdf")
+        logger.info(f"User {user_id}: watermark_pdf ({total} pages)")
+    except Exception as e:
+        logger.error(f"Error in watermark_pdf for {user_id}: {e}")
+        await message.answer(friendly_error(e), reply_markup=kb_cancel(lang))
         try:
-            count = split_pdf(in_pdf, out_pdf, text)
-            result_doc = FSInputFile(out_pdf, filename=f"split_{base_name}.pdf")
-            await bot.send_document(
-                user_id,
-                result_doc,
-                caption=t("split_pdf_ready", lang).format(count=count),
-                parse_mode="HTML"
-            )
-            inc_uses_and_log(user_id, "split_pdf")
-            logger.info(f"User {user_id}: split_pdf ({count} pages)")
-        except Exception as e:
-            logger.error(f"Error in split_pdf for {user_id}: {e}")
-            await message.answer(friendly_error(e), reply_markup=kb_cancel(lang))
-            try:
-                await status.delete()
-            except Exception:
-                pass
-            return
-        finally:
-            cleanup_session(user_id)
-            safe_remove(out_pdf)
-            try:
-                await status.delete()
-            except Exception:
-                pass
-
-    # 2. DELETE PAGES
-    elif state == STATE_WAIT_DELETE_PAGES_INPUT:
-        out_pdf = os.path.join(DOWNLOAD_DIR, f"{user_id}_delpages.pdf")
-        status = await message.answer(t("delete_pages_generating", lang), parse_mode="HTML")
+            await status.delete()
+        except Exception:
+            pass
+        return
+    finally:
+        cleanup_session(user_id)
+        safe_remove(out_pdf)
         try:
-            rem = delete_pdf_pages(in_pdf, out_pdf, text)
-            result_doc = FSInputFile(out_pdf, filename=f"modified_{base_name}.pdf")
-            await bot.send_document(
-                user_id,
-                result_doc,
-                caption=t("delete_pages_ready", lang).format(count=rem),
-                parse_mode="HTML"
-            )
-            inc_uses_and_log(user_id, "delete_pdf_pages")
-            logger.info(f"User {user_id}: delete_pdf_pages ({rem} remaining)")
-        except Exception as e:
-            logger.error(f"Error in delete_pdf_pages for {user_id}: {e}")
-            await message.answer(friendly_error(e), reply_markup=kb_cancel(lang))
-            try:
-                await status.delete()
-            except Exception:
-                pass
-            return
-        finally:
-            cleanup_session(user_id)
-            safe_remove(out_pdf)
-            try:
-                await status.delete()
-            except Exception:
-                pass
-
-    # 3. WATERMARK PDF
-    elif state == STATE_WAIT_WATERMARK_TEXT:
-        out_pdf = os.path.join(DOWNLOAD_DIR, f"{user_id}_watermark.pdf")
-        status = await message.answer(t("watermark_generating", lang), parse_mode="HTML")
-        try:
-            total = watermark_pdf(in_pdf, out_pdf, text)
-            result_doc = FSInputFile(out_pdf, filename=f"watermarked_{base_name}.pdf")
-            await bot.send_document(
-                user_id,
-                result_doc,
-                caption=t("watermark_ready", lang).format(count=total),
-                parse_mode="HTML"
-            )
-            inc_uses_and_log(user_id, "watermark_pdf")
-            logger.info(f"User {user_id}: watermark_pdf ({total} pages)")
-        except Exception as e:
-            logger.error(f"Error in watermark_pdf for {user_id}: {e}")
-            await message.answer(friendly_error(e), reply_markup=kb_cancel(lang))
-            try:
-                await status.delete()
-            except Exception:
-                pass
-            return
-        finally:
-            cleanup_session(user_id)
-            safe_remove(out_pdf)
-            try:
-                await status.delete()
-            except Exception:
-                pass
+            await status.delete()
+        except Exception:
+            pass
 
     set_state(user_id, STATE_NONE)
     await show_main_menu(bot, message.chat.id)

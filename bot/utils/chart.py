@@ -39,27 +39,23 @@ def render_usage_chart_png(data: Dict[str, Dict[str, int]], title: str = "So'ngg
 
     days_list = list(data.keys())
     actions = [
-        "img_pdf", "text_pdf", "pdf_to_img", "split_pdf",
-        "pdf_merge", "compress_pdf", "delete_pdf_pages", "watermark_pdf"
+        "img_pdf", "text_pdf", "pdf_to_img",
+        "pdf_merge", "compress_pdf", "watermark_pdf"
     ]
     colors = {
         "img_pdf": (16, 185, 129),
         "text_pdf": (59, 130, 246),
         "pdf_to_img": (245, 158, 11),
-        "split_pdf": (168, 85, 247),
         "pdf_merge": (239, 68, 68),
         "compress_pdf": (14, 165, 233),
-        "delete_pdf_pages": (244, 63, 94),
         "watermark_pdf": (99, 102, 241),
     }
     labels = {
         "img_pdf": "Rasm->PDF",
         "text_pdf": "Matn->PDF",
         "pdf_to_img": "PDF->Rasm",
-        "split_pdf": "Bo'lish",
         "pdf_merge": "Birlashtir",
         "compress_pdf": "Siqish",
-        "delete_pdf_pages": "O'chirish",
         "watermark_pdf": "Watermark",
     }
 
@@ -211,10 +207,8 @@ def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
         "img_pdf": "• Rasm -> PDF",
         "text_pdf": "• Matn -> PDF",
         "pdf_to_img": "• PDF -> Rasm",
-        "split_pdf": "• PDF Bo'lish",
         "pdf_merge": "• PDF Birlashtirish",
         "compress_pdf": "• PDF Siqish",
-        "delete_pdf_pages": "• Sahifani O'chirish",
         "watermark_pdf": "• Suv Belgisi Qo'yish",
     }
     for action, label in action_labels.items():
