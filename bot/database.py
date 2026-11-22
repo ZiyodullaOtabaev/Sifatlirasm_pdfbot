@@ -504,38 +504,78 @@ def get_top_users(limit: int = 30) -> list:
         """, (limit,)).fetchall()
 
 
-def get_active_users_24h(limit: int = 50) -> list:
-    """Get users active in last 24 hours (combining users table and usage logs)."""
+def get_active_users_24h_count() -> int:
+    """Get exact total count of users active in the last 24 hours."""
+    with db_connect() as con:
+        row = con.execute("""
+            SELECT COUNT(*) as c
+            FROM users u
+            LEFT JOIN (
+                SELECT DISTINCT user_id
+                FROM usage_logs
+                WHERE datetime(created_at) >= datetime('now','-24 hours')
+            ) l ON u.user_id = l.user_id
+            WHERE datetime(u.updated_at) >= datetime('now','-24 hours') OR l.user_id IS NOT NULL
+        """).fetchone()
+        return int(row["c"]) if row else 0
+
+
+def get_active_users_24h(limit: int = 30, offset: int = 0) -> list:
+    """Get users active in last 24 hours with pagination (Tashkent UTC+5 time)."""
     with db_connect() as con:
         return con.execute("""
-            SELECT DISTINCT u.user_id,
+            SELECT u.user_id,
                    COALESCE(u.username,'') as username,
                    COALESCE(u.first_name,'') as first_name,
                    COALESCE(u.last_name,'') as last_name,
                    COALESCE(u.uses_count, 0) as uses_count,
-                   COALESCE(l.last_action, u.updated_at) as updated_at
+                   datetime(
+                       CASE
+                           WHEN l.last_action IS NOT NULL AND l.last_action > COALESCE(datetime(u.updated_at), '')
+                           THEN l.last_action
+                           ELSE datetime(u.updated_at)
+                       END,
+                       '+5 hours'
+                   ) as updated_at
             FROM users u
             LEFT JOIN (
-                SELECT user_id, MAX(created_at) as last_action
+                SELECT user_id, MAX(datetime(created_at)) as last_action
                 FROM usage_logs
-                WHERE created_at >= datetime('now','-24 hours')
+                WHERE datetime(created_at) >= datetime('now','-24 hours')
                 GROUP BY user_id
             ) l ON u.user_id = l.user_id
-            WHERE u.updated_at >= datetime('now','-24 hours') OR l.last_action IS NOT NULL
-            ORDER BY updated_at DESC LIMIT ?
-        """, (limit,)).fetchall()
+            WHERE datetime(u.updated_at) >= datetime('now','-24 hours') OR l.last_action IS NOT NULL
+            ORDER BY updated_at DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset)).fetchall()
 
 
-def get_new_users_24h(limit: int = 30) -> list:
-    """Get users registered in last 24 hours."""
+def get_new_users_24h_count() -> int:
+    """Get exact total count of users registered in the last 24 hours."""
+    with db_connect() as con:
+        row = con.execute("""
+            SELECT COUNT(*) as c
+            FROM users
+            WHERE datetime(created_at) >= datetime('now','-24 hours')
+        """).fetchone()
+        return int(row["c"]) if row else 0
+
+
+def get_new_users_24h(limit: int = 30, offset: int = 0) -> list:
+    """Get users registered in last 24 hours with pagination (Tashkent UTC+5 time)."""
     with db_connect() as con:
         return con.execute("""
-            SELECT user_id, COALESCE(username,'') as username,
+            SELECT user_id,
+                   COALESCE(username,'') as username,
                    COALESCE(first_name,'') as first_name,
-                   COALESCE(last_name,'') as last_name, created_at
-            FROM users WHERE created_at >= datetime('now','-24 hours')
-            ORDER BY created_at DESC LIMIT ?
-        """, (limit,)).fetchall()
+                   COALESCE(last_name,'') as last_name,
+                   COALESCE(uses_count, 0) as uses_count,
+                   datetime(created_at, '+5 hours') as created_at
+            FROM users
+            WHERE datetime(created_at) >= datetime('now','-24 hours')
+            ORDER BY datetime(created_at) DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset)).fetchall()
 
 
 def search_user(query: str) -> list:

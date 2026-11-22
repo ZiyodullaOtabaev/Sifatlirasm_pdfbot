@@ -472,6 +472,25 @@ def kb_admin_back() -> InlineKeyboardMarkup:
     ])
 
 
+def kb_admin_pagination(prefix: str, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    """Dynamic pagination keyboard for admin lists (e.g. active24, new24)."""
+    rows = []
+    if total_pages > 1:
+        nav_row = []
+        if page > 1:
+            nav_row.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"{prefix}_p_{page - 1}"))
+        nav_row.append(InlineKeyboardButton(text=f"📄 {page} / {total_pages}", callback_data="admin_noop"))
+        if page < total_pages:
+            nav_row.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"{prefix}_p_{page + 1}"))
+        rows.append(nav_row)
+
+    rows.append([
+        InlineKeyboardButton(text="🔄 Yangilash", callback_data=f"{prefix}_p_{page}"),
+        InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin_back"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def kb_broadcast_confirm() -> InlineKeyboardMarkup:
     """Broadcast confirmation keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[

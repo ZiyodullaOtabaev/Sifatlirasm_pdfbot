@@ -23,13 +23,17 @@ from aiogram.types import (
 from bot.config import ADMIN_IDS, BROADCAST_RATE, DB_PATH
 from bot.database import (
     upsert_user, get_admin_summary, daily_usage_by_action,
-    get_top_users, get_new_users_24h, get_active_users_24h,
+    get_top_users, get_new_users_24h, get_new_users_24h_count,
+    get_active_users_24h, get_active_users_24h_count,
     get_all_user_ids, save_broadcast_result,
     get_action_stats, get_growth_stats,
     get_broadcast_history, search_user,
 )
 from bot.i18n import t
-from bot.keyboards import kb_admin, kb_admin_back, kb_broadcast_confirm, kb_cancel, kb_user_balance_actions
+from bot.keyboards import (
+    kb_admin, kb_admin_back, kb_admin_pagination,
+    kb_broadcast_confirm, kb_cancel, kb_user_balance_actions,
+)
 from bot.states import (
     set_state, get_state, STATE_NONE, STATE_WAIT_BROADCAST,
     STATE_WAIT_ADMIN_BALANCE_INPUT, STATE_WAIT_SEARCH,
@@ -433,52 +437,127 @@ async def cb_admin_top30(call: CallbackQuery, bot: Bot):
                            reply_markup=kb_admin_back())
 
 
-@router.callback_query(F.data == "admin_new24")
-async def cb_admin_new24(call: CallbackQuery, bot: Bot):
-    """New users 24h."""
-    await call.answer()
-    if not _is_admin(call.from_user.id):
-        return
-    import html
-    rows = get_new_users_24h(30)
-    lines = []
-    for i, r in enumerate(rows, start=1):
-        uname = f"@{html.escape(r['username'])}" if r["username"] else "-"
-        name = html.escape((f"{r['first_name'] or ''} {r['last_name'] or ''}").strip() or "-")
-        t_time = r["created_at"][11:16] if r["created_at"] and len(str(r["created_at"])) >= 16 else ""
-        lines.append(f"{i}. {uname} | {name} | {t_time}")
-    text = "<b>🆕 Yangi 24 soat:</b>\n\n" + ("\n".join(lines) if lines else "Hech kim yo'q")
-    await bot.send_message(call.from_user.id, text, parse_mode="HTML",
-                           reply_markup=kb_admin_back())
+ADMIN_PAGE_SIZE = 30
 
 
-async def _send_active_users_24h(user_id: int, bot: Bot):
-    """Send active 24h users list to admin safely."""
+def _build_new_users_24h_page(page: int = 1) -> tuple[str, InlineKeyboardMarkup]:
+    """Build dynamic paginated text and keyboard for new 24h users."""
     import html
-    rows = get_active_users_24h(50)
+    total = get_new_users_24h_count()
+    total_pages = max(1, (total + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * ADMIN_PAGE_SIZE
+
+    rows = get_new_users_24h(limit=ADMIN_PAGE_SIZE, offset=offset)
     lines = []
-    for i, row in enumerate(rows, start=1):
+    for idx, row in enumerate(rows, start=offset + 1):
         r = dict(row)
         uname = f"@{html.escape(r['username'])}" if r.get("username") else f"<code>{r['user_id']}</code>"
-        name = html.escape((f"{r.get('first_name') or ''} {r.get('last_name') or ''}").strip() or "-")
+        raw_name = (f"{r.get('first_name') or ''} {r.get('last_name') or ''}").strip() or "-"
+        if len(raw_name) > 26:
+            raw_name = raw_name[:25] + "…"
+        name = html.escape(raw_name)
+        created_at = str(r.get("created_at") or "")
+        t_str = created_at[11:16] if len(created_at) >= 16 else ""
+        uses = r.get("uses_count", 0)
+        lines.append(f"{idx}. {uname} | {name} | <b>{uses} ta</b> | {t_str}")
+
+    header = f"<b>🆕 Yangi 24 soat (Jami: {total:,} ta)</b> | Sahifa: <b>{page}/{total_pages}</b>\n\n"
+    text = header + ("\n".join(lines) if lines else "Hozircha hech kim yo'q")
+    if len(text) > 4000:
+        text = text[:3950] + "\n\n<i>...(qisqartirildi)</i>"
+    return text, kb_admin_pagination("admin_new24", page, total_pages)
+
+
+def _build_active_users_24h_page(page: int = 1) -> tuple[str, InlineKeyboardMarkup]:
+    """Build dynamic paginated text and keyboard for active 24h users."""
+    import html
+    total = get_active_users_24h_count()
+    total_pages = max(1, (total + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * ADMIN_PAGE_SIZE
+
+    rows = get_active_users_24h(limit=ADMIN_PAGE_SIZE, offset=offset)
+    lines = []
+    for idx, row in enumerate(rows, start=offset + 1):
+        r = dict(row)
+        uname = f"@{html.escape(r['username'])}" if r.get("username") else f"<code>{r['user_id']}</code>"
+        raw_name = (f"{r.get('first_name') or ''} {r.get('last_name') or ''}").strip() or "-"
+        if len(raw_name) > 26:
+            raw_name = raw_name[:25] + "…"
+        name = html.escape(raw_name)
         updated_at = str(r.get("updated_at") or "")
         t_str = updated_at[11:16] if len(updated_at) >= 16 else ""
         uses = r.get("uses_count", 0)
-        lines.append(f"{i}. {uname} | {name} | <b>{uses} ta</b> | {t_str}")
+        lines.append(f"{idx}. {uname} | {name} | <b>{uses} ta</b> | {t_str}")
 
-    text = f"<b>⚡️ Oxirgi 24 soatdagi aktiv foydalanuvchilar (Jami: {len(rows)} ta):</b>\n\n" + ("\n".join(lines) if lines else "Hozircha hech kim yo'q")
+    header = f"<b>⚡️ Aktiv 24 soat (Jami: {total:,} ta)</b> | Sahifa: <b>{page}/{total_pages}</b>\n\n"
+    text = header + ("\n".join(lines) if lines else "Hozircha hech kim yo'q")
     if len(text) > 4000:
-        text = text[:3900] + "\n\n<i>...(qolganlari qisqartirildi)</i>"
-    await bot.send_message(user_id, text, parse_mode="HTML", reply_markup=kb_admin_back())
+        text = text[:3950] + "\n\n<i>...(qisqartirildi)</i>"
+    return text, kb_admin_pagination("admin_active24", page, total_pages)
+
+
+@router.callback_query(F.data == "admin_noop")
+async def cb_admin_noop(call: CallbackQuery):
+    """Ignore clicks on page indicator button."""
+    await call.answer()
+
+
+@router.callback_query(F.data == "admin_new24")
+async def cb_admin_new24(call: CallbackQuery, bot: Bot):
+    """New users 24h (page 1)."""
+    await call.answer()
+    if not _is_admin(call.from_user.id):
+        return
+    text, kb = _build_new_users_24h_page(1)
+    await bot.send_message(call.from_user.id, text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("admin_new24_p_"))
+async def cb_admin_new24_page(call: CallbackQuery, bot: Bot):
+    """Dynamic pagination for new 24h users."""
+    if not _is_admin(call.from_user.id):
+        await call.answer()
+        return
+    try:
+        page = int(call.data.replace("admin_new24_p_", ""))
+    except ValueError:
+        page = 1
+    text, kb = _build_new_users_24h_page(page)
+    try:
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await call.answer()
+    except Exception:
+        await call.answer("✅ Yangilandi")
 
 
 @router.callback_query(F.data == "admin_active24")
 async def cb_admin_active24(call: CallbackQuery, bot: Bot):
-    """Active users in the last 24 hours (callback)."""
+    """Active users in the last 24 hours (page 1)."""
     await call.answer()
     if not _is_admin(call.from_user.id):
         return
-    await _send_active_users_24h(call.from_user.id, bot)
+    text, kb = _build_active_users_24h_page(1)
+    await bot.send_message(call.from_user.id, text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("admin_active24_p_"))
+async def cb_admin_active24_page(call: CallbackQuery, bot: Bot):
+    """Dynamic pagination for active 24h users."""
+    if not _is_admin(call.from_user.id):
+        await call.answer()
+        return
+    try:
+        page = int(call.data.replace("admin_active24_p_", ""))
+    except ValueError:
+        page = 1
+    text, kb = _build_active_users_24h_page(page)
+    try:
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await call.answer()
+    except Exception:
+        await call.answer("✅ Yangilandi")
 
 
 @router.message(Command("active24h"))
@@ -486,7 +565,8 @@ async def cmd_admin_active24(message: Message, bot: Bot):
     """Active users in the last 24 hours (command)."""
     if not _is_admin(message.from_user.id):
         return
-    await _send_active_users_24h(message.from_user.id, bot)
+    text, kb = _build_active_users_24h_page(1)
+    await bot.send_message(message.from_user.id, text, parse_mode="HTML", reply_markup=kb)
 
 
 def export_users_to_excel() -> bytes:
