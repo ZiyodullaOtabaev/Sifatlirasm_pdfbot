@@ -22,9 +22,11 @@ from bot.handlers.menu import enforce_subscription, show_main_menu
 logger = logging.getLogger(__name__)
 router = Router(name="merge_pdf")
 
-# PDF merge buffers
-PDF_BUFFER: Dict[Tuple[int, str], List[str]] = {}
-PDF_TASK: Dict[Tuple[int, str], asyncio.Task] = {}
+# PDF merge buffers: user_id -> List[(message_id, file_path)]
+PDF_BUFFER: Dict[int, List[Tuple[int, str]]] = {}
+PDF_TASK: Dict[int, asyncio.Task] = {}
+ACTIVE_PDF_DOWNLOADS: Dict[int, int] = {}
+LAST_MERGE_WARN: Dict[int, float] = {}
 
 
 @router.message(lambda msg: msg.photo and get_state(msg.from_user.id) == STATE_WAIT_PDF_MERGE)
@@ -36,14 +38,19 @@ async def handle_merge_photo_error(message: Message, bot: Bot):
 
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_PDF_MERGE)
 async def handle_merge_pdf(message: Message, bot: Bot):
-    """Handle document for PDF merging."""
+    """Handle document for PDF merging in strict message_id sequence."""
     user = message.from_user
     user_id = user.id
     upsert_user(user_id, user.username, user.first_name, user.last_name)
     lang = get_user_language(user_id) or "uz"
 
-    if not await enforce_subscription(bot, user_id, lang):
-        return
+    if user_id not in PDF_BUFFER and ACTIVE_PDF_DOWNLOADS.get(user_id, 0) == 0:
+        now_ts = time.time()
+        if now_ts - LAST_MERGE_WARN.get(user_id, 0) < 3.0:
+            return
+        if not await enforce_subscription(bot, user_id, lang):
+            LAST_MERGE_WARN[user_id] = now_ts
+            return
 
     doc = message.document
     file_name = (doc.file_name or "").lower()
@@ -58,24 +65,43 @@ async def handle_merge_pdf(message: Message, bot: Bot):
         await message.answer(f"❌ Fayl hajmi juda katta (max {MAX_FILE_SIZE // (1024*1024)}MB).")
         return
 
-    file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{doc.file_id}.pdf")
-    file = await bot.get_file(doc.file_id)
-    await bot.download_file(file.file_path, file_path)
+    old_task = PDF_TASK.get(user_id)
+    if old_task and not old_task.done():
+        old_task.cancel()
 
-    # Buffer PDFs
-    group_id = message.media_group_id or "pdfmerge"
-    key = (user_id, str(group_id))
-    PDF_BUFFER.setdefault(key, []).append(file_path)
-    old_task = PDF_TASK.get(key)
+    ACTIVE_PDF_DOWNLOADS[user_id] = ACTIVE_PDF_DOWNLOADS.get(user_id, 0) + 1
+    file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{message.message_id}_{doc.file_unique_id}.pdf")
+    try:
+        file = await bot.get_file(doc.file_id)
+        await bot.download_file(file.file_path, file_path)
+        PDF_BUFFER.setdefault(user_id, []).append((message.message_id, file_path))
+    except Exception as dl_err:
+        logger.error(f"Error downloading PDF for merge user {user_id}: {dl_err}")
+        safe_remove(file_path)
+    finally:
+        ACTIVE_PDF_DOWNLOADS[user_id] = max(0, ACTIVE_PDF_DOWNLOADS.get(user_id, 1) - 1)
+
+    old_task = PDF_TASK.get(user_id)
     if old_task and not old_task.done():
         old_task.cancel()
 
     async def finalize_pdf_group():
-        await asyncio.sleep(1.5)
-        paths = PDF_BUFFER.pop(key, [])
-        PDF_TASK.pop(key, None)
-        if not paths:
+        await asyncio.sleep(1.8)
+        while ACTIVE_PDF_DOWNLOADS.get(user_id, 0) > 0:
+            await asyncio.sleep(0.4)
+        await asyncio.sleep(0.3)
+        if ACTIVE_PDF_DOWNLOADS.get(user_id, 0) > 0:
             return
+
+        items = PDF_BUFFER.pop(user_id, [])
+        PDF_TASK.pop(user_id, None)
+        ACTIVE_PDF_DOWNLOADS.pop(user_id, None)
+        if not items:
+            return
+
+        items.sort(key=lambda x: x[0])
+        paths = [p for _, p in items]
+
         if len(paths) < 2:
             for p in paths:
                 safe_remove(p)
@@ -89,7 +115,7 @@ async def handle_merge_pdf(message: Message, bot: Bot):
             result = FSInputFile(out_pdf, filename=user_pdf_filename(user))
             await bot.send_document(user_id, result, caption=t("merge_pdf_ready", lang), parse_mode="HTML")
             inc_uses_and_log(user_id, "pdf_merge")
-            logger.info(f"User {user_id}: pdf_merge ({len(paths)} files)")
+            logger.info(f"User {user_id}: pdf_merge ({len(paths)} files in strict order)")
         except Exception as e:
             logger.error(f"PDF merge error for user {user_id}: {e}")
             from bot.utils.helpers import friendly_error
@@ -105,5 +131,5 @@ async def handle_merge_pdf(message: Message, bot: Bot):
         set_state(user_id, STATE_NONE)
         await show_main_menu(bot, user_id)
 
-    PDF_TASK[key] = asyncio.create_task(finalize_pdf_group())
+    PDF_TASK[user_id] = asyncio.create_task(finalize_pdf_group())
 

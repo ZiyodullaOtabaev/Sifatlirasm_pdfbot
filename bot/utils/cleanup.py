@@ -42,20 +42,20 @@ async def cleanup_worker():
 # Reminder messages for different inactivity periods
 REMINDER_24H = (
     "👋 Salom! Sizni sog'indik.\n\n"
-    "🛠 Bizning xizmatlarimiz sizni kutmoqda:\n"
-    "• PDF yaratish va siqish\n"
-    "• AI rasm sifat oshirish\n"
-    "• Rasmdan matn ajratish\n\n"
+    "🛠 Bizning tezkor PDF xizmatlarimiz sizni kutmoqda:\n"
+    "• 🖼 Rasm → sifatli PDF\n"
+    "• 📝 Matn → PDF hujjat\n"
+    "• 📎 PDF birlashtirish va siqish\n\n"
     "⬇️ /start bosing va davom eting!"
 )
 
 REMINDER_72H = (
-    "🔔 3 kundan beri ko'rishmagandik!\n\n"
-    "Bilasizmi? Yangi imkoniyatlar qo'shildi:\n"
-    "• ✦ AI rasm yaratish\n"
-    "• 🎨 Fon olib tashlash\n"
-    "• 🗜 PDF siqish\n\n"
-    "Bepul foydalaning → /start"
+    "🔔 Ko'rishmaganimizga ancha bo'ldi!\n\n"
+    "Barcha qulay PDF asboblar bitta botda:\n"
+    "• 🖼 Rasm → PDF va PDF → Rasm\n"
+    "• 📎 PDF birlashtirish\n"
+    "• 🗜 PDF hajmini sifatli siqish\n\n"
+    "Foydalanish uchun → /start"
 )
 
 

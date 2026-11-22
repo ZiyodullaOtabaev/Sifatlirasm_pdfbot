@@ -39,16 +39,19 @@ async def main():
     # Start bot profile description worker (monthly active users count)
     asyncio.create_task(update_bot_description_worker(bot))
 
-    # Set bot commands for bottom-left blue Menu button
+    # Set bot commands and replace old "AI Studio" WebApp menu button with standard Commands Menu button
     try:
-        from aiogram.types import BotCommand
+        from aiogram.types import BotCommand, MenuButtonCommands
         await bot.set_my_commands([
             BotCommand(command="start", description="🏠 Bosh menyu / Главное меню"),
+            BotCommand(command="vip", description="💎 VIP Obuna / VIP Подписка"),
             BotCommand(command="profile", description="👤 Profil / Профиль"),
             BotCommand(command="admin", description="🛠 Admin panel"),
         ])
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        logger.info("Chat menu button reset to standard commands menu (removed AI Studio)")
     except Exception as cmd_err:
-        logger.warning(f"Could not set bot commands: {cmd_err}")
+        logger.warning(f"Could not set bot commands or menu button: {cmd_err}")
 
     logger.info("Bot is starting...")
     await dp.start_polling(bot)
