@@ -398,6 +398,7 @@ def kb_admin() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
         ],
         [
+            InlineKeyboardButton(text="💎 VIP obunachilar", callback_data="admin_vip_users"),
             InlineKeyboardButton(text="📜 BC tarix", callback_data="admin_bc_history"),
         ],
     ])

@@ -25,6 +25,7 @@ from bot.database import (
     upsert_user, get_admin_summary, daily_usage_by_action,
     get_top_users, get_new_users_24h, get_new_users_24h_count,
     get_active_users_24h, get_active_users_24h_count,
+    get_vip_users, get_vip_users_count,
     get_all_user_ids, save_broadcast_result,
     get_action_stats, get_growth_stats,
     get_broadcast_history, search_user,
@@ -50,6 +51,7 @@ BROADCAST_RUNNING: Dict[int, bool] = {}
 SCHEDULED_TASKS: Dict[int, asyncio.Task] = {}
 
 STATE_WAIT_SCHEDULE_TIME = "wait_schedule_time"
+STATE_WAIT_BROADCAST_CAPTION = "wait_broadcast_caption"
 
 
 def _is_admin(user_id: int) -> bool:
@@ -265,6 +267,7 @@ async def cmd_broadcast(message: Message):
     if BROADCAST_RUNNING.get(message.from_user.id):
         await message.answer("⚠️ Hozir broadcast davom etmoqda.")
         return
+    PENDING_BROADCAST.pop(message.from_user.id, None)
     set_state(message.from_user.id, STATE_WAIT_BROADCAST)
     await message.answer(
         "<b>📢 Broadcast rejimi</b>\n\n"
@@ -569,6 +572,66 @@ async def cmd_admin_active24(message: Message, bot: Bot):
     await bot.send_message(message.from_user.id, text, parse_mode="HTML", reply_markup=kb)
 
 
+def _build_vip_users_page(page: int = 1) -> tuple[str, InlineKeyboardMarkup]:
+    """Build dynamic paginated list of active VIP subscribers."""
+    import html
+    total = get_vip_users_count()
+    total_pages = max(1, (total + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    offset = (page - 1) * ADMIN_PAGE_SIZE
+
+    rows = get_vip_users(limit=ADMIN_PAGE_SIZE, offset=offset)
+    lines = []
+    for idx, row in enumerate(rows, start=offset + 1):
+        r = dict(row)
+        uname = f"@{html.escape(r['username'])}" if r.get("username") else f"<code>{r['user_id']}</code>"
+        raw_name = (f"{r.get('first_name') or ''} {r.get('last_name') or ''}").strip() or "-"
+        if len(raw_name) > 24:
+            raw_name = raw_name[:23] + "…"
+        name = html.escape(raw_name)
+        vip_until = r.get("vip_until") or "-"
+        days_left = max(0, int(r.get("days_left") or 0))
+        uses = r.get("uses_count", 0)
+        lines.append(
+            f"{idx}. {uname} | {name}\n"
+            f"   💎 <b>{vip_until}</b> gacha ({days_left} kun qoldi) | 📊 {uses} ta"
+        )
+
+    header = f"<b>💎 Faol VIP Obunachilar (Jami: {total:,} ta)</b> | Sahifa: <b>{page}/{total_pages}</b>\n\n"
+    text = header + ("\n".join(lines) if lines else "Hozircha faol VIP obunachilar yo'q.")
+    if len(text) > 4000:
+        text = text[:3950] + "\n\n<i>...(qisqartirildi)</i>"
+    return text, kb_admin_pagination("admin_vip_users", page, total_pages)
+
+
+@router.callback_query(F.data == "admin_vip_users")
+async def cb_admin_vip_users(call: CallbackQuery, bot: Bot):
+    """Active VIP subscribers (page 1)."""
+    await call.answer()
+    if not _is_admin(call.from_user.id):
+        return
+    text, kb = _build_vip_users_page(1)
+    await bot.send_message(call.from_user.id, text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("admin_vip_users_p_"))
+async def cb_admin_vip_users_page(call: CallbackQuery, bot: Bot):
+    """Dynamic pagination for active VIP subscribers."""
+    if not _is_admin(call.from_user.id):
+        await call.answer()
+        return
+    try:
+        page = int(call.data.replace("admin_vip_users_p_", ""))
+    except ValueError:
+        page = 1
+    text, kb = _build_vip_users_page(page)
+    try:
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await call.answer()
+    except Exception:
+        await call.answer("✅ Yangilandi")
+
+
 def export_users_to_excel() -> bytes:
     """Generate Excel (.xlsx) file with all users."""
     import io
@@ -853,14 +916,15 @@ async def cb_admin_broadcast(call: CallbackQuery, bot: Bot):
     if BROADCAST_RUNNING.get(call.from_user.id):
         await bot.send_message(call.from_user.id, "⚠️ Hozir broadcast davom etmoqda.")
         return
+    PENDING_BROADCAST.pop(call.from_user.id, None)
     set_state(call.from_user.id, STATE_WAIT_BROADCAST)
     await bot.send_message(
         call.from_user.id,
-        "<b>📢 Broadcast</b>\n\n"
-        "Rasm, video, fayl yoki matn yuboring.\n\n"
-        "<b>💡 Tugma qo'shish:</b>\n"
-        "<code>[Matn|https://link.com]</code>\n\n"
-        "Caption'ga yozib yuboring — tugma avtomatik qo'shiladi.",
+        "<b>📢 Broadcast rejimi</b>\n\n"
+        "Rasm (tagiga matn bilan yoki matnsiz), video, fayl yoki oddiy matn yuboring.\n\n"
+        "<b>💡 Qulayliklar:</b>\n"
+        "• Rasm + matnni bitta xabarda yuborishingiz <b>YOKI</b> avval rasm yuborib, keyin tagiga matn qo'shishingiz mumkin.\n"
+        "• Inline tugma qo'shish: <code>[Matn|https://link.com]</code>",
         parse_mode="HTML",
         reply_markup=kb_cancel()
     )
@@ -914,16 +978,33 @@ async def _do_search(admin_id: int, query: str, bot: Bot):
 # BROADCAST CONTENT HANDLERS
 # ========================
 
+def _extract_raw_or_html_text(message: Message) -> str:
+    """
+    Preserve Telegram rich-text formatting (bold, italic, links) if message has entities,
+    otherwise keep raw text so manual HTML tags like <b>...</b> also work.
+    """
+    is_media = bool(message.photo or message.video or message.document or message.animation)
+    entities = message.caption_entities if is_media else message.entities
+    raw_text = (message.caption if is_media else message.text) or ""
+    if entities:
+        try:
+            return message.html_text or raw_text
+        except Exception:
+            return raw_text
+    return raw_text
+
+
 def _build_broadcast_data(message: Message) -> dict:
     """Build broadcast data from any message type."""
-    caption = message.caption or message.text or ""
-    clean_caption, keyboard = _parse_inline_buttons(caption)
+    raw_caption = _extract_raw_or_html_text(message)
+    clean_caption, keyboard = _parse_inline_buttons(raw_caption)
 
     data = {
         "caption": clean_caption,
         "keyboard": keyboard,
         "media_type": "text",
         "file_id": None,
+        "parse_mode": "HTML",
     }
 
     if message.photo:
@@ -942,85 +1023,191 @@ def _build_broadcast_data(message: Message) -> dict:
     return data
 
 
-@router.message(lambda msg: (msg.photo or msg.video or msg.document or msg.animation) and get_state(msg.from_user.id) == STATE_WAIT_BROADCAST and msg.from_user.id in ADMIN_IDS)
+async def _send_broadcast_item(bot: Bot, chat_id: int, data: dict):
+    """Send a single broadcast item with automatic plain-text fallback on HTML parse error."""
+    media_type = data["media_type"]
+    file_id = data.get("file_id")
+    caption = data.get("caption") or ""
+    keyboard = data.get("keyboard")
+    parse_mode = data.get("parse_mode", "HTML")
+
+    async def _attempt(pm):
+        if media_type == "photo":
+            await bot.send_photo(chat_id, file_id, caption=caption or None, parse_mode=pm, reply_markup=keyboard)
+        elif media_type == "video":
+            await bot.send_video(chat_id, file_id, caption=caption or None, parse_mode=pm, reply_markup=keyboard)
+        elif media_type == "document":
+            await bot.send_document(chat_id, file_id, caption=caption or None, parse_mode=pm, reply_markup=keyboard)
+        elif media_type == "animation":
+            await bot.send_animation(chat_id, file_id, caption=caption or None, parse_mode=pm, reply_markup=keyboard)
+        else:
+            await bot.send_message(chat_id, caption, parse_mode=pm, reply_markup=keyboard)
+
+    try:
+        await _attempt(parse_mode)
+    except Exception as e:
+        err_str = str(e).lower()
+        if parse_mode and ("can't parse entities" in err_str or "parse" in err_str):
+            # Fallback to plain text if raw HTML contains unescaped <, >, &
+            data["parse_mode"] = None
+            await _attempt(None)
+        else:
+            raise
+
+
+async def _show_broadcast_preview(bot: Bot, user_id: int, data: dict):
+    """Send exact real preview of the broadcast (media + caption + buttons) followed by controls."""
+    is_media = data["media_type"] != "text"
+    caption = data.get("caption") or ""
+
+    # Telegram limits media captions to 1024 characters
+    if is_media and len(caption) > 1024:
+        await bot.send_message(
+            user_id,
+            f"⚠️ <b>Rasm/video tagidagi matn juda uzun ({len(caption)} belgi)!</b>\n\n"
+            f"Telegram media tagiga maksimal <b>1024 belgi</b> ruxsat beradi.\n"
+            f"Iltimos, matnni qisqartirib qayta yuboring.",
+            parse_mode="HTML",
+            reply_markup=_preview_keyboard(is_media=True),
+        )
+        return
+
+    # 1. Send the exact message users will see
+    try:
+        await _send_broadcast_item(bot, user_id, data)
+    except Exception as e:
+        logger.error(f"Broadcast preview error for {user_id}: {e}")
+        await bot.send_message(
+            user_id,
+            f"❌ Preview ko'rsatishda xatolik: <code>{e}</code>\nQayta urinib ko'ring.",
+            parse_mode="HTML",
+            reply_markup=kb_cancel(),
+        )
+        return
+
+    # 2. Send control panel below the real preview
+    user_count = len(get_all_user_ids())
+    media_labels = {
+        "photo": "📸 Rasm + matn" if caption else "📸 Rasm (matnsiz)",
+        "video": "🎥 Video + matn" if caption else "🎥 Video (matnsiz)",
+        "document": "📄 Fayl + matn" if caption else "📄 Fayl (matnsiz)",
+        "animation": "🎞 GIF + matn" if caption else "🎞 GIF (matnsiz)",
+        "text": "📝 Matn xabari",
+    }
+    info_text = (
+        f"👁 <b>Yuqoridagi xabar — haqiqiy ko'rinish (Preview)!</b>\n\n"
+        f"📦 Turi: <b>{media_labels.get(data['media_type'], '📝 Matn')}</b>\n"
+        f"👥 Yuboriladi: <b>{user_count:,}</b> foydalanuvchiga\n"
+    )
+    if data.get("keyboard"):
+        btn_count = sum(len(row) for row in data["keyboard"].inline_keyboard)
+        info_text += f"🔗 Tugmalar: <b>{btn_count} ta</b>\n"
+    if is_media and not caption:
+        info_text += "\n💡 <i>Rasm tagiga matn qo'shmoqchi bo'lsangiz, matnni hoziroq yozib yuboring yoki pastdagi tugmani bosing!</i>\n"
+    info_text += "\n👇 <b>Amalni tanlang:</b>"
+
+    await bot.send_message(
+        user_id,
+        info_text,
+        parse_mode="HTML",
+        reply_markup=_preview_keyboard(is_media=is_media),
+    )
+
+
+@router.message(lambda msg: (msg.photo or msg.video or msg.document or msg.animation) and get_state(msg.from_user.id) in (STATE_WAIT_BROADCAST, STATE_WAIT_BROADCAST_CAPTION) and msg.from_user.id in ADMIN_IDS)
 async def broadcast_media(message: Message, bot: Bot):
-    """Receive media (photo/video/document/gif) for broadcast."""
+    """Receive media (photo/video/document/gif) for broadcast, preserving existing text caption if sent without one."""
     user_id = message.from_user.id
     data = _build_broadcast_data(message)
+
+    # If admin sent text first and then sent a photo without caption, combine them!
+    existing = PENDING_BROADCAST.get(user_id)
+    if existing and existing.get("media_type") == "text" and not data["caption"] and existing.get("caption"):
+        data["caption"] = existing["caption"]
+        data["keyboard"] = existing.get("keyboard")
+        data["parse_mode"] = existing.get("parse_mode", "HTML")
+
     PENDING_BROADCAST[user_id] = data
+    set_state(user_id, STATE_WAIT_BROADCAST)
+    await _show_broadcast_preview(bot, user_id, data)
 
-    user_count = len(get_all_user_ids())
-    kb = _preview_keyboard()
 
-    preview_caption = (
-        f"👁 <b>Preview</b>\n\n"
-        f"{'📸 Rasm' if data['media_type'] == 'photo' else '🎥 Video' if data['media_type'] == 'video' else '📄 Fayl' if data['media_type'] == 'document' else '🎞 GIF'}\n"
-        f"👥 <b>{user_count}</b> foydalanuvchiga yuboriladi\n"
-    )
-    if data["keyboard"]:
-        btn_count = sum(len(row) for row in data["keyboard"].inline_keyboard)
-        preview_caption += f"🔗 {btn_count} ta tugma\n"
-    preview_caption += "\n<i>Quyidagi variantlardan tanlang:</i>"
-
-    if data["media_type"] == "photo":
-        await bot.send_photo(user_id, data["file_id"],
-                             caption=preview_caption, parse_mode="HTML",
-                             reply_markup=kb)
-    elif data["media_type"] == "video":
-        await bot.send_video(user_id, data["file_id"],
-                             caption=preview_caption, parse_mode="HTML",
-                             reply_markup=kb)
-    elif data["media_type"] == "document":
-        await bot.send_document(user_id, data["file_id"],
-                                caption=preview_caption, parse_mode="HTML",
-                                reply_markup=kb)
+@router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_BROADCAST_CAPTION and msg.from_user.id in ADMIN_IDS)
+async def broadcast_set_caption(message: Message, bot: Bot):
+    """Attach or update caption text on an existing media broadcast."""
+    user_id = message.from_user.id
+    data = PENDING_BROADCAST.get(user_id)
+    if not data:
+        data = _build_broadcast_data(message)
     else:
-        await bot.send_animation(user_id, data["file_id"],
-                                 caption=preview_caption, parse_mode="HTML",
-                                 reply_markup=kb)
+        raw_text = _extract_raw_or_html_text(message)
+        clean_caption, keyboard = _parse_inline_buttons(raw_text)
+        data["caption"] = clean_caption
+        data["keyboard"] = keyboard
+        data["parse_mode"] = "HTML"
+
+    PENDING_BROADCAST[user_id] = data
+    set_state(user_id, STATE_WAIT_BROADCAST)
+    await _show_broadcast_preview(bot, user_id, data)
 
 
 @router.message(lambda msg: msg.text and not msg.text.startswith("/") and get_state(msg.from_user.id) == STATE_WAIT_BROADCAST and msg.from_user.id in ADMIN_IDS)
 async def broadcast_text(message: Message, bot: Bot):
-    """Receive text for broadcast."""
+    """Receive text for broadcast (or auto-attach as caption if media was just uploaded without caption)."""
     user_id = message.from_user.id
+    existing = PENDING_BROADCAST.get(user_id)
+
+    # If admin just uploaded a photo/video without caption and now sends text, attach it under the media!
+    if existing and existing.get("media_type") != "text" and not existing.get("caption"):
+        raw_text = _extract_raw_or_html_text(message)
+        clean_caption, keyboard = _parse_inline_buttons(raw_text)
+        existing["caption"] = clean_caption
+        existing["keyboard"] = keyboard
+        existing["parse_mode"] = "HTML"
+        PENDING_BROADCAST[user_id] = existing
+        await _show_broadcast_preview(bot, user_id, existing)
+        return
+
     data = _build_broadcast_data(message)
     PENDING_BROADCAST[user_id] = data
-
-    user_count = len(get_all_user_ids())
-    kb = _preview_keyboard()
-
-    preview = (
-        f"👁 <b>Preview</b>\n\n"
-        f"📝 Matn broadcast\n"
-        f"👥 <b>{user_count}</b> foydalanuvchiga yuboriladi\n"
-    )
-    if data["keyboard"]:
-        btn_count = sum(len(row) for row in data["keyboard"].inline_keyboard)
-        preview += f"🔗 {btn_count} ta tugma\n"
-    preview += f"\n━━━━━━━━━━━━━━━\n{data['caption']}\n━━━━━━━━━━━━━━━\n\n<i>Quyidagi variantlardan tanlang:</i>"
-
-    await message.answer(preview, parse_mode="HTML", reply_markup=kb)
+    await _show_broadcast_preview(bot, user_id, data)
 
 
-def _preview_keyboard() -> InlineKeyboardMarkup:
-    """Broadcast preview keyboard with send options."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="📤 Hozir yuborish", callback_data="broadcast_now"),
-        ],
-        [
-            InlineKeyboardButton(text="⏰ Rejalash", callback_data="broadcast_schedule"),
-        ],
-        [
-            InlineKeyboardButton(text="❌ Bekor qilish", callback_data="broadcast_cancel"),
-        ],
-    ])
+def _preview_keyboard(is_media: bool = False) -> InlineKeyboardMarkup:
+    """Broadcast preview keyboard with send & caption-edit options."""
+    rows = [
+        [InlineKeyboardButton(text="📤 Hozir yuborish", callback_data="broadcast_now")],
+    ]
+    if is_media:
+        rows.append([InlineKeyboardButton(text="✏️ Matn (caption) qo'shish / tahrirlash", callback_data="broadcast_edit_caption")])
+    rows.append([InlineKeyboardButton(text="⏰ Rejalash", callback_data="broadcast_schedule")])
+    rows.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="broadcast_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 # ========================
 # BROADCAST CALLBACKS
 # ========================
+
+@router.callback_query(F.data == "broadcast_edit_caption")
+async def cb_broadcast_edit_caption(call: CallbackQuery, bot: Bot):
+    """Prompt admin to send caption text for the uploaded media broadcast."""
+    await call.answer()
+    admin_id = call.from_user.id
+    if not _is_admin(admin_id):
+        return
+    if admin_id not in PENDING_BROADCAST:
+        await call.message.answer("⚠️ Avval rasm yoki matn yuboring.")
+        return
+    set_state(admin_id, STATE_WAIT_BROADCAST_CAPTION)
+    await bot.send_message(
+        admin_id,
+        "✍️ <b>Rasm/video tagiga qo'yiladigan matnni yuboring:</b>\n\n"
+        "<i>(Maksimal 1024 belgi. Tugma qo'shish uchun: <code>[Matn|https://link.com]</code>)</i>",
+        parse_mode="HTML",
+        reply_markup=kb_cancel(),
+    )
+
 
 @router.callback_query(F.data == "broadcast_now")
 async def cb_broadcast_now(call: CallbackQuery, bot: Bot):
@@ -1164,7 +1351,9 @@ async def _scheduled_broadcast(bot: Bot, admin_id: int, data: dict, delay: float
 # ========================
 
 async def _do_broadcast(bot: Bot, admin_id: int, broadcast_data: dict, status_msg_id: int):
-    """Execute broadcast to all users with inline buttons support."""
+    """Execute broadcast to all users with inline buttons, HTML fallback, and RetryAfter handling."""
+    from aiogram.exceptions import TelegramRetryAfter
+
     user_ids = get_all_user_ids()
     total = len(user_ids)
     success = 0
@@ -1173,7 +1362,6 @@ async def _do_broadcast(bot: Bot, admin_id: int, broadcast_data: dict, status_ms
     media_type = broadcast_data["media_type"]
     file_id = broadcast_data.get("file_id")
     caption = broadcast_data.get("caption", "")
-    keyboard = broadcast_data.get("keyboard")  # InlineKeyboardMarkup or None
 
     semaphore = asyncio.Semaphore(BROADCAST_RATE)
 
@@ -1181,32 +1369,15 @@ async def _do_broadcast(bot: Bot, admin_id: int, broadcast_data: dict, status_ms
         nonlocal success, failed
         async with semaphore:
             try:
-                if media_type == "photo":
-                    await bot.send_photo(
-                        uid, file_id, caption=caption or None,
-                        parse_mode="HTML", reply_markup=keyboard
-                    )
-                elif media_type == "video":
-                    await bot.send_video(
-                        uid, file_id, caption=caption or None,
-                        parse_mode="HTML", reply_markup=keyboard
-                    )
-                elif media_type == "document":
-                    await bot.send_document(
-                        uid, file_id, caption=caption or None,
-                        parse_mode="HTML", reply_markup=keyboard
-                    )
-                elif media_type == "animation":
-                    await bot.send_animation(
-                        uid, file_id, caption=caption or None,
-                        parse_mode="HTML", reply_markup=keyboard
-                    )
-                else:
-                    await bot.send_message(
-                        uid, caption,
-                        parse_mode="HTML", reply_markup=keyboard
-                    )
+                await _send_broadcast_item(bot, uid, broadcast_data)
                 success += 1
+            except TelegramRetryAfter as retry_err:
+                await asyncio.sleep(retry_err.retry_after + 0.5)
+                try:
+                    await _send_broadcast_item(bot, uid, broadcast_data)
+                    success += 1
+                except Exception:
+                    failed += 1
             except Exception:
                 failed += 1
             await asyncio.sleep(1 / BROADCAST_RATE)

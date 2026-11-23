@@ -1,6 +1,7 @@
 """
 Telegram Stars Payment, In-Bot Card Receipt Verification, and Admin 1-Click VIP Approval Handlers.
 """
+import html
 import logging
 from typing import Dict
 from aiogram import Router, Bot, F
@@ -12,7 +13,7 @@ from aiogram.types import (
 from bot.config import DONATE_CARD, ADMIN_IDS, ADMIN_ID
 from bot.database import (
     get_user_language, add_user_balance, get_user_balance,
-    activate_img_pdf_pass, get_vip_until, upsert_user,
+    activate_img_pdf_pass, get_vip_until, upsert_user, resolve_user_id,
 )
 from bot.i18n import t
 from bot.keyboards import kb_top_up, kb_cancel, kb_vip_plans, kb_admin_approve_vip, kb_main_reply
@@ -23,6 +24,23 @@ router = Router(name="payments")
 
 # Store selected card VIP plan per user: user_id -> days (30 or 365)
 PENDING_VIP_PLAN: Dict[int, int] = {}
+
+
+def _get_all_admin_ids() -> set[int]:
+    """Return deduplicated set of all configured admin user IDs."""
+    admins = set(ADMIN_IDS) if ADMIN_IDS else set()
+    if ADMIN_ID:
+        admins.add(ADMIN_ID)
+    return admins
+
+
+async def _notify_admins(bot: Bot, text: str):
+    """Send an HTML notification message to all admins safely."""
+    for adm in _get_all_admin_ids():
+        try:
+            await bot.send_message(adm, text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Could not send admin notification to {adm}: {e}")
 
 
 async def _safe_answer(call: CallbackQuery):
@@ -136,21 +154,15 @@ async def process_successful_payment(message: Message, bot: Bot):
         )
         logger.info(f"User {user_id} donated {amount_stars} Stars!")
 
-        # Notify admins
-        from bot.config import ADMIN_IDS, ADMIN_ID
-        admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
-        uname = f"@{user.username}" if user.username else "mavjud emas"
+        safe_name = html.escape(user.full_name or "-")
+        uname = f"@{html.escape(user.username)}" if user.username else "username yo'q"
         admin_text = (
             f"⭐️ <b>Yangi Donat Qabul Qilindi!</b> ❤️\n\n"
-            f"👤 Foydalanuvchi: <b>{user.full_name}</b> ({uname} | <code>{user_id}</code>)\n"
+            f"👤 Foydalanuvchi: <b>{safe_name}</b> ({uname} | <code>{user_id}</code>)\n"
             f"💰 Miqdor: <b>{amount_stars} Stars</b>\n"
             f"📦 To'plam: <code>{payload}</code>"
         )
-        for adm in set(admin_list):
-            try:
-                await bot.send_message(adm, admin_text, parse_mode="HTML")
-            except Exception:
-                pass
+        await _notify_admins(bot, admin_text)
         return
 
     if bundle and bundle.get("is_pass"):
@@ -164,20 +176,18 @@ async def process_successful_payment(message: Message, bot: Bot):
         )
         logger.info(f"User {user_id} activated {days}-day VIP pass with {payment_info.total_amount} Stars")
 
-        # Notify admins
-        admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
-        uname = f"@{user.username}" if user.username else "mavjud emas"
+        safe_name = html.escape(user.full_name or "-")
+        uname = f"@{html.escape(user.username)}" if user.username else "username yo'q"
+        plan_label = "1 Yillik VIP" if days >= 365 else "1 Oylik VIP"
         admin_text = (
-            f"💎 <b>Stars orqali yangi VIP Obuna sotib olindi!</b>\n\n"
-            f"👤 Foydalanuvchi: <b>{user.full_name}</b> ({uname} | <code>{user_id}</code>)\n"
-            f"⭐️ To'lov: <b>{payment_info.total_amount} Stars</b>\n"
-            f"⏳ Muddati: <b>+{days} kun</b> (<b>{vip_until}</b> gacha)"
+            f"💎 <b>Yangi VIP Obuna sotib olindi!</b>\n\n"
+            f"👤 Foydalanuvchi: <b>{safe_name}</b> ({uname})\n"
+            f"🆔 ID: <code>{user_id}</code>\n"
+            f"💳 To'lov usuli: <b>⭐️ Telegram Stars ({payment_info.total_amount} ⭐)</b>\n"
+            f"📦 Tarif: <b>{plan_label} (+{days} kun)</b>\n"
+            f"📅 Amal qilish muddati: <b>{vip_until}</b> gacha"
         )
-        for adm in set(admin_list):
-            try:
-                await bot.send_message(adm, admin_text, parse_mode="HTML")
-            except Exception:
-                pass
+        await _notify_admins(bot, admin_text)
         return
 
     credits_to_add = bundle["credits"] if bundle else 5
@@ -284,17 +294,17 @@ async def handle_payment_receipt(message: Message, bot: Bot):
         reply_markup=kb_main_reply(lang),
     )
 
-    admin_list = list(ADMIN_IDS) if ADMIN_IDS else ([ADMIN_ID] if ADMIN_ID else [])
-    uname = f"@{user.username}" if user.username else "username yo'q"
+    safe_name = html.escape(user.full_name or "-")
+    uname = f"@{html.escape(user.username)}" if user.username else "username yo'q"
     admin_caption = (
-        f"🧾 <b>Yangi VIP Obuna To'lov Cheki!</b>\n\n"
-        f"👤 Foydalanuvchi: <b>{user.full_name}</b> ({uname})\n"
+        f"🧾 <b>Yangi VIP Obuna To'lov Cheki! (💳 Karta)</b>\n\n"
+        f"👤 Foydalanuvchi: <b>{safe_name}</b> ({uname})\n"
         f"🆔 ID: <code>{user_id}</code>\n"
         f"📦 Tanlagan tarifi: <b>{plan_str}</b>\n\n"
         f"👇 Tekshirib, quyidagi tugmalardan birini bosing:"
     )
 
-    for adm in set(admin_list):
+    for adm in _get_all_admin_ids():
         try:
             if message.photo:
                 await bot.send_photo(
@@ -366,6 +376,20 @@ async def cb_admin_approve_vip(call: CallbackQuery, bot: Bot):
             await call.message.edit_reply_markup(reply_markup=None)
         except Exception:
             pass
+
+    # Confirm clearly to admins
+    u_info = resolve_user_id(str(target_user_id)) or {}
+    safe_name = html.escape((u_info.get("first_name") or "").strip() or "-")
+    uname = f"@{html.escape(u_info['username'])}" if u_info.get("username") else "username yo'q"
+    plan_label = "1 Yillik VIP (29 000 so'm)" if days >= 365 else "1 Oylik VIP (9 000 so'm)"
+    await _notify_admins(
+        bot,
+        f"💎 <b>Yangi VIP Obuna faollashtirildi! (💳 Karta)</b>\n\n"
+        f"👤 Foydalanuvchi: <b>{safe_name}</b> ({uname})\n"
+        f"🆔 ID: <code>{target_user_id}</code>\n"
+        f"📦 Tarif: <b>{plan_label}</b>\n"
+        f"📅 Amal qilish muddati: <b>{vip_until}</b> gacha",
+    )
 
     # Notify user
     u_lang = get_user_language(target_user_id) or "uz"

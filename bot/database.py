@@ -393,6 +393,11 @@ def get_admin_summary() -> dict:
             SELECT COUNT(*) c FROM usage_logs
             WHERE created_at >= datetime('now', '-7 days')
         """).fetchone()["c"]
+        # Active VIP subscribers
+        active_vip = con.execute("""
+            SELECT COUNT(*) c FROM users
+            WHERE img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
+        """).fetchone()["c"]
 
     return {
         "total_users": total_users,
@@ -405,6 +410,7 @@ def get_admin_summary() -> dict:
         "new_30d": new_30d,
         "uses_today": uses_today,
         "uses_week": uses_week,
+        "active_vip": active_vip,
     }
 
 
@@ -675,6 +681,34 @@ def inc_user_img_pdf_count(user_id: int):
     with db_connect() as con:
         con.execute("UPDATE users SET img_pdf_count = COALESCE(img_pdf_count, 0) + 1 WHERE user_id = ?", (user_id,))
         con.commit()
+
+
+def get_vip_users_count() -> int:
+    """Get exact count of currently active VIP subscribers."""
+    with db_connect() as con:
+        row = con.execute("""
+            SELECT COUNT(*) AS c FROM users
+            WHERE img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
+        """).fetchone()
+        return int(row["c"]) if row else 0
+
+
+def get_vip_users(limit: int = 30, offset: int = 0) -> list:
+    """Get paginated list of currently active VIP subscribers with expiration date and remaining days."""
+    with db_connect() as con:
+        return con.execute("""
+            SELECT user_id,
+                   COALESCE(username,'') AS username,
+                   COALESCE(first_name,'') AS first_name,
+                   COALESCE(last_name,'') AS last_name,
+                   COALESCE(uses_count, 0) AS uses_count,
+                   substr(datetime(img_pdf_pass_until, '+5 hours'), 1, 10) AS vip_until,
+                   CAST((julianday(img_pdf_pass_until) - julianday('now')) + 0.9999 AS INTEGER) AS days_left
+            FROM users
+            WHERE img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
+            ORDER BY img_pdf_pass_until DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset)).fetchall()
 
 
 def has_active_img_pdf_pass(user_id: int) -> bool:

@@ -6,7 +6,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 
-from bot.config import BOT_TOKEN
+from bot.config import BOT_TOKEN, ADMIN_IDS, ADMIN_ID
 from bot.database import db_init
 from bot.handlers import get_all_routers
 from bot.utils.cleanup import cleanup_worker, retention_worker, update_bot_description_worker
@@ -39,17 +39,31 @@ async def main():
     # Start bot profile description worker (monthly active users count)
     asyncio.create_task(update_bot_description_worker(bot))
 
-    # Set bot commands and replace old "AI Studio" WebApp menu button with standard Commands Menu button
+    # Set bot commands separately for regular users (no /admin) and admins (with /admin)
     try:
-        from aiogram.types import BotCommand, MenuButtonCommands
-        await bot.set_my_commands([
+        from aiogram.types import (
+            BotCommand, MenuButtonCommands,
+            BotCommandScopeDefault, BotCommandScopeChat,
+        )
+        user_commands = [
             BotCommand(command="start", description="🏠 Bosh menyu / Главное меню"),
             BotCommand(command="vip", description="💎 VIP Obuna / VIP Подписка"),
             BotCommand(command="profile", description="👤 Profil / Профиль"),
+        ]
+        admin_commands = user_commands + [
             BotCommand(command="admin", description="🛠 Admin panel"),
-        ])
+        ]
+        await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
+
+        all_admins = set(ADMIN_IDS) | ({ADMIN_ID} if ADMIN_ID else set())
+        for adm_id in all_admins:
+            try:
+                await bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=adm_id))
+            except Exception as adm_cmd_err:
+                logger.warning(f"Could not set admin commands for {adm_id}: {adm_cmd_err}")
+
         await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
-        logger.info("Chat menu button reset to standard commands menu (removed AI Studio)")
+        logger.info("Bot commands scoped: /admin hidden from regular users, visible only to admins")
     except Exception as cmd_err:
         logger.warning(f"Could not set bot commands or menu button: {cmd_err}")
 
