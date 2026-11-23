@@ -33,7 +33,7 @@ LAST_MERGE_WARN: Dict[int, float] = {}
 async def handle_merge_photo_error(message: Message, bot: Bot):
     """Reject photos in PDF merge mode."""
     lang = get_user_language(message.from_user.id) or "uz"
-    await message.answer("❌ Iltimos, faqat PDF fayl yuboring, rasm emas.", reply_markup=kb_cancel(lang))
+    await message.answer(t("err_only_pdf", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
 
 
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_PDF_MERGE)
@@ -57,12 +57,15 @@ async def handle_merge_pdf(message: Message, bot: Bot):
 
     # Validate PDF
     if doc.mime_type != "application/pdf" and not file_name.endswith(".pdf"):
-        await message.answer("❌ Faqat PDF fayl yuboring.", reply_markup=kb_cancel(lang))
+        await message.answer(t("err_only_pdf", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
     # File size check
     if doc.file_size and doc.file_size > MAX_FILE_SIZE:
-        await message.answer(f"❌ Fayl hajmi juda katta (max {MAX_FILE_SIZE // (1024*1024)}MB).")
+        await message.answer(
+            t("err_file_too_large", lang, max_mb=MAX_FILE_SIZE // (1024 * 1024)),
+            parse_mode="HTML",
+        )
         return
 
     old_task = PDF_TASK.get(user_id)
@@ -105,7 +108,7 @@ async def handle_merge_pdf(message: Message, bot: Bot):
         if len(paths) < 2:
             for p in paths:
                 safe_remove(p)
-            await bot.send_message(user_id, "❌ Kamida 2 ta PDF yuboring.", reply_markup=kb_cancel(lang))
+            await bot.send_message(user_id, t("err_min_two_pdfs", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
             return
 
         status = await bot.send_message(user_id, t("merge_pdf_generating", lang))
@@ -119,7 +122,7 @@ async def handle_merge_pdf(message: Message, bot: Bot):
         except Exception as e:
             logger.error(f"PDF merge error for user {user_id}: {e}")
             from bot.utils.helpers import friendly_error
-            await bot.send_message(user_id, friendly_error(e))
+            await bot.send_message(user_id, friendly_error(e, lang), parse_mode="HTML")
         finally:
             for p in paths:
                 safe_remove(p)

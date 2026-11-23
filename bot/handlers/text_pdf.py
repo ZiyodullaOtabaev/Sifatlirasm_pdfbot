@@ -45,7 +45,7 @@ async def handle_text_pdf(message: Message, bot: Bot):
     except Exception as e:
         logger.error(f"Text PDF error for user {user_id}: {e}")
         from bot.utils.helpers import friendly_error
-        await message.answer(friendly_error(e))
+        await message.answer(friendly_error(e, lang), parse_mode="HTML")
     finally:
         try:
             await status.delete()

@@ -49,7 +49,10 @@ async def handle_img_pdf(message: Message, bot: Bot):
 
     # File size check
     if photo.file_size and photo.file_size > MAX_FILE_SIZE:
-        await message.answer(f"❌ Fayl hajmi juda katta (max {MAX_FILE_SIZE // (1024*1024)}MB).")
+        await message.answer(
+            t("err_file_too_large", lang, max_mb=MAX_FILE_SIZE // (1024 * 1024)),
+            parse_mode="HTML",
+        )
         return
 
     # Cancel pending finalizer while a new photo is arriving/downloading
@@ -106,7 +109,7 @@ async def handle_img_pdf(message: Message, bot: Bot):
         except Exception as e:
             logger.error(f"Img PDF error for user {user_id}: {e}")
             from bot.utils.helpers import friendly_error
-            await bot.send_message(user_id, friendly_error(e))
+            await bot.send_message(user_id, friendly_error(e, lang), parse_mode="HTML")
         finally:
             for p in paths:
                 safe_remove(p)

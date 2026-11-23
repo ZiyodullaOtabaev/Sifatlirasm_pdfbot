@@ -43,47 +43,93 @@ def user_pdf_filename(user: User) -> str:
     return f"{base}.pdf"
 
 
-def friendly_error(e: Exception) -> str:
-    """Convert exception to user-friendly error message in Uzbek."""
+def friendly_error(e: Exception, lang: str = "uz") -> str:
+    """Convert exception to user-friendly localized error message (uz, ru, en)."""
     error_str = str(e).lower()
+    l = (lang or "uz").lower()
+    if l not in ("uz", "ru", "en"):
+        l = "uz"
+
+    def _pick(uz: str, ru: str, en: str) -> str:
+        return ru if l == "ru" else en if l == "en" else uz
 
     # Timeout / connection errors
     if any(x in error_str for x in ("timeout", "timed out", "connecttimeout")):
-        return "⏱ Server javob bermadi. 10-15 soniyadan keyin qayta urinib ko'ring."
+        return _pick(
+            "⏱ Server javob bermadi. 10-15 soniyadan keyin qayta urinib ko'ring.",
+            "⏱ Сервер не ответил вовремя. Попробуйте снова через 10-15 секунд.",
+            "⏱ The server timed out. Please try again in 10-15 seconds.",
+        )
 
     # Rate limit
     if any(x in error_str for x in ("rate limit", "too many requests", "429")):
-        return "⚡ Juda ko'p so'rov. 1 daqiqadan keyin qayta urinib ko'ring."
+        return _pick(
+            "⚡ Juda ko'p so'rov. 1 daqiqadan keyin qayta urinib ko'ring.",
+            "⚡ Слишком много запросов. Попробуйте снова через 1 минуту.",
+            "⚡ Too many requests. Please try again in 1 minute.",
+        )
 
     # API token / auth
     if any(x in error_str for x in ("unauthorized", "401", "forbidden", "403", "api_key", "token")):
-        return "🔑 AI xizmati vaqtinchalik mavjud emas. Keyinroq urinib ko'ring."
+        return _pick(
+            "🔑 Xizmat vaqtinchalik mavjud emas. Keyinroq urinib ko'ring.",
+            "🔑 Сервис временно недоступен. Попробуйте позже.",
+            "🔑 Service temporarily unavailable. Please try again later.",
+        )
 
     # Model not found / version
     if any(x in error_str for x in ("not found", "404", "version", "does not exist")):
-        return "🔧 Xizmat yangilanmoqda. Keyinroq urinib ko'ring."
+        return _pick(
+            "🔧 Xizmat yangilanmoqda. Keyinroq urinib ko'ring.",
+            "🔧 Сервис обновляется. Попробуйте позже.",
+            "🔧 Service is being updated. Please try again later.",
+        )
 
     # File too large
     if any(x in error_str for x in ("too large", "file size", "payload")):
-        return "📦 Fayl juda katta. Kichikroq fayl yuboring."
+        return _pick(
+            "📦 Fayl juda katta. Kichikroq fayl yuboring.",
+            "📦 Файл слишком большой. Отправьте файл меньшего размера.",
+            "📦 File is too large. Please send a smaller file.",
+        )
 
     # Network errors
     if any(x in error_str for x in ("connection", "network", "dns", "ssl")):
-        return "🌐 Internet bilan muammo. Qayta urinib ko'ring."
+        return _pick(
+            "🌐 Internet bilan muammo. Qayta urinib ko'ring.",
+            "🌐 Проблема с соединением. Попробуйте снова.",
+            "🌐 Network connection issue. Please try again.",
+        )
 
     # Memory / processing
     if any(x in error_str for x in ("memory", "oom", "killed")):
-        return "💾 Fayl juda murakkab. Kichikroq fayl yuboring."
+        return _pick(
+            "💾 Fayl juda murakkab. Kichikroq fayl yuboring.",
+            "💾 Файл слишком сложный для обработки. Отправьте файл поменьше.",
+            "💾 File is too complex to process. Please send a smaller file.",
+        )
 
     # PDF specific
     if any(x in error_str for x in ("password", "encrypted", "parol")):
-        return "🔒 Bu PDF parol bilan himoyalangan."
+        return _pick(
+            "🔒 Bu hujjat parol bilan himoyalangan.",
+            "🔒 Этот документ защищен паролем.",
+            "🔒 This document is password-protected.",
+        )
 
     if any(x in error_str for x in ("corrupted", "invalid pdf", "broken")):
-        return "📄 PDF fayl buzilgan. Boshqa fayl yuboring."
+        return _pick(
+            "📄 Fayl buzilgan. Boshqa fayl yuboring.",
+            "📄 Файл поврежден. Отправьте другой файл.",
+            "📄 The file is corrupted. Please send another file.",
+        )
 
     # Generic
-    return "❌ Xatolik yuz berdi. Qayta urinib ko'ring."
+    return _pick(
+        "❌ Xatolik yuz berdi. Qayta urinib ko'ring.",
+        "❌ Произошла ошибка. Попробуйте снова.",
+        "❌ An error occurred. Please try again.",
+    )
 
 
 async def auto_translate_to_en(text: str) -> str:

@@ -39,12 +39,14 @@ def render_usage_chart_png(data: Dict[str, Dict[str, int]], title: str = "So'ngg
 
     days_list = list(data.keys())
     actions = [
-        "img_pdf", "text_pdf", "pdf_to_img",
-        "pdf_merge", "compress_pdf", "watermark_pdf"
+        "img_pdf", "text_pdf", "pdf_to_word", "office_to_pdf",
+        "pdf_to_img", "pdf_merge", "compress_pdf", "watermark_pdf"
     ]
     colors = {
         "img_pdf": (16, 185, 129),
         "text_pdf": (59, 130, 246),
+        "pdf_to_word": (37, 99, 235),
+        "office_to_pdf": (217, 119, 6),
         "pdf_to_img": (245, 158, 11),
         "pdf_merge": (239, 68, 68),
         "compress_pdf": (14, 165, 233),
@@ -53,6 +55,8 @@ def render_usage_chart_png(data: Dict[str, Dict[str, int]], title: str = "So'ngg
     labels = {
         "img_pdf": "Rasm->PDF",
         "text_pdf": "Matn->PDF",
+        "pdf_to_word": "PDF->Word",
+        "office_to_pdf": "Ofis->PDF",
         "pdf_to_img": "PDF->Rasm",
         "pdf_merge": "Birlashtir",
         "compress_pdf": "Siqish",
@@ -209,6 +213,8 @@ def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
     action_labels = {
         "img_pdf": "• Rasm -> PDF",
         "text_pdf": "• Matn -> PDF",
+        "pdf_to_word": "• PDF -> Word",
+        "office_to_pdf": "• Word/Excel/PPT -> PDF",
         "pdf_to_img": "• PDF -> Rasm",
         "pdf_merge": "• PDF Birlashtirish",
         "compress_pdf": "• PDF Siqish",

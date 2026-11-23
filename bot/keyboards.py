@@ -30,6 +30,10 @@ def kb_main_reply(lang: str = "uz") -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t("btn_text_pdf", lang)),
             ],
             [
+                KeyboardButton(text=t("btn_pdf_to_word", lang)),
+                KeyboardButton(text=t("btn_office_to_pdf", lang)),
+            ],
+            [
                 KeyboardButton(text=t("btn_merge_pdf", lang)),
                 KeyboardButton(text=t("btn_compress_pdf", lang)),
             ],
@@ -61,6 +65,10 @@ def kb_main(lang: str = "uz") -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text=t("btn_img_pdf", lang), callback_data="act_img_pdf"),
             InlineKeyboardButton(text=t("btn_text_pdf", lang), callback_data="act_text_pdf"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn_pdf_to_word", lang), callback_data="act_pdf_to_word"),
+            InlineKeyboardButton(text=t("btn_office_to_pdf", lang), callback_data="act_office_to_pdf"),
         ],
         [
             InlineKeyboardButton(text=t("btn_merge_pdf", lang), callback_data="act_merge_pdf"),
@@ -455,9 +463,10 @@ def kb_admin_channels(channels: list[dict]) -> InlineKeyboardMarkup:
 
 def kb_required_channels(channels: list[dict], lang: str = "uz") -> InlineKeyboardMarkup:
     """Dynamic keyboard displaying all required channels for user subscription."""
+    ch_word = {"uz": "Kanal", "ru": "Канал", "en": "Channel"}.get(lang, "Kanal")
     buttons = []
     for idx, ch in enumerate(channels, 1):
-        title = ch.get("channel_title") or f"Kanal #{idx}"
+        title = ch.get("channel_title") or f"{ch_word} #{idx}"
         link = ch.get("invite_link")
         if not link:
             ch_uname = ch.get("channel_id", "").lstrip("@")

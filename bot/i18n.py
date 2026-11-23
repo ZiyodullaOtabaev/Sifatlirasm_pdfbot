@@ -12,17 +12,20 @@ TEXTS = {
         "lang_selected": "✅ Til muvaffaqiyatli tanlandi: <b>O'zbekcha</b> 🇺🇿",
         "welcome_text": (
             "👋 <b>Assalomu alaykum!</b>\n\n"
-            "🛠 <b>PDF Asboblar Botiga Xush Kelibsiz!</b>\n"
-            "Men sizga barcha turdagi PDF hujjatlar bilan ishlashda yordam beraman:\n\n"
+            "🛠 <b>Sifatli PDF & Ofis Asboblar Botiga Xush Kelibsiz!</b>\n"
+            "Men sizga hujjatlar bilan tez va sifatli ishlashda yordam beraman:\n\n"
+            "• 🖼 <b>Rasm → PDF</b> — Rasmlardan tartibli va tiniq PDF yaratish\n"
             "• 📝 <b>Matn → PDF</b> — Matnlarni chiroyli PDF hujjatga aylantirish\n"
-            "• 🖼 <b>Rasm → PDF</b> — Rasmlardan sifatli va tartibli PDF yaratish\n"
-            "• 📎 <b>PDF birlashtirish</b> — Bir nechta faylni bitta PDF qilish\n"
-            "• 🗜 <b>PDF siqish</b> — Sifatni saqlagan holda fayl hajmini kichraytirish\n\n"
+            "• 📝 <b>PDF → Word</b> — PDF faylni tahrirlanadigan Word (.docx) qilish\n"
+            "• 📄 <b>Word/PPT → PDF</b> — Word, Excel va PowerPoint fayllarni PDF qilish\n"
+            "• 📎 <b>PDF birlashtirish & 🗜 Siqish</b> — Birlashtirish va hajmini kichraytirish\n\n"
             "⬇️ Kerakli bo'limni tanlang:"
         ),
         "btn_profile": "👤 Mening profilim",
         "btn_text_pdf": "📝 Matn → PDF",
         "btn_img_pdf": "🖼 Rasm → PDF",
+        "btn_pdf_to_word": "📝 PDF → Word",
+        "btn_office_to_pdf": "📄 Word/PPT → PDF",
         "btn_pdf_to_img": "🖼 PDF → Rasm",
         "btn_split_pdf": "✂️ PDF ajratish",
         "btn_delete_pages": "🗑 Sahifa o'chirish",
@@ -259,6 +262,34 @@ TEXTS = {
         "watermark_text_prompt": "✍️ <b>Suv belgisi matnini yuboring:</b>\n\nMasalan: <i>@kanalingiz</i> yoki <i>MAXFIY</i>",
         "watermark_generating": "⏳ <i>Sahifalarga suv belgisi tushirilmoqda...</i>",
         "watermark_ready": "✅ <b>Suv belgisi barcha {count} ta sahifaga muvaffaqiyatli qo'yildi!</b>",
+        "pdf_to_word_prompt": (
+            "📝 <b>PDF → Word (.docx) xizmati</b>\n\n"
+            "Word formatiga aylantirmoqchi bo'lgan <b>PDF faylingizni</b> yuboring:\n"
+            "<i>(Matn, jadval, ustun va rasmlar asl ko'rinishiga maksimal yaqin holda saqlanadi)</i>"
+        ),
+        "pdf_to_word_generating": "⏳ <i>PDF fayl Word (.docx) formatiga aylantirilmoqda, biroz kuting...</i>",
+        "pdf_to_word_ready": "✅ <b>Word (.docx) hujjat tayyor!</b> ({pages} bet)",
+        "pdf_to_word_scanned_note": "\nℹ️ <i>Eslatma: Bu PDF skaner (rasm) ko'rinishida ekan, shu bois sahifalar Word ichiga rasm sifatida joylashtirildi.</i>",
+        "office_to_pdf_prompt": (
+            "📄 <b>Word / Excel / PowerPoint → PDF xizmati</b>\n\n"
+            "PDF formatiga aylantirmoqchi bo'lgan ofis faylingizni yuboring:\n"
+            "• Word: <code>.docx</code>, <code>.doc</code>, <code>.rtf</code>\n"
+            "• Excel: <code>.xlsx</code>, <code>.xls</code>\n"
+            "• PowerPoint: <code>.pptx</code>, <code>.ppt</code>\n\n"
+            "<i>(Shriftlar, jadvallar va sahifa ko'rinishi 100% saqlanadi)</i>"
+        ),
+        "office_to_pdf_generating": "⏳ <i>Ofis hujjati sifatli PDF formatiga o'tkazilmoqda, biroz kuting...</i>",
+        "office_to_pdf_ready": "✅ <b>PDF hujjat tayyor!</b>",
+        "err_only_office_file": "❌ Iltimos, faqat <b>Word (.docx/.doc), Excel (.xlsx/.xls) yoki PowerPoint (.pptx/.ppt)</b> fayl yuboring.",
+        "err_only_pdf": "❌ Iltimos, faqat <b>PDF</b> fayl yuboring.",
+        "err_file_too_large": "❌ Fayl hajmi juda katta (maksimal {max_mb} MB).",
+        "err_min_two_pdfs": "❌ Birlashtirish uchun kamida 2 ta PDF fayl yuboring.",
+        "err_pdf_no_pages": "❌ PDF faylda sahifalar topilmadi.",
+        "err_pdf_unreadable": "❌ PDF faylini o'qib bo'lmadi. Fayl buzilgan yoki parollangan bo'lishi mumkin.",
+        "err_pdf_not_found_restart": "❌ PDF fayl topilmadi. Iltimos, boshidan boshlang.",
+        "pdf_to_img_zip_caption": "📦 <b>Jami {count} ta sahifa bitta ZIP arxivda!</b>",
+        "sub_confirmed": "✅ <b>Obuna tasdiqlandi! Xush kelibsiz!</b>",
+        "compress_saved_line": "📁 {orig_kb} KB ➡️ 📦 <b>{comp_kb} KB</b> ({saved_pct}% tejaldi)",
         "processing": "⏳ Qayta ishlanmoqda, kuting...",
         "btn_passport_photo": "👔 3x4 Hujjat rasmi",
         "btn_voice_to_text": "🎙 Ovozdan matn",
@@ -288,7 +319,7 @@ TEXTS = {
         "voice_to_text_empty": "❌ Ovozdan matn ajratib bo'lmadi yoki audio juda past/qisqa.",
         "error_occurred": "❌ Xatolik yuz berdi. Qayta urinib ko'ring.",
         "fallback_text_prompt": "💡 Iltimos, pastdagi menyudan kerakli bo'limni tanlang 👇",
-        "bot_description": "🤖 Rasmlar va matnlarni PDF qilish, PDF fayllarni birlashtirish va hajmini sifatli siqish boti.",
+        "bot_description": "🤖 Rasmlar, matn va Word/Excel/PowerPoint fayllarni PDF qilish, PDF → Word (.docx) o'girish, PDF birlashtirish va sifatli siqish boti.",
         "bot_short_description": "⚡️ Sifatli PDF Bot",
     },
     "ru": {
@@ -296,17 +327,20 @@ TEXTS = {
         "lang_selected": "✅ Язык успешно выбран: <b>Русский</b> 🇷🇺",
         "welcome_text": (
             "👋 <b>Здравствуйте!</b>\n\n"
-            "🛠 <b>Добро пожаловать в PDF Инструменты!</b>\n"
-            "Я помогу вам быстро и удобно работать с PDF документами:\n\n"
-            "• 📝 <b>Текст → PDF</b> — Конвертация текста в аккуратный PDF документ\n"
-            "• 🖼 <b>Фото → PDF</b> — Создание качественного PDF из ваших фото\n"
-            "• 📎 <b>Объединить PDF</b> — Слияние нескольких файлов в один PDF\n"
-            "• 🗜 <b>Сжать PDF</b> — Уменьшение размера файлов без потери качества\n\n"
+            "🛠 <b>Добро пожаловать в PDF & Офис Инструменты!</b>\n"
+            "Я помогу вам быстро и качественно работать с документами:\n\n"
+            "• 🖼 <b>Фото → PDF</b> — Создание аккуратного PDF из ваших фото\n"
+            "• 📝 <b>Текст → PDF</b> — Конвертация текста в готовый PDF документ\n"
+            "• 📝 <b>PDF → Word</b> — Конвертация PDF в редактируемый Word (.docx)\n"
+            "• 📄 <b>Word/PPT → PDF</b> — Перевод Word, Excel и PowerPoint в PDF\n"
+            "• 📎 <b>Объединить & 🗜 Сжать PDF</b> — Слияние и уменьшение размера\n\n"
             "⬇️ Выберите нужный раздел:"
         ),
         "btn_profile": "👤 Мой профиль",
         "btn_text_pdf": "📝 Текст → PDF",
         "btn_img_pdf": "🖼 Фото → PDF",
+        "btn_pdf_to_word": "📝 PDF → Word",
+        "btn_office_to_pdf": "📄 Word/PPT → PDF",
         "btn_pdf_to_img": "🖼 PDF → Фото",
         "btn_split_pdf": "✂️ Разделить PDF",
         "btn_delete_pages": "🗑 Удалить страницы",
@@ -541,6 +575,34 @@ TEXTS = {
         "watermark_text_prompt": "✍️ <b>Отправьте текст водяного знака:</b>\n\nНапример: <i>@ваш_канал</i> или <i>КОПИЯ</i>",
         "watermark_generating": "⏳ <i>Нанесение водяного знака...</i>",
         "watermark_ready": "✅ <b>Водяной знак успешно нанесен на все {count} стр.!</b>",
+        "pdf_to_word_prompt": (
+            "📝 <b>Конвертация PDF → Word (.docx)</b>\n\n"
+            "Отправьте <b>PDF файл</b>, который нужно перевести в Word:\n"
+            "<i>(Текст, таблицы, колонки и изображения сохраняются максимально точно)</i>"
+        ),
+        "pdf_to_word_generating": "⏳ <i>Конвертируем PDF в Word (.docx), пожалуйста подождите...</i>",
+        "pdf_to_word_ready": "✅ <b>Документ Word (.docx) готов!</b> ({pages} стр.)",
+        "pdf_to_word_scanned_note": "\nℹ️ <i>Примечание: этот PDF является сканом (изображением), поэтому страницы вставлены в Word как картинки.</i>",
+        "office_to_pdf_prompt": (
+            "📄 <b>Конвертация Word / Excel / PowerPoint → PDF</b>\n\n"
+            "Отправьте офисный файл для конвертации в PDF:\n"
+            "• Word: <code>.docx</code>, <code>.doc</code>, <code>.rtf</code>\n"
+            "• Excel: <code>.xlsx</code>, <code>.xls</code>\n"
+            "• PowerPoint: <code>.pptx</code>, <code>.ppt</code>\n\n"
+            "<i>(Шрифты, таблицы и оформление сохраняются на 100%)</i>"
+        ),
+        "office_to_pdf_generating": "⏳ <i>Конвертируем документ в качественный PDF, пожалуйста подождите...</i>",
+        "office_to_pdf_ready": "✅ <b>PDF документ готов!</b>",
+        "err_only_office_file": "❌ Пожалуйста, отправьте только файл <b>Word (.docx/.doc), Excel (.xlsx/.xls) или PowerPoint (.pptx/.ppt)</b>.",
+        "err_only_pdf": "❌ Пожалуйста, отправьте только <b>PDF</b> файл.",
+        "err_file_too_large": "❌ Размер файла слишком большой (максимум {max_mb} МБ).",
+        "err_min_two_pdfs": "❌ Для объединения отправьте минимум 2 PDF файла.",
+        "err_pdf_no_pages": "❌ В PDF файле не найдено страниц.",
+        "err_pdf_unreadable": "❌ Не удалось прочитать PDF файл. Возможно, он поврежден или защищен паролем.",
+        "err_pdf_not_found_restart": "❌ PDF файл не найден. Пожалуйста, начните сначала.",
+        "pdf_to_img_zip_caption": "📦 <b>Все {count} стр. собраны в один ZIP архив!</b>",
+        "sub_confirmed": "✅ <b>Подписка подтверждена! Добро пожаловать!</b>",
+        "compress_saved_line": "📁 {orig_kb} КБ ➡️ 📦 <b>{comp_kb} КБ</b> (сэкономлено {saved_pct}%)",
         "processing": "⏳ Обработка, пожалуйста подождите...",
         "btn_passport_photo": "👔 Фото 3x4 на документы",
         "btn_voice_to_text": "🎙 Голос в текст",
@@ -570,7 +632,7 @@ TEXTS = {
         "voice_to_text_empty": "❌ Не удалось распознать речь или запись слишком тихая.",
         "error_occurred": "❌ Произошла ошибка. Попробуйте снова.",
         "fallback_text_prompt": "💡 Пожалуйста, выберите нужный раздел в меню ниже 👇",
-        "bot_description": "🤖 Бот для конвертации фото и текста в PDF, объединения файлов и качественного сжатия PDF.",
+        "bot_description": "🤖 Бот для конвертации фото, текста, Word/Excel/PowerPoint в PDF, PDF → Word (.docx), объединения и качественного сжатия PDF.",
         "bot_short_description": "⚡️ Sifatli PDF Bot",
     },
     "en": {
@@ -578,17 +640,20 @@ TEXTS = {
         "lang_selected": "✅ Language successfully set to: <b>English</b> 🇬🇧",
         "welcome_text": (
             "👋 <b>Welcome!</b>\n\n"
-            "🛠 <b>Welcome to PDF Toolkit Bot!</b>\n"
-            "I can assist you with all your PDF document needs:\n\n"
-            "• 📝 <b>Text → PDF</b> — Convert text into neatly formatted PDF documents\n"
-            "• 🖼 <b>Image → PDF</b> — Convert single or album images into crisp PDFs\n"
-            "• 📎 <b>Merge PDF</b> — Combine multiple PDF files into one\n"
-            "• 🗜 <b>Compress PDF</b> — Reduce PDF file size without sacrificing quality\n\n"
+            "🛠 <b>Welcome to PDF & Office Toolkit Bot!</b>\n"
+            "I can help you work with your documents quickly and accurately:\n\n"
+            "• 🖼 <b>Image → PDF</b> — Turn single or album photos into clean PDFs\n"
+            "• 📝 <b>Text → PDF</b> — Convert text into neatly formatted PDFs\n"
+            "• 📝 <b>PDF → Word</b> — Convert PDF into editable Word (.docx)\n"
+            "• 📄 <b>Word/PPT → PDF</b> — Convert Word, Excel & PowerPoint to PDF\n"
+            "• 📎 <b>Merge & 🗜 Compress PDF</b> — Combine or shrink PDF files\n\n"
             "⬇️ Select an option below:"
         ),
         "btn_profile": "👤 My Profile",
         "btn_text_pdf": "📝 Text → PDF",
         "btn_img_pdf": "🖼 Image → PDF",
+        "btn_pdf_to_word": "📝 PDF → Word",
+        "btn_office_to_pdf": "📄 Word/PPT → PDF",
         "btn_pdf_to_img": "🖼 PDF → Images",
         "btn_split_pdf": "✂️ Split PDF",
         "btn_delete_pages": "🗑 Delete Pages",
@@ -823,6 +888,34 @@ TEXTS = {
         "watermark_text_prompt": "✍️ <b>Send the watermark text:</b>\n\ne.g. <i>@yourchannel</i> or <i>CONFIDENTIAL</i>",
         "watermark_generating": "⏳ <i>Applying watermark to pages...</i>",
         "watermark_ready": "✅ <b>Watermark successfully applied to all {count} pages!</b>",
+        "pdf_to_word_prompt": (
+            "📝 <b>PDF → Word (.docx) Converter</b>\n\n"
+            "Send the <b>PDF file</b> you want to convert into editable Word:\n"
+            "<i>(Text, tables, columns, and images are preserved as accurately as possible)</i>"
+        ),
+        "pdf_to_word_generating": "⏳ <i>Converting PDF to Word (.docx), please wait...</i>",
+        "pdf_to_word_ready": "✅ <b>Word (.docx) document is ready!</b> ({pages} pages)",
+        "pdf_to_word_scanned_note": "\nℹ️ <i>Note: This PDF appears to be scanned (image-only), so pages were embedded as images inside Word.</i>",
+        "office_to_pdf_prompt": (
+            "📄 <b>Word / Excel / PowerPoint → PDF Converter</b>\n\n"
+            "Send your office document to convert into PDF:\n"
+            "• Word: <code>.docx</code>, <code>.doc</code>, <code>.rtf</code>\n"
+            "• Excel: <code>.xlsx</code>, <code>.xls</code>\n"
+            "• PowerPoint: <code>.pptx</code>, <code>.ppt</code>\n\n"
+            "<i>(Fonts, tables, and formatting are 100% preserved)</i>"
+        ),
+        "office_to_pdf_generating": "⏳ <i>Converting document to high-quality PDF, please wait...</i>",
+        "office_to_pdf_ready": "✅ <b>PDF document is ready!</b>",
+        "err_only_office_file": "❌ Please send only a <b>Word (.docx/.doc), Excel (.xlsx/.xls), or PowerPoint (.pptx/.ppt)</b> file.",
+        "err_only_pdf": "❌ Please send only a <b>PDF</b> file.",
+        "err_file_too_large": "❌ File is too large (max {max_mb} MB).",
+        "err_min_two_pdfs": "❌ Please send at least 2 PDF files to merge.",
+        "err_pdf_no_pages": "❌ No pages were found in this PDF file.",
+        "err_pdf_unreadable": "❌ Could not read this PDF file. It may be corrupted or password-protected.",
+        "err_pdf_not_found_restart": "❌ PDF file not found. Please start again.",
+        "pdf_to_img_zip_caption": "📦 <b>All {count} pages packed into a single ZIP archive!</b>",
+        "sub_confirmed": "✅ <b>Subscription verified! Welcome!</b>",
+        "compress_saved_line": "📁 {orig_kb} KB ➡️ 📦 <b>{comp_kb} KB</b> ({saved_pct}% saved)",
         "processing": "⏳ Processing, please wait...",
         "btn_passport_photo": "👔 3x4 Passport Photo",
         "btn_voice_to_text": "🎙 Voice to Text",
@@ -852,7 +945,7 @@ TEXTS = {
         "voice_to_text_empty": "❌ Could not recognize any speech or audio is too quiet.",
         "error_occurred": "❌ An error occurred. Please try again.",
         "fallback_text_prompt": "💡 Please select a section from the menu below 👇",
-        "bot_description": "🤖 Fast image and text to PDF conversion, PDF merging and high quality PDF compression bot.",
+        "bot_description": "🤖 Convert photos, text & Word/Excel/PowerPoint to PDF, PDF → Word (.docx), merge and compress PDFs effortlessly.",
         "bot_short_description": "⚡️ Sifatli PDF Bot",
     },
 }

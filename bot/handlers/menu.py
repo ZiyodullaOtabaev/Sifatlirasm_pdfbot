@@ -15,6 +15,7 @@ from bot.states import (
     get_state, set_state, STATE_NONE, STATE_WAIT_TEXT,
     STATE_WAIT_IMG_PDF, STATE_WAIT_PDF_MERGE, STATE_WAIT_COMPRESS_PDF,
     STATE_WAIT_PDF_TO_IMG, STATE_WAIT_WATERMARK_PDF,
+    STATE_WAIT_PDF_TO_WORD, STATE_WAIT_OFFICE_TO_PDF,
 )
 
 logger = logging.getLogger(__name__)
@@ -235,7 +236,7 @@ async def cb_check_sub(call: CallbackQuery, bot: Bot):
 
     ok, unjoined = await check_user_subscriptions(bot, call.from_user.id)
     if ok:
-        await bot.send_message(call.from_user.id, "✅ <b>Obuna tasdiqlandi! Xush kelibsiz!</b>", parse_mode="HTML")
+        await bot.send_message(call.from_user.id, t("sub_confirmed", lang), parse_mode="HTML")
         await show_main_menu(bot, call.message.chat.id, call.message.message_id)
     else:
         await bot.send_message(
@@ -351,6 +352,7 @@ async def cb_text_pdf(call: CallbackQuery, bot: Bot):
         return
     set_state(user.id, STATE_WAIT_TEXT)
     await bot.send_message(user.id, t("text_pdf_prompt", lang),
+                           parse_mode="HTML",
                            reply_markup=kb_cancel(lang))
 
 
@@ -382,6 +384,7 @@ async def cb_merge_pdf(call: CallbackQuery, bot: Bot):
         return
     set_state(user.id, STATE_WAIT_PDF_MERGE)
     await bot.send_message(user.id, t("merge_pdf_prompt", lang),
+                           parse_mode="HTML",
                            reply_markup=kb_cancel(lang))
 
 
@@ -396,6 +399,7 @@ async def cb_compress_pdf(call: CallbackQuery, bot: Bot):
         return
     set_state(user.id, STATE_WAIT_COMPRESS_PDF)
     await bot.send_message(user.id, t("compress_pdf_prompt", lang),
+                           parse_mode="HTML",
                            reply_markup=kb_cancel(lang))
 
 
@@ -436,7 +440,19 @@ async def handle_web_app_data(message: Message, bot: Bot):
         if not await enforce_subscription(bot, user_id, lang):
             return
         set_state(user_id, STATE_WAIT_COMPRESS_PDF)
-        await message.answer(t("compress_pdf_prompt", lang), reply_markup=kb_cancel(lang))
+        await message.answer(t("compress_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+    elif action == "act_pdf_to_word":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_PDF_TO_WORD)
+        await message.answer(t("pdf_to_word_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+    elif action == "act_office_to_pdf":
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_OFFICE_TO_PDF)
+        await message.answer(t("office_to_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
     elif action == "act_pdf_to_img":
         upsert_user(user_id, user.username, user.first_name, user.last_name)
         if not await enforce_subscription(bot, user_id, lang):
@@ -507,6 +523,24 @@ async def handle_reply_menu_or_fallback(message: Message, bot: Bot):
             return
         set_state(user_id, STATE_WAIT_IMG_PDF)
         await message.answer(t("img_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+        return
+
+    # 5b. PDF -> Word (.docx)
+    if any(text == t("btn_pdf_to_word", l) for l in ("uz", "ru", "en")) or "pdf → word" in text.lower() or "pdf -> word" in text.lower():
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_PDF_TO_WORD)
+        await message.answer(t("pdf_to_word_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+        return
+
+    # 5c. Word / Excel / PowerPoint -> PDF
+    if any(text == t("btn_office_to_pdf", l) for l in ("uz", "ru", "en")) or "word/ppt" in text.lower() or "word → pdf" in text.lower() or "office → pdf" in text.lower():
+        upsert_user(user_id, user.username, user.first_name, user.last_name)
+        if not await enforce_subscription(bot, user_id, lang):
+            return
+        set_state(user_id, STATE_WAIT_OFFICE_TO_PDF)
+        await message.answer(t("office_to_pdf_prompt", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
     # 6. PDF merge

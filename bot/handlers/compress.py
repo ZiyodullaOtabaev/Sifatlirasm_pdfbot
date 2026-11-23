@@ -24,7 +24,7 @@ router = Router(name="compress")
 async def handle_compress_photo_error(message: Message, bot: Bot):
     """Reject photos in compress mode."""
     lang = get_user_language(message.from_user.id) or "uz"
-    await message.answer("❌ Iltimos, faqat PDF fayl yuboring.", reply_markup=kb_cancel(lang))
+    await message.answer(t("err_only_pdf", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
 
 
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) == STATE_WAIT_COMPRESS_PDF)
@@ -42,11 +42,14 @@ async def handle_compress_pdf(message: Message, bot: Bot):
     file_name = (doc.file_name or "").lower()
 
     if doc.mime_type != "application/pdf" and not file_name.endswith(".pdf"):
-        await message.answer("❌ Faqat PDF fayl yuboring.", reply_markup=kb_cancel(lang))
+        await message.answer(t("err_only_pdf", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
     if doc.file_size and doc.file_size > MAX_FILE_SIZE:
-        await message.answer(f"❌ Fayl hajmi juda katta (max {MAX_FILE_SIZE // (1024*1024)}MB).")
+        await message.answer(
+            t("err_file_too_large", lang, max_mb=MAX_FILE_SIZE // (1024 * 1024)),
+            parse_mode="HTML",
+        )
         return
 
     file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{doc.file_id}.pdf")
@@ -65,7 +68,7 @@ async def handle_compress_pdf(message: Message, bot: Bot):
         result = FSInputFile(out_path, filename=f"compressed_{doc.file_name or 'file.pdf'}")
         caption = (
             f"{t('compress_pdf_ready', lang)}\n\n"
-            f"📁 {original_size // 1024} KB ➡️ 📦 <b>{compressed_size // 1024} KB</b> ({saved_pct}% tejaldi)"
+            f"{t('compress_saved_line', lang, orig_kb=original_size // 1024, comp_kb=compressed_size // 1024, saved_pct=saved_pct)}"
         )
         await bot.send_document(user_id, result, caption=caption, parse_mode="HTML")
         inc_uses_and_log(user_id, "compress_pdf")
@@ -73,7 +76,7 @@ async def handle_compress_pdf(message: Message, bot: Bot):
     except Exception as e:
         logger.error(f"Compress PDF error for user {user_id}: {e}")
         from bot.utils.helpers import friendly_error
-        await message.answer(friendly_error(e))
+        await message.answer(friendly_error(e, lang), parse_mode="HTML")
     finally:
         safe_remove(file_path)
         safe_remove(out_path)

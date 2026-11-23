@@ -1,8 +1,9 @@
 """
-Temporary file cleanup worker.
+Temporary file cleanup worker and 3-language retention/description workers.
 """
 import os
 import time
+import shutil
 import asyncio
 import logging
 
@@ -12,16 +13,18 @@ logger = logging.getLogger(__name__)
 
 
 def cleanup_download_dir_once():
-    """Remove old files from download directory."""
+    """Remove old files and stale temp subdirectories from download directory."""
     try:
         now = time.time()
         for name in os.listdir(DOWNLOAD_DIR):
             path = os.path.join(DOWNLOAD_DIR, name)
-            if not os.path.isfile(path):
-                continue
             try:
-                if now - os.path.getmtime(path) > CLEANUP_MAX_AGE_SECONDS:
+                if now - os.path.getmtime(path) <= CLEANUP_MAX_AGE_SECONDS:
+                    continue
+                if os.path.isfile(path):
                     os.remove(path)
+                elif os.path.isdir(path) and name.startswith("office_"):
+                    shutil.rmtree(path, ignore_errors=True)
             except Exception:
                 pass
     except Exception:
@@ -36,35 +39,70 @@ async def cleanup_worker():
 
 
 # ========================
-# RETENTION WORKER
+# RETENTION WORKER (3-Language)
 # ========================
 
-# Reminder messages for different inactivity periods
-REMINDER_24H = (
-    "👋 Salom! Sizni sog'indik.\n\n"
-    "🛠 Bizning tezkor PDF xizmatlarimiz sizni kutmoqda:\n"
-    "• 🖼 Rasm → sifatli PDF\n"
-    "• 📝 Matn → PDF hujjat\n"
-    "• 📎 PDF birlashtirish va siqish\n\n"
-    "⬇️ /start bosing va davom eting!"
-)
+REMINDERS_72H = {
+    "uz": (
+        "👋 Salom! Sizni sog'indik.\n\n"
+        "🛠 Bizning tezkor PDF & Ofis xizmatlarimiz sizni kutmoqda:\n"
+        "• 🖼 Rasm → sifatli PDF\n"
+        "• 📝 PDF → Word (.docx) va 📄 Word/PPT → PDF\n"
+        "• 📎 PDF birlashtirish va siqish\n\n"
+        "⬇️ /start bosing va davom eting!"
+    ),
+    "ru": (
+        "👋 Здравствуйте! Мы скучали по вам.\n\n"
+        "🛠 Наши быстрые PDF и Офис инструменты ждут вас:\n"
+        "• 🖼 Фото → качественный PDF\n"
+        "• 📝 PDF → Word (.docx) и 📄 Word/PPT → PDF\n"
+        "• 📎 Объединение и сжатие PDF\n\n"
+        "⬇️ Нажмите /start и продолжайте работу!"
+    ),
+    "en": (
+        "👋 Hello! We missed you.\n\n"
+        "🛠 Our fast PDF & Office tools are ready for you:\n"
+        "• 🖼 Image → high-quality PDF\n"
+        "• 📝 PDF → Word (.docx) & 📄 Word/PPT → PDF\n"
+        "• 📎 Merge & compress PDF files\n\n"
+        "⬇️ Tap /start to continue!"
+    ),
+}
 
-REMINDER_72H = (
-    "🔔 Ko'rishmaganimizga ancha bo'ldi!\n\n"
-    "Barcha qulay PDF asboblar bitta botda:\n"
-    "• 🖼 Rasm → PDF va PDF → Rasm\n"
-    "• 📎 PDF birlashtirish\n"
-    "• 🗜 PDF hajmini sifatli siqish\n\n"
-    "Foydalanish uchun → /start"
-)
+REMINDERS_216H = {
+    "uz": (
+        "🔔 Ko'rishmaganimizga ancha bo'ldi!\n\n"
+        "Barcha qulay PDF va Ofis asboblar bitta botda:\n"
+        "• 📝 PDF → Word (.docx) va 📄 Word/Excel/PPT → PDF\n"
+        "• 🖼 Rasm → PDF va PDF → Rasm\n"
+        "• 📎 PDF birlashtirish va 🗜 sifatli siqish\n\n"
+        "Foydalanish uchun → /start"
+    ),
+    "ru": (
+        "🔔 Давно не виделись!\n\n"
+        "Все удобные PDF и офисные инструменты в одном боте:\n"
+        "• 📝 PDF → Word (.docx) и 📄 Word/Excel/PPT → PDF\n"
+        "• 🖼 Фото → PDF и PDF → Фото\n"
+        "• 📎 Объединение и 🗜 сжатие PDF\n\n"
+        "Чтобы начать → /start"
+    ),
+    "en": (
+        "🔔 Long time no see!\n\n"
+        "All handy PDF & Office tools in one bot:\n"
+        "• 📝 PDF → Word (.docx) & 📄 Word/Excel/PPT → PDF\n"
+        "• 🖼 Image → PDF & PDF → Images\n"
+        "• 📎 Merge & 🗜 compress PDF files\n\n"
+        "Tap → /start to begin"
+    ),
+}
 
 
 async def retention_worker(bot):
     """
-    Background task — checks for inactive users and sends reminders.
-    Runs every 6 hours.
+    Background task — checks for inactive users and sends localized reminders.
+    Runs every 12 hours.
     """
-    from bot.database import get_inactive_users, was_reminder_sent, mark_reminder_sent
+    from bot.database import get_inactive_users, was_reminder_sent, mark_reminder_sent, get_user_language
 
     await asyncio.sleep(60)  # Wait 1 min after bot start
 
@@ -78,7 +116,8 @@ async def retention_worker(bot):
                 if was_reminder_sent(uid, "72h"):
                     continue
                 try:
-                    await bot.send_message(uid, REMINDER_24H)
+                    u_lang = get_user_language(uid) or "uz"
+                    await bot.send_message(uid, REMINDERS_72H.get(u_lang, REMINDERS_72H["uz"]))
                     mark_reminder_sent(uid, "72h")
                     sent_24 += 1
                     await asyncio.sleep(0.5)  # Rate limit
@@ -93,7 +132,8 @@ async def retention_worker(bot):
                 if was_reminder_sent(uid, "216h"):
                     continue
                 try:
-                    await bot.send_message(uid, REMINDER_72H)
+                    u_lang = get_user_language(uid) or "uz"
+                    await bot.send_message(uid, REMINDERS_216H.get(u_lang, REMINDERS_216H["uz"]))
                     mark_reminder_sent(uid, "216h")
                     sent_72 += 1
                     await asyncio.sleep(0.5)
@@ -116,18 +156,21 @@ async def retention_worker(bot):
 
 async def update_bot_description_worker(bot):
     """
-    Periodically update bot name, description and short_description without user counts.
+    Set bot name and 3-language descriptions (uz default, ru, en).
     """
     from bot.i18n import t
 
     try:
-        desc = t("bot_description", "uz")
-        short_desc = t("bot_short_description", "uz")
-
         await bot.set_my_name(name="Sifatli PDF Bot")
-        await bot.set_my_description(description=desc)
-        await bot.set_my_short_description(short_description=short_desc)
-        logger.info("Updated bot profile name and description cleanly (Sifatli PDF Bot)")
+        await bot.set_my_description(description=t("bot_description", "uz"))
+        await bot.set_my_short_description(short_description=t("bot_short_description", "uz"))
+        for lc in ("ru", "en"):
+            try:
+                await bot.set_my_description(description=t("bot_description", lc), language_code=lc)
+                await bot.set_my_short_description(short_description=t("bot_short_description", lc), language_code=lc)
+            except Exception:
+                pass
+        logger.info("Updated bot profile name and 3-language descriptions cleanly")
     except Exception as e:
         logger.warning(f"Could not update bot profile description: {e}")
 

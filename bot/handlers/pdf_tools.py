@@ -76,6 +76,16 @@ async def cb_watermark_pdf(call: CallbackQuery, bot: Bot):
 # 2. DOCUMENT HANDLERS FOR INITIAL PDF UPLOAD
 # ========================================================
 
+@router.message(lambda msg: msg.photo and get_state(msg.from_user.id) in (
+    STATE_WAIT_PDF_TO_IMG,
+    STATE_WAIT_WATERMARK_PDF,
+))
+async def handle_pdf_tool_photo_guard(message: Message):
+    """Reject photos when waiting for a PDF file."""
+    lang = get_user_language(message.from_user.id) or "uz"
+    await message.answer(t("err_only_pdf", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
+
+
 @router.message(lambda msg: msg.document and get_state(msg.from_user.id) in (
     STATE_WAIT_PDF_TO_IMG,
     STATE_WAIT_WATERMARK_PDF,
@@ -94,11 +104,14 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
     file_name = (doc.file_name or "").lower()
 
     if doc.mime_type != "application/pdf" and not file_name.endswith(".pdf"):
-        await message.answer("❌ Iltimos, faqat PDF fayl yuboring.", reply_markup=kb_cancel(lang))
+        await message.answer(t("err_only_pdf", lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         return
 
     if doc.file_size and doc.file_size > MAX_FILE_SIZE:
-        await message.answer(f"❌ Fayl hajmi juda katta (maksimal {MAX_FILE_SIZE // (1024*1024)}MB).")
+        await message.answer(
+            t("err_file_too_large", lang, max_mb=MAX_FILE_SIZE // (1024 * 1024)),
+            parse_mode="HTML",
+        )
         return
 
     file_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{doc.file_id}.pdf")
@@ -111,7 +124,7 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
         try:
             images, zip_path = pdf_to_images(file_path, DOWNLOAD_DIR)
             if not images:
-                await message.answer("❌ PDF faylda sahifalar topilmadi.")
+                await message.answer(t("err_pdf_no_pages", lang), parse_mode="HTML")
                 return
 
             await status.delete()
@@ -128,7 +141,7 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
                     await bot.send_document(
                         user_id,
                         FSInputFile(zip_path, filename=f"{os.path.splitext(doc.file_name or 'pages')[0]}_images.zip"),
-                        caption=f"📦 <b>Jami {len(images)} ta sahifa bitta ZIP arxivda!</b>",
+                        caption=t("pdf_to_img_zip_caption", lang, count=len(images)),
                         parse_mode="HTML"
                     )
 
@@ -136,7 +149,7 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
             inc_uses_and_log(user_id, "pdf_to_img")
         except Exception as e:
             logger.error(f"Error in pdf_to_images for {user_id}: {e}")
-            await message.answer(friendly_error(e))
+            await message.answer(friendly_error(e, lang), parse_mode="HTML")
         finally:
             safe_remove(file_path)
             for img_p in images if 'images' in locals() else []:
@@ -154,7 +167,7 @@ async def handle_pdf_tool_document(message: Message, bot: Bot):
         total_pages = len(reader.pages)
     except Exception as e:
         safe_remove(file_path)
-        await message.answer("❌ PDF faylini o'qib bo'lmadi. Fayl buzilgan yoki parollangan bo'lishi mumkin.")
+        await message.answer(t("err_pdf_unreadable", lang), parse_mode="HTML")
         set_state(user_id, STATE_NONE)
         return
 
@@ -197,7 +210,7 @@ async def handle_pdf_tool_text_input(message: Message, bot: Bot):
     if not session or not os.path.exists(session.get("path", "")):
         cleanup_session(user_id)
         set_state(user_id, STATE_NONE)
-        await message.answer("❌ PDF fayl topilmadi. Iltimos, boshidan boshlang.")
+        await message.answer(t("err_pdf_not_found_restart", lang), parse_mode="HTML")
         await show_main_menu(bot, message.chat.id)
         return
 
@@ -220,7 +233,7 @@ async def handle_pdf_tool_text_input(message: Message, bot: Bot):
         logger.info(f"User {user_id}: watermark_pdf ({total} pages)")
     except Exception as e:
         logger.error(f"Error in watermark_pdf for {user_id}: {e}")
-        await message.answer(friendly_error(e), reply_markup=kb_cancel(lang))
+        await message.answer(friendly_error(e, lang), parse_mode="HTML", reply_markup=kb_cancel(lang))
         try:
             await status.delete()
         except Exception:

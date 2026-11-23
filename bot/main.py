@@ -51,15 +51,30 @@ async def main():
             BotCommand, MenuButtonCommands,
             BotCommandScopeDefault, BotCommandScopeChat,
         )
-        user_commands = [
-            BotCommand(command="start", description="🏠 Bosh menyu / Главное меню"),
-            BotCommand(command="vip", description="💎 VIP Obuna / VIP Подписка"),
-            BotCommand(command="profile", description="👤 Profil / Профиль"),
+        user_commands_uz = [
+            BotCommand(command="start", description="🏠 Bosh menyu"),
+            BotCommand(command="vip", description="💎 VIP Obuna"),
+            BotCommand(command="profile", description="👤 Mening profilim"),
+            BotCommand(command="promo", description="🎟 Promokod kiritish"),
         ]
-        admin_commands = user_commands + [
+        user_commands_ru = [
+            BotCommand(command="start", description="🏠 Главное меню"),
+            BotCommand(command="vip", description="💎 VIP Подписка"),
+            BotCommand(command="profile", description="👤 Мой профиль"),
+            BotCommand(command="promo", description="🎟 Ввести промокод"),
+        ]
+        user_commands_en = [
+            BotCommand(command="start", description="🏠 Main Menu"),
+            BotCommand(command="vip", description="💎 VIP Subscription"),
+            BotCommand(command="profile", description="👤 My Profile"),
+            BotCommand(command="promo", description="🎟 Redeem Promo Code"),
+        ]
+        admin_commands = user_commands_uz + [
             BotCommand(command="admin", description="🛠 Admin panel"),
         ]
-        await bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(user_commands_uz, scope=BotCommandScopeDefault())
+        await bot.set_my_commands(user_commands_ru, scope=BotCommandScopeDefault(), language_code="ru")
+        await bot.set_my_commands(user_commands_en, scope=BotCommandScopeDefault(), language_code="en")
 
         all_admins = set(ADMIN_IDS) | ({ADMIN_ID} if ADMIN_ID else set())
         for adm_id in all_admins:

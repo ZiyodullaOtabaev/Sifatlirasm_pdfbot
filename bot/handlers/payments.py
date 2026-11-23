@@ -88,7 +88,7 @@ STARS_BUNDLES = {
 
 @router.callback_query(F.data.startswith("buy_"))
 async def cb_buy_stars(call: CallbackQuery, bot: Bot):
-    """Send invoice for Telegram Stars payment or donation."""
+    """Send invoice for Telegram Stars payment or donation (localized in uz/ru/en)."""
     await _safe_answer(call)
     user_id = call.from_user.id
     lang = get_user_language(user_id) or "uz"
@@ -96,20 +96,47 @@ async def cb_buy_stars(call: CallbackQuery, bot: Bot):
     bundle_key = call.data.replace("buy_", "")
     bundle = STARS_BUNDLES.get(bundle_key)
     if not bundle:
-        await call.answer("❌ Noma'lum to'plam", show_alert=True)
+        unknown_msg = {
+            "uz": "❌ Noma'lum to'plam",
+            "ru": "❌ Неизвестный пакет",
+            "en": "❌ Unknown package",
+        }.get(lang, "❌ Noma'lum to'plam")
+        await call.answer(unknown_msg, show_alert=True)
         return
 
-    # Use live dynamic Stars prices from DB for VIP plans
+    # Use live dynamic Stars prices from DB for VIP plans and localize title/description
     stars_amount = bundle["stars"]
     title = bundle["label"]
+    description = bundle["desc"]
+
     if bundle_key == "vip_stars_30":
         stars_amount = get_vip_prices()["stars_30"]
-        title = f"💎 1 Oylik VIP Obuna ({stars_amount} ⭐)"
+        if lang == "ru":
+            title = f"💎 VIP на 1 месяц ({stars_amount} ⭐)"
+            description = "30 дней безлимитного доступа ко всем PDF и офисным инструментам без обязательных подписок"
+        elif lang == "en":
+            title = f"💎 1-Month VIP ({stars_amount} ⭐)"
+            description = "30 days of unlimited access to all PDF & Office tools with no mandatory channels"
+        else:
+            title = f"💎 1 Oylik VIP Obuna ({stars_amount} ⭐)"
+            description = "30 kun davomida barcha PDF va Ofis xizmatlardan cheksiz va majburiy obunalarsiz foydalanish"
     elif bundle_key == "vip_stars_365":
         stars_amount = get_vip_prices()["stars_365"]
-        title = f"👑 1 Yillik VIP Obuna ({stars_amount} ⭐)"
+        if lang == "ru":
+            title = f"👑 VIP на 1 год ({stars_amount} ⭐)"
+            description = "365 дней безлимитного доступа ко всем PDF и офисным инструментам без обязательных подписок"
+        elif lang == "en":
+            title = f"👑 1-Year VIP ({stars_amount} ⭐)"
+            description = "365 days of unlimited access to all PDF & Office tools with no mandatory channels"
+        else:
+            title = f"👑 1 Yillik VIP Obuna ({stars_amount} ⭐)"
+            description = "365 kun davomida barcha PDF va Ofis xizmatlardan cheksiz va majburiy obunalarsiz foydalanish"
+    elif bundle_key.startswith("donate_stars_"):
+        if lang == "ru":
+            description = "Донат на поддержку и развитие проекта Sifatli PDF Bot ❤️"
+        elif lang == "en":
+            description = "Donation to support and grow the Sifatli PDF Bot project ❤️"
 
-    description = bundle["desc"]
     payload = bundle_key
     prices = [LabeledPrice(label=title, amount=stars_amount)]
 
@@ -123,15 +150,28 @@ async def cb_buy_stars(call: CallbackQuery, bot: Bot):
             currency="XTR",     # Telegram Stars currency code
             prices=prices
         )
-        logger.info(f"Sent Stars invoice to user {user_id} for bundle {bundle_key}")
+        logger.info(f"Sent Stars invoice to user {user_id} for bundle {bundle_key} [lang={lang}]")
     except Exception as e:
         logger.error(f"Error sending Stars invoice: {e}")
+        err_texts = {
+            "uz": (
+                "⚠️ <b>To'lov xabarnomasini yuborishda xatolik!</b>\n\n"
+                "Iltimos, Telegram ilovangizni yangilang yoki Admin @ziyodullame ga murojaat qiling."
+            ),
+            "ru": (
+                "⚠️ <b>Ошибка при отправке счёта на оплату!</b>\n\n"
+                "Пожалуйста, обновите приложение Telegram или напишите администратору @ziyodullame."
+            ),
+            "en": (
+                "⚠️ <b>Failed to send payment invoice!</b>\n\n"
+                "Please update your Telegram app or contact Admin @ziyodullame."
+            ),
+        }
         await bot.send_message(
             user_id,
-            "⚠️ <b>To'lov xabarnomasini yuborishda xatolik!</b>\n\n"
-            "Iltimos, Telegram ilovangizni yangilang yoki Admin @ziyodullame ga murojaat qiling.",
+            err_texts.get(lang, err_texts["uz"]),
             parse_mode="HTML",
-            reply_markup=kb_top_up(lang)
+            reply_markup=kb_vip_plans(lang)
         )
 
 
