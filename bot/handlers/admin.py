@@ -26,7 +26,8 @@ from bot.database import (
     get_top_users, get_new_users_24h, get_new_users_24h_count,
     get_active_users_24h, get_active_users_24h_count,
     get_vip_users, get_vip_users_count,
-    get_all_user_ids, save_broadcast_result,
+    get_all_user_ids, get_segmented_user_ids, count_segmented_users,
+    mark_user_blocked, save_broadcast_result,
     get_action_stats, get_growth_stats,
     get_broadcast_history, search_user,
 )
@@ -48,6 +49,7 @@ router = Router(name="admin")
 # Broadcast state storage
 PENDING_BROADCAST: Dict[int, dict] = {}
 BROADCAST_RUNNING: Dict[int, bool] = {}
+BROADCAST_CANCEL: Dict[int, bool] = {}
 SCHEDULED_TASKS: Dict[int, asyncio.Task] = {}
 
 STATE_WAIT_SCHEDULE_TIME = "wait_schedule_time"
@@ -942,36 +944,53 @@ async def handle_search(message: Message, bot: Bot):
 
 
 async def _do_search(admin_id: int, query: str, bot: Bot):
-    """Execute user search and send results."""
+    """Execute user search and show full CRM card for single result or quick-open buttons for multiple."""
+    import html as _html
+    from bot.handlers.admin_pro import render_user_crm_card
+
     set_state(admin_id, STATE_NONE)
     rows = search_user(query)
     if not rows:
         await bot.send_message(
-            admin_id, f"🔍 '<b>{query}</b>' bo'yicha topilmadi.",
+            admin_id, f"🔍 '<b>{_html.escape(query)}</b>' bo'yicha topilmadi.",
             parse_mode="HTML", reply_markup=kb_admin_back()
         )
         return
+
+    if len(rows) == 1:
+        uid = dict(rows[0])["user_id"]
+        text, kb = render_user_crm_card(uid)
+        await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=kb)
+        return
+
     lines = []
-    from bot.database import get_user_balance
-    for r in rows:
+    buttons = []
+    for r in rows[:10]:
         d = dict(r)
-        uname = f"@{d['username']}" if d.get("username") else "-"
-        first_name = d.get("first_name") or ""
-        last_name = d.get("last_name") or ""
-        name = f"{first_name} {last_name}".strip() or "-"
-        bal = get_user_balance(d['user_id'])
-        created = str(d.get('created_at', ''))[:10]
-        uses = d.get('uses_count', 0)
-        lines.append(
-            f"👤 <b>{name}</b> ({uname})\n"
-            f"   ID: <code>{d['user_id']}</code> | 💰 Balans: <b>{bal} kredit</b>\n"
-            f"   Foydalanish: {uses} marta\n"
-            f"   Ro'yxatdan: {created}"
-        )
-    text = f"🔍 Natijalar ({len(rows)}):\n\n" + "\n\n".join(lines)
-    first_uid = dict(rows[0])['user_id']
-    kb = kb_user_balance_actions(first_uid) if len(rows) == 1 else kb_admin_back()
-    await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=kb)
+        uid = d["user_id"]
+        uname = f"@{_html.escape(d['username'])}" if d.get("username") else "-"
+        name = _html.escape(f"{d.get('first_name') or ''} {d.get('last_name') or ''}".strip() or "-")
+        uses = d.get("uses_count", 0)
+        lines.append(f"👤 <b>{name}</b> ({uname}) | <code>{uid}</code> | {uses} ta")
+        if len(buttons) < 6:
+            lbl = f"👤 Ochish: {d.get('username') or name[:18]} ({uid})"
+            buttons.append([InlineKeyboardButton(text=lbl, callback_data=f"crm_open_{uid}")])
+
+    buttons.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin_back")])
+    text = f"🔍 <b>Qidiruv natijalari ({len(rows)} ta):</b>\n\n" + "\n".join(lines)
+    await bot.send_message(admin_id, text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+
+
+@router.callback_query(F.data.startswith("crm_open_"))
+async def cb_crm_open_user(call: CallbackQuery, bot: Bot):
+    """Open full CRM card for a user from search results."""
+    await call.answer()
+    if not _is_admin(call.from_user.id):
+        return
+    from bot.handlers.admin_pro import render_user_crm_card
+    uid = int(call.data.replace("crm_open_", ""))
+    text, kb = render_user_crm_card(uid)
+    await bot.send_message(call.from_user.id, text, parse_mode="HTML", reply_markup=kb)
 
 
 # ========================
@@ -994,17 +1013,33 @@ def _extract_raw_or_html_text(message: Message) -> str:
     return raw_text
 
 
+SEGMENT_LABELS = {
+    "live": "👥 Barcha tiriklar",
+    "free": "🆓 Faqat Oddiy (VIP emas)",
+    "vip": "💎 Faqat VIP",
+    "lang_uz": "🇺🇿 O'zbek tili",
+    "lang_ru": "🇷🇺 Rus tili",
+    "active_7d": "🔥 Aktiv 7 kun",
+}
+
+
 def _build_broadcast_data(message: Message) -> dict:
-    """Build broadcast data from any message type."""
+    """Build broadcast data from any message type, capturing source IDs for optional Forward mode."""
     raw_caption = _extract_raw_or_html_text(message)
     clean_caption, keyboard = _parse_inline_buttons(raw_caption)
 
+    is_forwarded = bool(getattr(message, "forward_origin", None) or getattr(message, "forward_date", None))
     data = {
         "caption": clean_caption,
         "keyboard": keyboard,
         "media_type": "text",
         "file_id": None,
         "parse_mode": "HTML",
+        "segment": "live",
+        "forward_mode": False,
+        "src_chat_id": message.chat.id,
+        "src_msg_id": message.message_id,
+        "is_forwarded": is_forwarded,
     }
 
     if message.photo:
@@ -1024,7 +1059,11 @@ def _build_broadcast_data(message: Message) -> dict:
 
 
 async def _send_broadcast_item(bot: Bot, chat_id: int, data: dict):
-    """Send a single broadcast item with automatic plain-text fallback on HTML parse error."""
+    """Send a single broadcast item (Copy/Normal or Forward) with automatic plain-text fallback."""
+    if data.get("forward_mode") and data.get("src_chat_id") and data.get("src_msg_id"):
+        await bot.forward_message(chat_id=chat_id, from_chat_id=data["src_chat_id"], message_id=data["src_msg_id"])
+        return
+
     media_type = data["media_type"]
     file_id = data.get("file_id")
     caption = data.get("caption") or ""
@@ -1048,31 +1087,60 @@ async def _send_broadcast_item(bot: Bot, chat_id: int, data: dict):
     except Exception as e:
         err_str = str(e).lower()
         if parse_mode and ("can't parse entities" in err_str or "parse" in err_str):
-            # Fallback to plain text if raw HTML contains unescaped <, >, &
             data["parse_mode"] = None
             await _attempt(None)
         else:
             raise
 
 
+def _build_broadcast_control_text(data: dict) -> str:
+    """Build control summary text showing selected segment, live recipient count, and mode."""
+    is_media = data["media_type"] != "text"
+    caption = data.get("caption") or ""
+    segment = data.get("segment", "live")
+    user_count = count_segmented_users(segment)
+    seg_label = SEGMENT_LABELS.get(segment, "👥 Barcha tiriklar")
+    mode_str = "↪️ Forward (asl post ko'rinishida)" if data.get("forward_mode") else "📋 Oddiy yuborish"
+
+    media_labels = {
+        "photo": "📸 Rasm + matn" if caption else "📸 Rasm (matnsiz)",
+        "video": "🎥 Video + matn" if caption else "🎥 Video (matnsiz)",
+        "document": "📄 Fayl + matn" if caption else "📄 Fayl (matnsiz)",
+        "animation": "🎞 GIF + matn" if caption else "🎞 GIF (matnsiz)",
+        "text": "📝 Matn xabari",
+    }
+    info_text = (
+        f"👁 <b>Yuqoridagi xabar — haqiqiy ko'rinish (Preview)!</b>\n\n"
+        f"📦 Turi: <b>{media_labels.get(data['media_type'], '📝 Matn')}</b>\n"
+        f"📨 Rejim: <b>{mode_str}</b>\n"
+        f"🎯 Segment: <b>{seg_label}</b>\n"
+        f"👥 Yuboriladi: <b>{user_count:,}</b> tirik foydalanuvchiga\n"
+    )
+    if data.get("keyboard") and not data.get("forward_mode"):
+        btn_count = sum(len(row) for row in data["keyboard"].inline_keyboard)
+        info_text += f"🔗 Tugmalar: <b>{btn_count} ta</b>\n"
+    if is_media and not caption and not data.get("forward_mode"):
+        info_text += "\n💡 <i>Rasm tagiga matn qo'shmoqchi bo'lsangiz, matnni hoziroq yozib yuboring yoki pastdagi tugmani bosing!</i>\n"
+    info_text += "\n👇 <b>Segmentni tanlang yoki yuborishni bosing:</b>"
+    return info_text
+
+
 async def _show_broadcast_preview(bot: Bot, user_id: int, data: dict):
-    """Send exact real preview of the broadcast (media + caption + buttons) followed by controls."""
+    """Send exact real preview of the broadcast (media + caption + buttons) followed by segmented controls."""
     is_media = data["media_type"] != "text"
     caption = data.get("caption") or ""
 
-    # Telegram limits media captions to 1024 characters
-    if is_media and len(caption) > 1024:
+    if is_media and len(caption) > 1024 and not data.get("forward_mode"):
         await bot.send_message(
             user_id,
             f"⚠️ <b>Rasm/video tagidagi matn juda uzun ({len(caption)} belgi)!</b>\n\n"
             f"Telegram media tagiga maksimal <b>1024 belgi</b> ruxsat beradi.\n"
             f"Iltimos, matnni qisqartirib qayta yuboring.",
             parse_mode="HTML",
-            reply_markup=_preview_keyboard(is_media=True),
+            reply_markup=_preview_keyboard(data),
         )
         return
 
-    # 1. Send the exact message users will see
     try:
         await _send_broadcast_item(bot, user_id, data)
     except Exception as e:
@@ -1085,33 +1153,39 @@ async def _show_broadcast_preview(bot: Bot, user_id: int, data: dict):
         )
         return
 
-    # 2. Send control panel below the real preview
-    user_count = len(get_all_user_ids())
-    media_labels = {
-        "photo": "📸 Rasm + matn" if caption else "📸 Rasm (matnsiz)",
-        "video": "🎥 Video + matn" if caption else "🎥 Video (matnsiz)",
-        "document": "📄 Fayl + matn" if caption else "📄 Fayl (matnsiz)",
-        "animation": "🎞 GIF + matn" if caption else "🎞 GIF (matnsiz)",
-        "text": "📝 Matn xabari",
-    }
-    info_text = (
-        f"👁 <b>Yuqoridagi xabar — haqiqiy ko'rinish (Preview)!</b>\n\n"
-        f"📦 Turi: <b>{media_labels.get(data['media_type'], '📝 Matn')}</b>\n"
-        f"👥 Yuboriladi: <b>{user_count:,}</b> foydalanuvchiga\n"
-    )
-    if data.get("keyboard"):
-        btn_count = sum(len(row) for row in data["keyboard"].inline_keyboard)
-        info_text += f"🔗 Tugmalar: <b>{btn_count} ta</b>\n"
-    if is_media and not caption:
-        info_text += "\n💡 <i>Rasm tagiga matn qo'shmoqchi bo'lsangiz, matnni hoziroq yozib yuboring yoki pastdagi tugmani bosing!</i>\n"
-    info_text += "\n👇 <b>Amalni tanlang:</b>"
-
     await bot.send_message(
         user_id,
-        info_text,
+        _build_broadcast_control_text(data),
         parse_mode="HTML",
-        reply_markup=_preview_keyboard(is_media=is_media),
+        reply_markup=_preview_keyboard(data),
     )
+
+
+def _preview_keyboard(data: dict = None) -> InlineKeyboardMarkup:
+    """Broadcast preview keyboard with audience segment selector, forward toggle, and send options."""
+    data = data or {}
+    is_media = data.get("media_type", "text") != "text"
+    seg = data.get("segment", "live")
+    fwd = bool(data.get("forward_mode", False))
+
+    def _sbtn(key: str, short_label: str) -> InlineKeyboardButton:
+        prefix = "✅ " if seg == key else ""
+        return InlineKeyboardButton(text=f"{prefix}{short_label}", callback_data=f"bc_seg_{key}")
+
+    fwd_label = "↪️ Forward rejimi: 🟢 YOQIQ" if fwd else "↪️ Forward rejimi: ⚪️ O'CHIQ"
+    rows = [
+        [_sbtn("live", "👥 Tiriklar"), _sbtn("free", "🆓 Oddiylar"), _sbtn("vip", "💎 VIP")],
+        [_sbtn("lang_uz", "🇺🇿 UZ"), _sbtn("lang_ru", "🇷🇺 RU"), _sbtn("active_7d", "🔥 7 kun")],
+        [InlineKeyboardButton(text=fwd_label, callback_data="bc_toggle_fwd")],
+        [InlineKeyboardButton(text="📤 Hozir yuborish", callback_data="broadcast_now")],
+    ]
+    if is_media and not fwd:
+        rows.append([InlineKeyboardButton(text="✏️ Matn (caption) qo'shish / tahrirlash", callback_data="broadcast_edit_caption")])
+    rows.append([
+        InlineKeyboardButton(text="⏰ Rejalash", callback_data="broadcast_schedule"),
+        InlineKeyboardButton(text="❌ Bekor qilish", callback_data="broadcast_cancel"),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 @router.message(lambda msg: (msg.photo or msg.video or msg.document or msg.animation) and get_state(msg.from_user.id) in (STATE_WAIT_BROADCAST, STATE_WAIT_BROADCAST_CAPTION) and msg.from_user.id in ADMIN_IDS)
@@ -1173,21 +1247,71 @@ async def broadcast_text(message: Message, bot: Bot):
     await _show_broadcast_preview(bot, user_id, data)
 
 
-def _preview_keyboard(is_media: bool = False) -> InlineKeyboardMarkup:
-    """Broadcast preview keyboard with send & caption-edit options."""
-    rows = [
-        [InlineKeyboardButton(text="📤 Hozir yuborish", callback_data="broadcast_now")],
-    ]
-    if is_media:
-        rows.append([InlineKeyboardButton(text="✏️ Matn (caption) qo'shish / tahrirlash", callback_data="broadcast_edit_caption")])
-    rows.append([InlineKeyboardButton(text="⏰ Rejalash", callback_data="broadcast_schedule")])
-    rows.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="broadcast_cancel")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
 # ========================
 # BROADCAST CALLBACKS
 # ========================
+
+@router.callback_query(F.data.startswith("bc_seg_"))
+async def cb_broadcast_select_segment(call: CallbackQuery, bot: Bot):
+    """Switch target audience segment on broadcast preview."""
+    admin_id = call.from_user.id
+    if not _is_admin(admin_id):
+        await call.answer()
+        return
+    data = PENDING_BROADCAST.get(admin_id)
+    if not data:
+        await call.answer("⚠️ Broadcast topilmadi.", show_alert=True)
+        return
+    seg = call.data.replace("bc_seg_", "")
+    if seg not in SEGMENT_LABELS:
+        seg = "live"
+    data["segment"] = seg
+    PENDING_BROADCAST[admin_id] = data
+    try:
+        await call.message.edit_text(
+            _build_broadcast_control_text(data),
+            parse_mode="HTML",
+            reply_markup=_preview_keyboard(data),
+        )
+    except Exception:
+        pass
+    await call.answer(f"🎯 {SEGMENT_LABELS[seg]}")
+
+
+@router.callback_query(F.data == "bc_toggle_fwd")
+async def cb_broadcast_toggle_forward(call: CallbackQuery, bot: Bot):
+    """Toggle Forward mode (forwards original message with channel attribution)."""
+    admin_id = call.from_user.id
+    if not _is_admin(admin_id):
+        await call.answer()
+        return
+    data = PENDING_BROADCAST.get(admin_id)
+    if not data:
+        await call.answer("⚠️ Broadcast topilmadi.", show_alert=True)
+        return
+    data["forward_mode"] = not bool(data.get("forward_mode"))
+    PENDING_BROADCAST[admin_id] = data
+    try:
+        await call.message.edit_text(
+            _build_broadcast_control_text(data),
+            parse_mode="HTML",
+            reply_markup=_preview_keyboard(data),
+        )
+    except Exception:
+        pass
+    await call.answer("↪️ Forward rejimi YOQILDI" if data["forward_mode"] else "📋 Oddiy rejim tanlandi")
+
+
+@router.callback_query(F.data == "broadcast_stop")
+async def cb_broadcast_stop(call: CallbackQuery):
+    """Stop an active running broadcast safely after current batch."""
+    admin_id = call.from_user.id
+    if not _is_admin(admin_id):
+        await call.answer()
+        return
+    BROADCAST_CANCEL[admin_id] = True
+    await call.answer("⏹ Broadcast to'xtatilmoqda...", show_alert=True)
+
 
 @router.callback_query(F.data == "broadcast_edit_caption")
 async def cb_broadcast_edit_caption(call: CallbackQuery, bot: Bot):
@@ -1209,9 +1333,15 @@ async def cb_broadcast_edit_caption(call: CallbackQuery, bot: Bot):
     )
 
 
+def _broadcast_stop_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⏹ To'xtatish (STOP)", callback_data="broadcast_stop")]
+    ])
+
+
 @router.callback_query(F.data == "broadcast_now")
 async def cb_broadcast_now(call: CallbackQuery, bot: Bot):
-    """Send broadcast immediately."""
+    """Send broadcast immediately to the chosen audience segment."""
     await call.answer()
     admin_id = call.from_user.id
     if not _is_admin(admin_id):
@@ -1221,10 +1351,14 @@ async def cb_broadcast_now(call: CallbackQuery, bot: Bot):
         await call.message.answer("⚠️ Broadcast topilmadi.")
         return
     BROADCAST_RUNNING[admin_id] = True
+    BROADCAST_CANCEL[admin_id] = False
     set_state(admin_id, STATE_NONE)
-    user_count = len(get_all_user_ids())
+    seg = data.get("segment", "live")
+    user_count = count_segmented_users(seg)
     status_msg = await bot.send_message(
-        admin_id, f"📡 Broadcast boshlandi... ({user_count} foydalanuvchi)"
+        admin_id,
+        f"📡 Broadcast boshlandi...\n🎯 {SEGMENT_LABELS.get(seg, 'Tiriklar')} ({user_count:,} foydalanuvchi)",
+        reply_markup=_broadcast_stop_kb(),
     )
     asyncio.create_task(_do_broadcast(bot, admin_id, data, status_msg.message_id))
     try:
@@ -1291,7 +1425,6 @@ async def handle_schedule_time(message: Message, bot: Bot):
     now = datetime.now()
     send_at = None
 
-    # Format: +30 (minutes), +2h (hours)
     if time_str.startswith("+"):
         val = time_str[1:]
         if val.endswith("h"):
@@ -1301,7 +1434,6 @@ async def handle_schedule_time(message: Message, bot: Bot):
             minutes = int(val)
             send_at = now + timedelta(minutes=minutes)
 
-    # Format: HH:MM
     elif re.match(r'^\d{1,2}:\d{2}$', time_str):
         h, m = map(int, time_str.split(':'))
         send_at = now.replace(hour=h, minute=m, second=0, microsecond=0)
@@ -1320,7 +1452,6 @@ async def handle_schedule_time(message: Message, bot: Bot):
     set_state(admin_id, STATE_NONE)
     PENDING_BROADCAST.pop(admin_id, None)
 
-    # Schedule the task
     task = asyncio.create_task(_scheduled_broadcast(bot, admin_id, data, delay_seconds))
     SCHEDULED_TASKS[admin_id] = task
 
@@ -1338,9 +1469,13 @@ async def _scheduled_broadcast(bot: Bot, admin_id: int, data: dict, delay: float
     """Wait and then execute broadcast."""
     await asyncio.sleep(delay)
     BROADCAST_RUNNING[admin_id] = True
-    user_count = len(get_all_user_ids())
+    BROADCAST_CANCEL[admin_id] = False
+    seg = data.get("segment", "live")
+    user_count = count_segmented_users(seg)
     status_msg = await bot.send_message(
-        admin_id, f"📡 Rejalashtirilgan broadcast boshlandi! ({user_count} foydalanuvchi)"
+        admin_id,
+        f"📡 Rejalashtirilgan broadcast boshlandi! ({user_count:,} foydalanuvchi)",
+        reply_markup=_broadcast_stop_kb(),
     )
     await _do_broadcast(bot, admin_id, data, status_msg.message_id)
     SCHEDULED_TASKS.pop(admin_id, None)
@@ -1351,75 +1486,106 @@ async def _scheduled_broadcast(bot: Bot, admin_id: int, data: dict, delay: float
 # ========================
 
 async def _do_broadcast(bot: Bot, admin_id: int, broadcast_data: dict, status_msg_id: int):
-    """Execute broadcast to all users with inline buttons, HTML fallback, and RetryAfter handling."""
-    from aiogram.exceptions import TelegramRetryAfter
+    """Execute segmented broadcast with STOP control, Forward support, and auto-marking blocked users."""
+    from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError
 
-    user_ids = get_all_user_ids()
+    segment = broadcast_data.get("segment", "live")
+    user_ids = get_segmented_user_ids(segment)
     total = len(user_ids)
     success = 0
     failed = 0
+    newly_blocked = 0
+    stopped = False
 
-    media_type = broadcast_data["media_type"]
+    media_type = "forward" if broadcast_data.get("forward_mode") else broadcast_data["media_type"]
     file_id = broadcast_data.get("file_id")
     caption = broadcast_data.get("caption", "")
 
     semaphore = asyncio.Semaphore(BROADCAST_RATE)
 
     async def send_one(uid: int):
-        nonlocal success, failed
+        nonlocal success, failed, newly_blocked
         async with semaphore:
+            if BROADCAST_CANCEL.get(admin_id):
+                return
             try:
                 await _send_broadcast_item(bot, uid, broadcast_data)
                 success += 1
+            except TelegramForbiddenError:
+                failed += 1
+                newly_blocked += 1
+                mark_user_blocked(uid, 1)
             except TelegramRetryAfter as retry_err:
                 await asyncio.sleep(retry_err.retry_after + 0.5)
                 try:
                     await _send_broadcast_item(bot, uid, broadcast_data)
                     success += 1
+                except TelegramForbiddenError:
+                    failed += 1
+                    newly_blocked += 1
+                    mark_user_blocked(uid, 1)
                 except Exception:
                     failed += 1
-            except Exception:
+            except Exception as e:
+                err_l = str(e).lower()
+                if "blocked" in err_l or "deactivated" in err_l or "chat not found" in err_l:
+                    newly_blocked += 1
+                    mark_user_blocked(uid, 1)
                 failed += 1
             await asyncio.sleep(1 / BROADCAST_RATE)
 
     batch_size = 50
     tasks = []
     for uid in user_ids:
+        if BROADCAST_CANCEL.get(admin_id):
+            stopped = True
+            break
         tasks.append(send_one(uid))
         if len(tasks) >= batch_size:
             await asyncio.gather(*tasks)
             tasks = []
+            if BROADCAST_CANCEL.get(admin_id):
+                stopped = True
+                break
             try:
-                pct = round((success + failed) / total * 100)
+                pct = round((success + failed) / max(total, 1) * 100)
                 await bot.edit_message_text(
                     f"📡 Yuborilmoqda... {pct}%\n"
-                    f"✅ {success} | ❌ {failed} | {success + failed}/{total}",
-                    chat_id=admin_id, message_id=status_msg_id
+                    f"🎯 {SEGMENT_LABELS.get(segment, 'Tiriklar')}\n"
+                    f"✅ {success} | ❌ {failed} (📵 blok: {newly_blocked}) | {success + failed}/{total}",
+                    chat_id=admin_id,
+                    message_id=status_msg_id,
+                    reply_markup=_broadcast_stop_kb(),
                 )
             except Exception:
                 pass
 
-    if tasks:
+    if tasks and not stopped:
         await asyncio.gather(*tasks)
 
     save_broadcast_result(admin_id, media_type, file_id or "", caption, total, success, failed)
 
+    title_line = "⏹ <b>Broadcast to'xtatildi!</b>" if stopped else "✅ <b>Broadcast tugadi!</b>"
     try:
         await bot.edit_message_text(
-            f"✅ <b>Broadcast tugadi!</b>\n\n"
-            f"👥 Jami: {total}\n"
-            f"✅ Yuborildi: {success}\n"
-            f"🚫 Xato: {failed}\n"
-            f"📊 Samaradorlik: {round(success/max(total,1)*100)}%\n"
+            f"{title_line}\n\n"
+            f"🎯 Segment: <b>{SEGMENT_LABELS.get(segment, 'Tiriklar')}</b>\n"
+            f"👥 Jami maqsad: <b>{total:,}</b>\n"
+            f"✅ Yuborildi: <b>{success:,}</b>\n"
+            f"🚫 Xato: <b>{failed:,}</b> (📵 Yangi bloklagan: <b>{newly_blocked:,}</b>)\n"
+            f"📊 Samaradorlik: <b>{round(success/max(success+failed,1)*100)}%</b>\n"
             f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            chat_id=admin_id, message_id=status_msg_id,
-            parse_mode="HTML"
+            chat_id=admin_id,
+            message_id=status_msg_id,
+            parse_mode="HTML",
+            reply_markup=kb_admin_back(),
         )
     except Exception:
-        await bot.send_message(admin_id, f"✅ Broadcast: {success}/{total}")
+        await bot.send_message(admin_id, f"✅ Broadcast: {success}/{total}", reply_markup=kb_admin_back())
 
     BROADCAST_RUNNING.pop(admin_id, None)
-    logger.info(f"Broadcast by {admin_id}: {success}/{total}, failed={failed}")
+    BROADCAST_CANCEL.pop(admin_id, None)
+    logger.info(f"Broadcast by {admin_id} [seg={segment}, stopped={stopped}]: {success}/{total}, failed={failed}, blocked={newly_blocked}")
 
 
 # =========================================================================

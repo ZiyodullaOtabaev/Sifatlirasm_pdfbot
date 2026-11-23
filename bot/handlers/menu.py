@@ -110,10 +110,13 @@ async def enforce_subscription(bot: Bot, user_id: int, lang: str = "uz") -> bool
     Check if user can use the service:
     1. VIP users and Admins bypass both required channels and daily limits.
     2. Free users must join required channels.
-    3. Free users are checked against DAILY_FREE_LIMIT (5/day) + bonus referral balance.
+    3. Free users are checked against dynamic daily_free_limit (0 = unlimited) + bonus balance.
     """
-    from bot.config import ADMIN_IDS, DAILY_FREE_LIMIT
-    from bot.database import has_active_img_pdf_pass, get_user_daily_uses, get_user_balance
+    from bot.config import ADMIN_IDS
+    from bot.database import (
+        has_active_img_pdf_pass, get_user_daily_uses, get_user_balance,
+        get_daily_free_limit, get_vip_prices,
+    )
     from bot.keyboards import kb_required_channels, kb_vip_plans
 
     # 1. VIP or Admin -> Unlimited & Ad-free
@@ -131,17 +134,29 @@ async def enforce_subscription(bot: Bot, user_id: int, lang: str = "uz") -> bool
         )
         return False
 
-    # 3. Daily free limit + bonus balance check
-    daily_used = get_user_daily_uses(user_id)
-    bonus_balance = get_user_balance(user_id)
-    if daily_used >= DAILY_FREE_LIMIT and bonus_balance <= 0:
-        await bot.send_message(
-            user_id,
-            t("daily_limit_reached", lang, used=daily_used, limit=DAILY_FREE_LIMIT),
-            parse_mode="HTML",
-            reply_markup=kb_vip_plans(lang),
-        )
-        return False
+    # 3. Dynamic daily free limit + bonus balance check (0 = unlimited)
+    daily_limit = get_daily_free_limit()
+    if daily_limit > 0:
+        daily_used = get_user_daily_uses(user_id)
+        bonus_balance = get_user_balance(user_id)
+        if daily_used >= daily_limit and bonus_balance <= 0:
+            p = get_vip_prices()
+            await bot.send_message(
+                user_id,
+                t(
+                    "daily_limit_reached",
+                    lang,
+                    used=daily_used,
+                    limit=daily_limit,
+                    uzs_30=f"{p['uzs_30']:,}".replace(",", " "),
+                    uzs_365=f"{p['uzs_365']:,}".replace(",", " "),
+                    stars_30=p["stars_30"],
+                    stars_365=p["stars_365"],
+                ),
+                parse_mode="HTML",
+                reply_markup=kb_vip_plans(lang),
+            )
+            return False
 
     return True
 
@@ -307,9 +322,9 @@ async def cb_donate_card(call: CallbackQuery, bot: Bot):
     user_id = call.from_user.id
     set_state(user_id, STATE_NONE)
     lang = get_user_language(user_id) or "uz"
-    from bot.config import DONATE_CARD
+    from bot.database import get_payment_card
     from bot.keyboards import kb_donate_card
-    text = t("donate_card_text", lang, card_number=DONATE_CARD)
+    text = t("donate_card_text", lang, card_number=get_payment_card())
 
     try:
         await bot.edit_message_text(

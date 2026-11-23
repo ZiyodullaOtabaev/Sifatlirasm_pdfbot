@@ -7,7 +7,10 @@ from aiogram import Router, Bot
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from bot.database import upsert_user, get_user_language, set_user_language, process_referral
+from bot.database import (
+    upsert_user, get_user_language, set_user_language,
+    process_referral, record_ad_click,
+)
 from bot.i18n import t
 from bot.keyboards import kb_main, kb_main_reply, kb_language
 from bot.states import set_state, STATE_NONE
@@ -18,26 +21,35 @@ router = Router(name="start")
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, bot: Bot):
-    """Handle /start command with referral support."""
+    """Handle /start command with referral and UTM ad link tracking."""
     user = message.from_user
-    upsert_user(user.id, user.username, user.first_name, user.last_name)
+    is_new_user = upsert_user(user.id, user.username, user.first_name, user.last_name)
     set_state(user.id, STATE_NONE)
 
-    # Check deep link parameter e.g. /start ref_123456
-    text_args = message.text.split()
-    if len(text_args) > 1 and text_args[1].startswith("ref_"):
-        try:
-            referrer_id = int(text_args[1].replace("ref_", ""))
-            if process_referral(user.id, referrer_id):
-                ref_lang = get_user_language(referrer_id) or "uz"
-                await bot.send_message(
-                    referrer_id,
-                    t("referral_bonus_notify", ref_lang),
-                    parse_mode="HTML"
-                )
-                logger.info(f"User {user.id} was referred by {referrer_id}, bonus awarded.")
-        except Exception as ref_err:
-            logger.warning(f"Error processing referral link: {ref_err}")
+    # Check deep link parameter e.g. /start ref_123456 or /start ad_kanal1
+    text_args = (message.text or "").split()
+    if len(text_args) > 1:
+        param = text_args[1].strip()
+        if param.startswith("ref_"):
+            try:
+                referrer_id = int(param.replace("ref_", ""))
+                if process_referral(user.id, referrer_id):
+                    ref_lang = get_user_language(referrer_id) or "uz"
+                    await bot.send_message(
+                        referrer_id,
+                        t("referral_bonus_notify", ref_lang),
+                        parse_mode="HTML"
+                    )
+                    logger.info(f"User {user.id} was referred by {referrer_id}, bonus awarded.")
+            except Exception as ref_err:
+                logger.warning(f"Error processing referral link: {ref_err}")
+        elif param.startswith("ad_"):
+            try:
+                ad_code = param[3:]
+                record_ad_click(ad_code, user.id, is_new_user)
+                logger.info(f"User {user.id} came from ad link ad_{ad_code} (new={is_new_user})")
+            except Exception as ad_err:
+                logger.warning(f"Error processing ad link: {ad_err}")
 
     lang = get_user_language(user.id) or "uz"
     set_user_language(user.id, lang)

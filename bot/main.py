@@ -26,6 +26,12 @@ async def main():
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
 
+    # Global Maintenance Mode & Ban enforcement middleware
+    from bot.middlewares import AccessControlMiddleware
+    access_mw = AccessControlMiddleware()
+    dp.message.outer_middleware(access_mw)
+    dp.callback_query.outer_middleware(access_mw)
+
     # Register all routers
     for router in get_all_routers():
         dp.include_router(router)

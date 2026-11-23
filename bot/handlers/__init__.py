@@ -10,6 +10,7 @@ from bot.handlers.merge_pdf import router as merge_pdf_router
 from bot.handlers.compress import router as compress_router
 from bot.handlers.pdf_tools import router as pdf_tools_router
 from bot.handlers.admin import router as admin_router
+from bot.handlers.admin_pro import router as admin_pro_router
 from bot.handlers.profile import router as profile_router
 from bot.handlers.payments import router as payments_router
 from bot.handlers.menu import router as menu_router
@@ -20,6 +21,7 @@ def get_all_routers() -> list[Router]:
     return [
         start_router,
         admin_router,
+        admin_pro_router,
         profile_router,
         payments_router,
         text_pdf_router,

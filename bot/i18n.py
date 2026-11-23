@@ -99,13 +99,34 @@ TEXTS = {
         "referral_share_msg": "🤖 Eng qulay va sifatli PDF botini topdim! Siz ham sinab ko'ring:",
         "referral_bonus_notify": "🎉 <b>Yangi do'stingiz botga qo'shildi! Sizga +3 ta bonus limit taqdim etildi!</b> 🎁",
         "btn_vip": "💎 VIP Obuna",
+        "btn_promo": "🎟 Promokod kiritish",
+        "maintenance_text": "🔧 Botda qisqa texnik ishlar olib borilmoqda. Birozdan so'ng qayta urinib ko'ring!",
+        "banned_text": "🚫 Sizga botdan foydalanish cheklangan. Savollar bo'yicha admin @ziyodullame ga murojaat qiling.",
+        "promo_prompt": (
+            "🎟 <b>Promokodni kiriting:</b>\n\n"
+            "Sizda chegirma yoki bepul VIP promokod bormi? Uni shu yerga yozib yuboring:"
+        ),
+        "promo_success_vip": (
+            "🎉 <b>Promokod muvaffaqiyatli faollashtirildi!</b> 🎟\n\n"
+            "💎 Sizga <b>+{value} kunlik VIP Obuna</b> qo'shildi!\n"
+            "📅 Amal qilish muddati: <b>{vip_until}</b> gacha 🚀"
+        ),
+        "promo_success_bonus": (
+            "🎉 <b>Promokod muvaffaqiyatli faollashtirildi!</b> 🎟\n\n"
+            "🎁 Sizga <b>+{value} ta bepul bonus limit</b> qo'shildi!\n"
+            "💰 Jami bonus zaxirangiz: <b>{new_balance} ta</b> 🚀"
+        ),
+        "promo_not_found": "❌ Bunday promokod topilmadi. To'g'ri yozilganini tekshirib qayta urinib ko'ring.",
+        "promo_inactive": "⚠️ Ushbu promokod hozircha faol emas.",
+        "promo_exhausted": "⚠️ Afsuski, ushbu promokoddan foydalanish limiti tugagan.",
+        "promo_already_used": "⚠️ Siz bu promokoddan avval foydalangansiz.",
         "daily_limit_reached": (
             "⏳ <b>Kunlik bepul limitingiz tugadi ({used}/{limit} ta)!</b>\n\n"
             "Har kuni soat 00:00 da sizga yana <b>{limit} ta bepul</b> imkoniyat beriladi.\n"
             "Kutmasdan hoziroq cheksiz foydalanish uchun:\n\n"
             "1️⃣ <b>💎 VIP Obuna xarid qiling:</b>\n"
-            "• <b>1 Oylik VIP:</b> 9 000 so'm yoki ⭐️ 50 Stars\n"
-            "• <b>1 Yillik VIP:</b> 29 000 so'm yoki ⭐️ 150 Stars\n"
+            "• <b>1 Oylik VIP:</b> {uzs_30} so'm yoki ⭐️ {stars_30} Stars\n"
+            "• <b>1 Yillik VIP:</b> {uzs_365} so'm yoki ⭐️ {stars_365} Stars\n"
             "<i>(Cheksiz PDF yaratish, birlashtirish, siqish + Majburiy obunalarsiz!)</i>\n\n"
             "2️⃣ <b>🎁 Yoki do'stlaringizni taklif qiling:</b>\n"
             "Har bir yangi do'stingiz uchun <b>+3 ta bepul bonus limit</b> olasiz!"
@@ -120,8 +141,8 @@ TEXTS = {
             "• 🚫 <b>Majburiy obuna kanallarisiz</b> va reklamalarsiz ishlash\n"
             "• ⚡️ Tezkor qayta ishlash\n\n"
             "💳 <b>Tariflar:</b>\n"
-            "• 💎 <b>1 Oylik VIP (30 kun):</b> 9 000 so'm yoki ⭐️ 50 Stars\n"
-            "• 👑 <b>1 Yillik VIP (365 kun):</b> 29 000 so'm yoki ⭐️ 150 Stars\n\n"
+            "• 💎 <b>1 Oylik VIP (30 kun):</b> {uzs_30} so'm yoki ⭐️ {stars_30} Stars\n"
+            "• 👑 <b>1 Yillik VIP (365 kun):</b> {uzs_365} so'm yoki ⭐️ {stars_365} Stars\n\n"
             "⬇️ O'zingizga qulay to'lov usulini tanlang:"
         ),
         "vip_card_payment_text": (
@@ -360,13 +381,34 @@ TEXTS = {
         "referral_share_msg": "🤖 Нашел отличного PDF бота! Попробуй:",
         "referral_bonus_notify": "🎉 <b>Новый друг присоединился по вашей ссылке! Вам начислено +3 бонусных лимита!</b> 🎁",
         "btn_vip": "💎 VIP Подписка",
+        "btn_promo": "🎟 Ввести промокод",
+        "maintenance_text": "🔧 В боте проводятся краткие технические работы. Пожалуйста, попробуйте чуть позже!",
+        "banned_text": "🚫 Ваш доступ к боту ограничен. По вопросам обратитесь к админу @ziyodullame.",
+        "promo_prompt": (
+            "🎟 <b>Введите промокод:</b>\n\n"
+            "Если у вас есть промокод на бесплатный VIP или бонусы — отправьте его сюда:"
+        ),
+        "promo_success_vip": (
+            "🎉 <b>Промокод успешно активирован!</b> 🎟\n\n"
+            "💎 Вам начислено <b>+{value} дн. VIP Подписки</b>!\n"
+            "📅 Действует до: <b>{vip_until}</b> 🚀"
+        ),
+        "promo_success_bonus": (
+            "🎉 <b>Промокод успешно активирован!</b> 🎟\n\n"
+            "🎁 Вам начислено <b>+{value} бонусных лимитов</b>!\n"
+            "💰 Всего бонусов: <b>{new_balance}</b> 🚀"
+        ),
+        "promo_not_found": "❌ Такой промокод не найден. Проверьте написание и попробуйте снова.",
+        "promo_inactive": "⚠️ Этот промокод сейчас неактивен.",
+        "promo_exhausted": "⚠️ К сожалению, лимит активаций этого промокода исчерпан.",
+        "promo_already_used": "⚠️ Вы уже активировали этот промокод ранее.",
         "daily_limit_reached": (
             "⏳ <b>Ваш дневной бесплатный лимит исчерпан ({used}/{limit})!</b>\n\n"
             "Каждый день в 00:00 вам снова начисляется <b>{limit} бесплатных</b> операций.\n"
             "Чтобы пользоваться без ограничений прямо сейчас:\n\n"
             "1️⃣ <b>💎 Оформите VIP Подписку:</b>\n"
-            "• <b>VIP на 1 месяц:</b> 9 000 сум или ⭐️ 50 Stars\n"
-            "• <b>VIP на 1 год:</b> 29 000 сум или ⭐️ 150 Stars\n"
+            "• <b>VIP на 1 месяц:</b> {uzs_30} сум или ⭐️ {stars_30} Stars\n"
+            "• <b>VIP на 1 год:</b> {uzs_365} сум или ⭐️ {stars_365} Stars\n"
             "<i>(Безлимитные PDF инструменты + Без обязательных подписок!)</i>\n\n"
             "2️⃣ <b>🎁 Или пригласите друзей:</b>\n"
             "За каждого нового друга вы получите <b>+3 бонусных лимита</b>!"
@@ -381,8 +423,8 @@ TEXTS = {
             "• 🚫 Работа <b>без обязательной подписки</b> на каналы и без рекламы\n"
             "• ⚡️ Быстрая обработка файлов\n\n"
             "💳 <b>Тарифы:</b>\n"
-            "• 💎 <b>VIP на 1 месяц (30 дней):</b> 9 000 сум или ⭐️ 50 Stars\n"
-            "• 👑 <b>VIP на 1 год (365 дней):</b> 29 000 сум или ⭐️ 150 Stars\n\n"
+            "• 💎 <b>VIP на 1 месяц (30 дней):</b> {uzs_30} сум или ⭐️ {stars_30} Stars\n"
+            "• 👑 <b>VIP на 1 год (365 дней):</b> {uzs_365} сум или ⭐️ {stars_365} Stars\n\n"
             "⬇️ Выберите удобный способ оплаты:"
         ),
         "vip_card_payment_text": (
@@ -621,13 +663,34 @@ TEXTS = {
         "referral_share_msg": "🤖 Found an amazing PDF toolkit bot! Try it out:",
         "referral_bonus_notify": "🎉 <b>A new friend joined using your link! You received +3 bonus uses!</b> 🎁",
         "btn_vip": "💎 VIP Subscription",
+        "btn_promo": "🎟 Enter Promo Code",
+        "maintenance_text": "🔧 Short maintenance is in progress. Please try again in a few minutes!",
+        "banned_text": "🚫 Your access to this bot has been restricted. Contact admin @ziyodullame for support.",
+        "promo_prompt": (
+            "🎟 <b>Enter Promo Code:</b>\n\n"
+            "Have a free VIP or bonus promo code? Send it here:"
+        ),
+        "promo_success_vip": (
+            "🎉 <b>Promo code activated!</b> 🎟\n\n"
+            "💎 You received <b>+{value} days of VIP Subscription</b>!\n"
+            "📅 Valid until: <b>{vip_until}</b> 🚀"
+        ),
+        "promo_success_bonus": (
+            "🎉 <b>Promo code activated!</b> 🎟\n\n"
+            "🎁 You received <b>+{value} bonus uses</b>!\n"
+            "💰 Total bonus balance: <b>{new_balance}</b> 🚀"
+        ),
+        "promo_not_found": "❌ Promo code not found. Please check the spelling and try again.",
+        "promo_inactive": "⚠️ This promo code is currently inactive.",
+        "promo_exhausted": "⚠️ Unfortunately, this promo code has reached its usage limit.",
+        "promo_already_used": "⚠️ You have already redeemed this promo code.",
         "daily_limit_reached": (
             "⏳ <b>Your daily free limit is reached ({used}/{limit})!</b>\n\n"
             "Every day at 00:00 you get <b>{limit} free</b> uses again.\n"
             "To continue with unlimited access right now:\n\n"
             "1️⃣ <b>💎 Get a VIP Subscription:</b>\n"
-            "• <b>1-Month VIP:</b> 9,000 UZS or ⭐️ 50 Stars\n"
-            "• <b>1-Year VIP:</b> 29,000 UZS or ⭐️ 150 Stars\n"
+            "• <b>1-Month VIP:</b> {uzs_30} UZS or ⭐️ {stars_30} Stars\n"
+            "• <b>1-Year VIP:</b> {uzs_365} UZS or ⭐️ {stars_365} Stars\n"
             "<i>(Unlimited PDF tools + No mandatory channel subscriptions!)</i>\n\n"
             "2️⃣ <b>🎁 Or invite your friends:</b>\n"
             "Get <b>+3 free bonus uses</b> for every new friend!"
@@ -642,8 +705,8 @@ TEXTS = {
             "• 🚫 <b>No mandatory channel subscriptions</b> or ads\n"
             "• ⚡️ Priority document processing\n\n"
             "💳 <b>Plans:</b>\n"
-            "• 💎 <b>1-Month VIP (30 days):</b> 9,000 UZS or ⭐️ 50 Stars\n"
-            "• 👑 <b>1-Year VIP (365 days):</b> 29,000 UZS or ⭐️ 150 Stars\n\n"
+            "• 💎 <b>1-Month VIP (30 days):</b> {uzs_30} UZS or ⭐️ {stars_30} Stars\n"
+            "• 👑 <b>1-Year VIP (365 days):</b> {uzs_365} UZS or ⭐️ {stars_365} Stars\n\n"
             "⬇️ Choose your preferred payment method:"
         ),
         "vip_card_payment_text": (

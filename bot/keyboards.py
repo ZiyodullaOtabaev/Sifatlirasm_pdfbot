@@ -169,7 +169,10 @@ def kb_profile(lang: str = "uz", total_users: int = 0) -> InlineKeyboardMarkup:
     rows = []
     if total_users > 0:
         rows.append([InlineKeyboardButton(text=btn_users_text, callback_data="act_noop")])
-    rows.append([InlineKeyboardButton(text=t("btn_vip", lang), callback_data="act_vip")])
+    rows.append([
+        InlineKeyboardButton(text=t("btn_vip", lang), callback_data="act_vip"),
+        InlineKeyboardButton(text=t("btn_promo", lang), callback_data="act_promo"),
+    ])
     rows.append([InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref")])
     rows.append([
         InlineKeyboardButton(text=t("btn_change_lang", lang), callback_data="act_change_lang"),
@@ -179,16 +182,23 @@ def kb_profile(lang: str = "uz", total_users: int = 0) -> InlineKeyboardMarkup:
 
 
 def kb_vip_plans(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Hybrid payment keyboard for VIP subscriptions (Stars + Card + Referral)."""
+    """Hybrid payment keyboard for VIP subscriptions (Dynamic prices from DB)."""
+    from bot.database import get_vip_prices
+    p = get_vip_prices()
+    uzs_30 = f"{p['uzs_30']:,}".replace(",", " ")
+    uzs_365 = f"{p['uzs_365']:,}".replace(",", " ")
+    st_30 = p["stars_30"]
+    st_365 = p["stars_365"]
+
     if lang == "ru":
-        s_30, s_365 = "⭐️ 1 Мес VIP (50 ⭐)", "⭐️ 1 Год VIP (150 ⭐)"
-        c_30, c_365 = "💳 Карта: 1 Мес (9 000 сум)", "💳 Карта: 1 Год (29 000 сум)"
+        s_30, s_365 = f"⭐️ 1 Мес VIP ({st_30} ⭐)", f"⭐️ 1 Год VIP ({st_365} ⭐)"
+        c_30, c_365 = f"💳 Карта: 1 Мес ({uzs_30} сум)", f"💳 Карта: 1 Год ({uzs_365} сум)"
     elif lang == "en":
-        s_30, s_365 = "⭐️ 1-Mo VIP (50 ⭐)", "⭐️ 1-Yr VIP (150 ⭐)"
-        c_30, c_365 = "💳 Card: 1-Mo (9,000 UZS)", "💳 Card: 1-Yr (29,000 UZS)"
+        s_30, s_365 = f"⭐️ 1-Mo VIP ({st_30} ⭐)", f"⭐️ 1-Yr VIP ({st_365} ⭐)"
+        c_30, c_365 = f"💳 Card: 1-Mo ({uzs_30} UZS)", f"💳 Card: 1-Yr ({uzs_365} UZS)"
     else:
-        s_30, s_365 = "⭐️ 1 Oylik VIP (50 ⭐)", "⭐️ 1 Yillik VIP (150 ⭐)"
-        c_30, c_365 = "💳 Karta: 1 Oy (9 000 so'm)", "💳 Karta: 1 Yil (29 000 so'm)"
+        s_30, s_365 = f"⭐️ 1 Oylik VIP ({st_30} ⭐)", f"⭐️ 1 Yillik VIP ({st_365} ⭐)"
+        c_30, c_365 = f"💳 Karta: 1 Oy ({uzs_30} so'm)", f"💳 Karta: 1 Yil ({uzs_365} so'm)"
 
     return InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -200,6 +210,7 @@ def kb_vip_plans(lang: str = "uz") -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=c_365, callback_data="act_vip_card_365"),
         ],
         [
+            InlineKeyboardButton(text=t("btn_promo", lang), callback_data="act_promo"),
             InlineKeyboardButton(text=t("btn_share_ref", lang), callback_data="act_share_ref"),
         ],
         [
@@ -379,7 +390,7 @@ def kb_subscribe(lang: str = "uz") -> InlineKeyboardMarkup:
 
 
 def kb_admin() -> InlineKeyboardMarkup:
-    """Admin panel keyboard."""
+    """PRO Admin Control Center keyboard."""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🏆 TOP-30", callback_data="admin_top30"),
@@ -387,18 +398,26 @@ def kb_admin() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="🆕 Yangi 24h", callback_data="admin_new24"),
-            InlineKeyboardButton(text="🔍 Qidirish", callback_data="admin_search"),
-        ],
-        [
-            InlineKeyboardButton(text="💳 Kredit Qo'shish", callback_data="admin_add_balance"),
-            InlineKeyboardButton(text="📢 Kanallar Boshqaruvi", callback_data="admin_channels"),
-        ],
-        [
-            InlineKeyboardButton(text="💾 Baza Zaxira", callback_data="admin_backup"),
-            InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
+            InlineKeyboardButton(text="🔍 Qidirish (CRM)", callback_data="admin_search"),
         ],
         [
             InlineKeyboardButton(text="💎 VIP obunachilar", callback_data="admin_vip_users"),
+            InlineKeyboardButton(text="💰 Moliya", callback_data="admin_finance"),
+        ],
+        [
+            InlineKeyboardButton(text="🔗 Reklama havolalar", callback_data="admin_ad_links"),
+            InlineKeyboardButton(text="🎟 Promokodlar", callback_data="admin_promos"),
+        ],
+        [
+            InlineKeyboardButton(text="📢 Kanallar (OP)", callback_data="admin_channels"),
+            InlineKeyboardButton(text="📢 Broadcast", callback_data="admin_broadcast"),
+        ],
+        [
+            InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="admin_settings"),
+            InlineKeyboardButton(text="💾 Baza Zaxira", callback_data="admin_backup"),
+        ],
+        [
+            InlineKeyboardButton(text="💳 Kredit Qo'shish", callback_data="admin_add_balance"),
             InlineKeyboardButton(text="📜 BC tarix", callback_data="admin_bc_history"),
         ],
     ])
@@ -464,6 +483,32 @@ def kb_user_balance_actions(user_id: int) -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin_back")],
     ])
+
+
+def kb_user_crm_actions(user_id: int, is_vip: bool = False, is_banned: bool = False) -> InlineKeyboardMarkup:
+    """Full 1-click User CRM controls (VIP grant/revoke, Bonus, DM, Ban/Unban)."""
+    vip_row = [
+        InlineKeyboardButton(text="💎 +30 kun VIP", callback_data=f"crm_vip_{user_id}_30"),
+        InlineKeyboardButton(text="👑 +365 kun VIP", callback_data=f"crm_vip_{user_id}_365"),
+    ]
+    rows = [vip_row]
+    if is_vip:
+        rows.append([InlineKeyboardButton(text="❌ VIP ni olib tashlash", callback_data=f"crm_unvip_{user_id}")])
+    rows.append([
+        InlineKeyboardButton(text="➕ 5 Bonus", callback_data=f"adm_addbal_{user_id}_5"),
+        InlineKeyboardButton(text="➕ 10 Bonus", callback_data=f"adm_addbal_{user_id}_10"),
+    ])
+    ban_btn = (
+        InlineKeyboardButton(text="✅ Bandan chiqarish", callback_data=f"crm_unban_{user_id}")
+        if is_banned
+        else InlineKeyboardButton(text="🚫 Bloklash (Ban)", callback_data=f"crm_ban_{user_id}")
+    )
+    rows.append([
+        InlineKeyboardButton(text="📩 Xabar yozish", callback_data=f"crm_dm_{user_id}"),
+        ban_btn,
+    ])
+    rows.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin_back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def kb_admin_back() -> InlineKeyboardMarkup:

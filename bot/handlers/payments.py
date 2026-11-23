@@ -10,10 +10,11 @@ from aiogram.types import (
     LabeledPrice, InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-from bot.config import DONATE_CARD, ADMIN_IDS, ADMIN_ID
+from bot.config import ADMIN_IDS, ADMIN_ID
 from bot.database import (
     get_user_language, add_user_balance, get_user_balance,
     activate_img_pdf_pass, get_vip_until, upsert_user, resolve_user_id,
+    get_vip_prices, get_payment_card, log_payment,
 )
 from bot.i18n import t
 from bot.keyboards import kb_top_up, kb_cancel, kb_vip_plans, kb_admin_approve_vip, kb_main_reply
@@ -98,10 +99,19 @@ async def cb_buy_stars(call: CallbackQuery, bot: Bot):
         await call.answer("❌ Noma'lum to'plam", show_alert=True)
         return
 
+    # Use live dynamic Stars prices from DB for VIP plans
+    stars_amount = bundle["stars"]
     title = bundle["label"]
+    if bundle_key == "vip_stars_30":
+        stars_amount = get_vip_prices()["stars_30"]
+        title = f"💎 1 Oylik VIP Obuna ({stars_amount} ⭐)"
+    elif bundle_key == "vip_stars_365":
+        stars_amount = get_vip_prices()["stars_365"]
+        title = f"👑 1 Yillik VIP Obuna ({stars_amount} ⭐)"
+
     description = bundle["desc"]
     payload = bundle_key
-    prices = [LabeledPrice(label=bundle["label"], amount=bundle["stars"])]
+    prices = [LabeledPrice(label=title, amount=stars_amount)]
 
     try:
         await bot.send_invoice(
@@ -148,6 +158,7 @@ async def process_successful_payment(message: Message, bot: Bot):
 
     if payload.startswith("donate_stars_"):
         amount_stars = payment_info.total_amount
+        log_payment(user_id, "donate_stars", plan_days=0, amount_uzs=0, amount_stars=amount_stars, note="Donat")
         await message.answer(
             t("donate_stars_success", lang, amount=amount_stars),
             parse_mode="HTML"
@@ -169,6 +180,11 @@ async def process_successful_payment(message: Message, bot: Bot):
         days = int(bundle.get("days", 30))
         activate_img_pdf_pass(user_id, days=days)
         vip_until = get_vip_until(user_id) or ""
+        plan_label = "1 Yillik VIP" if days >= 365 else "1 Oylik VIP"
+        log_payment(
+            user_id, "vip_stars", plan_days=days, amount_uzs=0,
+            amount_stars=payment_info.total_amount, note=plan_label,
+        )
         await message.answer(
             t("vip_activated_notify", lang, days=days, vip_until=vip_until),
             parse_mode="HTML",
@@ -246,7 +262,8 @@ async def cb_vip_card_payment(call: CallbackQuery, bot: Bot):
 
     is_yearly = call.data == "act_vip_card_365"
     days = 365 if is_yearly else 30
-    price_uzs = "29 000" if is_yearly else "9 000"
+    p = get_vip_prices()
+    price_uzs = f"{p['uzs_365']:,}".replace(",", " ") if is_yearly else f"{p['uzs_30']:,}".replace(",", " ")
     if lang == "ru":
         plan_name = "👑 VIP на 1 год (365 дней)" if is_yearly else "💎 VIP на 1 месяц (30 дней)"
     elif lang == "en":
@@ -262,7 +279,7 @@ async def cb_vip_card_payment(call: CallbackQuery, bot: Bot):
         lang,
         plan_name=plan_name,
         price_uzs=price_uzs,
-        card_number=DONATE_CARD,
+        card_number=get_payment_card(),
     )
     try:
         await bot.edit_message_text(
@@ -285,7 +302,10 @@ async def handle_payment_receipt(message: Message, bot: Bot):
     lang = get_user_language(user_id) or "uz"
 
     days = PENDING_VIP_PLAN.pop(user_id, 30)
-    plan_str = "👑 1 Yillik VIP (29 000 so'm)" if days == 365 else "💎 1 Oylik VIP (9 000 so'm)"
+    p = get_vip_prices()
+    uzs_val = p["uzs_365"] if days >= 365 else p["uzs_30"]
+    uzs_fmt = f"{uzs_val:,}".replace(",", " ")
+    plan_str = f"👑 1 Yillik VIP ({uzs_fmt} so'm)" if days >= 365 else f"💎 1 Oylik VIP ({uzs_fmt} so'm)"
     set_state(user_id, STATE_NONE)
 
     await message.answer(
@@ -365,6 +385,14 @@ async def cb_admin_approve_vip(call: CallbackQuery, bot: Bot):
 
     activate_img_pdf_pass(target_user_id, days=days)
     vip_until = get_vip_until(target_user_id) or ""
+    p = get_vip_prices()
+    uzs_val = p["uzs_365"] if days >= 365 else p["uzs_30"]
+    uzs_fmt = f"{uzs_val:,}".replace(",", " ")
+    plan_label = f"1 Yillik VIP ({uzs_fmt} so'm)" if days >= 365 else f"1 Oylik VIP ({uzs_fmt} so'm)"
+    log_payment(
+        target_user_id, "vip_card", plan_days=days,
+        amount_uzs=uzs_val, amount_stars=0, note=plan_label,
+    )
 
     # Update admin message
     status_line = f"\n\n✅ <b>TASDIQLANDI:</b> +{days} kun VIP (<b>{vip_until}</b> gacha)"
@@ -381,7 +409,6 @@ async def cb_admin_approve_vip(call: CallbackQuery, bot: Bot):
     u_info = resolve_user_id(str(target_user_id)) or {}
     safe_name = html.escape((u_info.get("first_name") or "").strip() or "-")
     uname = f"@{html.escape(u_info['username'])}" if u_info.get("username") else "username yo'q"
-    plan_label = "1 Yillik VIP (29 000 so'm)" if days >= 365 else "1 Oylik VIP (9 000 so'm)"
     await _notify_admins(
         bot,
         f"💎 <b>Yangi VIP Obuna faollashtirildi! (💳 Karta)</b>\n\n"

@@ -176,7 +176,7 @@ def render_growth_chart_png(data: List[Tuple[str, int]], title: str = "O'sish gr
 
 def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
     """Render admin statistics as image."""
-    W, H = 800, 670
+    W, H = 800, 700
     bg = Image.new("RGB", (W, H), (250, 250, 252))
     d = ImageDraw.Draw(bg)
     font, font_small, font_tiny = _get_fonts()
@@ -184,8 +184,10 @@ def render_stats_image(summary: dict, action_stats: Dict[str, int]) -> bytes:
     d.text((30, 20), "Admin Statistika", fill=(20, 20, 25), font=font)
 
     y = 65
+    live_u = summary.get("live_users", summary.get("total_users", 0))
+    blocked_u = summary.get("blocked_users", 0)
     stats_lines = [
-        f"Jami foydalanuvchilar: {summary.get('total_users', 0):,}",
+        f"Jami foydalanuvchilar: {summary.get('total_users', 0):,} (Tirik: {live_u:,} | Blok: {blocked_u:,})",
         f"Faol VIP obunachilar: {summary.get('active_vip', 0):,} ta",
         f"Jami foydalanish: {summary.get('total_uses', 0):,}",
         f"Aktiv 24h: {summary.get('active_24h', 0):,}",

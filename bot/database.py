@@ -53,6 +53,63 @@ def db_init():
             cur.execute("ALTER TABLE users ADD COLUMN ai_video_count INTEGER DEFAULT 0")
         if "passport_photo_count" not in user_cols:
             cur.execute("ALTER TABLE users ADD COLUMN passport_photo_count INTEGER DEFAULT 0")
+        if "is_blocked" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
+        if "is_banned" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
+        if "ad_source" not in user_cols:
+            cur.execute("ALTER TABLE users ADD COLUMN ad_source TEXT")
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS bot_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS ad_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            clicks INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS payments_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            method TEXT NOT NULL,
+            plan_days INTEGER DEFAULT 0,
+            amount_uzs INTEGER DEFAULT 0,
+            amount_stars INTEGER DEFAULT 0,
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS promo_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            reward_type TEXT NOT NULL,
+            reward_value INTEGER NOT NULL,
+            max_uses INTEGER DEFAULT 0,
+            used_count INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS promo_redemptions (
+            promo_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            redeemed_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (promo_id, user_id)
+        )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_users_ad_source ON users(ad_source)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_payments_date ON payments_log(created_at)")
 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS required_channels (
@@ -112,16 +169,18 @@ def db_init():
 
 
 def upsert_user(user_id: int, username: Optional[str] = None,
-                first_name: Optional[str] = None, last_name: Optional[str] = None):
-    """Insert or update user record. Clears retention reminders on return."""
+                first_name: Optional[str] = None, last_name: Optional[str] = None) -> bool:
+    """Insert or update user record. Marks user as unblocked and clears retention reminders. Returns True if newly created."""
     with db_connect() as con:
+        existed = con.execute("SELECT 1 FROM users WHERE user_id=?", (user_id,)).fetchone() is not None
         con.execute("""
-        INSERT INTO users (user_id, username, first_name, last_name, uses_count, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 0, datetime('now'), datetime('now'))
+        INSERT INTO users (user_id, username, first_name, last_name, uses_count, is_blocked, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 0, 0, datetime('now'), datetime('now'))
         ON CONFLICT(user_id) DO UPDATE SET
             username=excluded.username,
             first_name=excluded.first_name,
             last_name=excluded.last_name,
+            is_blocked=0,
             updated_at=datetime('now')
         """, (user_id, username, first_name, last_name))
         # Clear reminders when user comes back (safely)
@@ -138,6 +197,7 @@ def upsert_user(user_id: int, username: Optional[str] = None,
         except Exception:
             pass
         con.commit()
+        return not existed
 
 
 def get_user_language(user_id: int) -> Optional[str]:
@@ -301,18 +361,19 @@ def get_user_daily_uses(user_id: int) -> int:
 
 def inc_uses_and_log(user_id: int, action: str):
     """Increment uses counter, deduct 1 bonus credit if daily free limit exceeded (and not VIP), and log the action."""
-    from bot.config import DAILY_FREE_LIMIT, ADMIN_IDS
+    from bot.config import ADMIN_IDS
     now = datetime.now(timezone.utc).isoformat()
+    daily_limit = get_daily_free_limit()
     is_vip = (user_id in ADMIN_IDS) or has_active_img_pdf_pass(user_id)
     daily_used = get_user_daily_uses(user_id)
     with db_connect() as con:
-        if not is_vip and daily_used >= DAILY_FREE_LIMIT:
+        if not is_vip and daily_limit > 0 and daily_used >= daily_limit:
             con.execute(
                 "UPDATE users SET balance = MAX(0, COALESCE(balance, 0) - 1) WHERE user_id = ?",
                 (user_id,)
             )
         con.execute(
-            "UPDATE users SET uses_count = COALESCE(uses_count,0)+1, updated_at=datetime('now') WHERE user_id=?",
+            "UPDATE users SET uses_count = COALESCE(uses_count,0)+1, is_blocked=0, updated_at=datetime('now') WHERE user_id=?",
             (user_id,)
         )
         con.execute(
@@ -398,9 +459,16 @@ def get_admin_summary() -> dict:
             SELECT COUNT(*) c FROM users
             WHERE img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')
         """).fetchone()["c"]
+        # Live vs Blocked audience
+        blocked_users = con.execute("""
+            SELECT COUNT(*) c FROM users WHERE COALESCE(is_blocked, 0) = 1
+        """).fetchone()["c"]
+        live_users = total_users - blocked_users
 
     return {
         "total_users": total_users,
+        "live_users": live_users,
+        "blocked_users": blocked_users,
         "total_uses": total_uses,
         "active_24h": active_24h,
         "new_24h": new_24h,
@@ -891,5 +959,406 @@ def record_channel_join(channel_id: str, user_id: int) -> tuple[bool, bool, int,
             target_reached = True
 
         return (True, target_reached, current, target)
+
+
+# =========================================================================
+# 1. DYNAMIC BOT SETTINGS (Zero-Code Control Center)
+# =========================================================================
+
+_SETTINGS_CACHE: Dict[str, str] = {}
+
+
+def _default_settings() -> Dict[str, str]:
+    from bot.config import DAILY_FREE_LIMIT, DONATE_CARD
+    return {
+        "daily_free_limit": str(DAILY_FREE_LIMIT),
+        "vip_30_uzs": "9000",
+        "vip_365_uzs": "29000",
+        "vip_30_stars": "50",
+        "vip_365_stars": "150",
+        "card_number": DONATE_CARD,
+        "maintenance_mode": "0",
+    }
+
+
+def get_setting(key: str, default: Optional[str] = None) -> str:
+    """Read a dynamic setting with fast in-memory cache and safe default fallback."""
+    if key in _SETTINGS_CACHE:
+        return _SETTINGS_CACHE[key]
+    defaults = _default_settings()
+    fallback = default if default is not None else defaults.get(key, "")
+    try:
+        with db_connect() as con:
+            row = con.execute("SELECT value FROM bot_settings WHERE key = ?", (key,)).fetchone()
+            val = str(row["value"]) if row else fallback
+    except Exception:
+        val = fallback
+    _SETTINGS_CACHE[key] = val
+    return val
+
+
+def set_setting(key: str, value: str):
+    """Save a dynamic setting to DB and update in-memory cache."""
+    val = str(value).strip()
+    with db_connect() as con:
+        con.execute("""
+            INSERT INTO bot_settings (key, value, updated_at)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = datetime('now')
+        """, (key, val))
+        con.commit()
+    _SETTINGS_CACHE[key] = val
+
+
+def get_all_settings() -> Dict[str, str]:
+    """Return merged dictionary of all dynamic settings."""
+    out = _default_settings()
+    try:
+        with db_connect() as con:
+            rows = con.execute("SELECT key, value FROM bot_settings").fetchall()
+            for r in rows:
+                out[r["key"]] = str(r["value"])
+                _SETTINGS_CACHE[r["key"]] = str(r["value"])
+    except Exception:
+        pass
+    return out
+
+
+def get_daily_free_limit() -> int:
+    try:
+        return max(0, int(get_setting("daily_free_limit", "5")))
+    except ValueError:
+        return 5
+
+
+def get_vip_prices() -> Dict[str, int]:
+    """Return dynamic VIP prices for 30-day and 365-day plans in UZS and Stars."""
+    def _to_int(k: str, fb: int) -> int:
+        try:
+            return max(1, int(get_setting(k, str(fb))))
+        except ValueError:
+            return fb
+    return {
+        "uzs_30": _to_int("vip_30_uzs", 9000),
+        "uzs_365": _to_int("vip_365_uzs", 29000),
+        "stars_30": _to_int("vip_30_stars", 50),
+        "stars_365": _to_int("vip_365_stars", 150),
+    }
+
+
+def get_payment_card() -> str:
+    return get_setting("card_number")
+
+
+def is_maintenance_mode() -> bool:
+    return get_setting("maintenance_mode", "0") == "1"
+
+
+# =========================================================================
+# 2. LIVE AUDIENCE, SEGMENTED BROADCAST & USER CRM (Ban / VIP Revoke)
+# =========================================================================
+
+def mark_user_blocked(user_id: int, blocked: int = 1):
+    """Mark user as having blocked/deactivated the bot (or unblocked)."""
+    with db_connect() as con:
+        con.execute("UPDATE users SET is_blocked = ? WHERE user_id = ?", (1 if blocked else 0, user_id))
+        con.commit()
+
+
+def is_user_banned(user_id: int) -> bool:
+    """Check if user is banned by admin."""
+    with db_connect() as con:
+        row = con.execute("SELECT COALESCE(is_banned, 0) AS b FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        return bool(row and row["b"] == 1)
+
+
+def set_user_banned(user_id: int, banned: int):
+    """Ban or unban a user."""
+    with db_connect() as con:
+        con.execute("UPDATE users SET is_banned = ?, updated_at = datetime('now') WHERE user_id = ?", (1 if banned else 0, user_id))
+        con.commit()
+
+
+def revoke_vip_pass(user_id: int):
+    """Immediately revoke a user's active VIP pass."""
+    with db_connect() as con:
+        con.execute("UPDATE users SET img_pdf_pass_until = NULL, updated_at = datetime('now') WHERE user_id = ?", (user_id,))
+        con.commit()
+
+
+def get_user_full_info(user_id: int) -> Optional[dict]:
+    """Fetch complete CRM details for a single user."""
+    with db_connect() as con:
+        row = con.execute("""
+            SELECT user_id,
+                   COALESCE(username,'') AS username,
+                   COALESCE(first_name,'') AS first_name,
+                   COALESCE(last_name,'') AS last_name,
+                   COALESCE(language,'uz') AS language,
+                   COALESCE(uses_count, 0) AS uses_count,
+                   COALESCE(balance, 0) AS balance,
+                   COALESCE(is_blocked, 0) AS is_blocked,
+                   COALESCE(is_banned, 0) AS is_banned,
+                   COALESCE(ad_source, '') AS ad_source,
+                   img_pdf_pass_until,
+                   created_at,
+                   updated_at
+            FROM users WHERE user_id = ?
+        """, (user_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def _segment_where_clause(segment: str) -> str:
+    """Build safe SQL WHERE clause for audience segmentation."""
+    if segment == "all":
+        return "1=1"
+    if segment == "free":
+        return "COALESCE(is_blocked, 0) = 0 AND (img_pdf_pass_until IS NULL OR img_pdf_pass_until <= datetime('now'))"
+    if segment == "vip":
+        return "COALESCE(is_blocked, 0) = 0 AND img_pdf_pass_until IS NOT NULL AND img_pdf_pass_until > datetime('now')"
+    if segment == "lang_uz":
+        return "COALESCE(is_blocked, 0) = 0 AND COALESCE(language, 'uz') = 'uz'"
+    if segment == "lang_ru":
+        return "COALESCE(is_blocked, 0) = 0 AND language = 'ru'"
+    if segment == "active_7d":
+        return "COALESCE(is_blocked, 0) = 0 AND datetime(updated_at) >= datetime('now', '-7 days')"
+    # Default: "live" (all non-blocked users)
+    return "COALESCE(is_blocked, 0) = 0"
+
+
+def get_segmented_user_ids(segment: str = "live") -> List[int]:
+    """Get user IDs matching the selected broadcast audience segment."""
+    where = _segment_where_clause(segment)
+    with db_connect() as con:
+        rows = con.execute(f"SELECT user_id FROM users WHERE {where}").fetchall()
+        return [r["user_id"] for r in rows]
+
+
+def count_segmented_users(segment: str = "live") -> int:
+    """Count users matching the selected broadcast audience segment."""
+    where = _segment_where_clause(segment)
+    with db_connect() as con:
+        row = con.execute(f"SELECT COUNT(*) AS c FROM users WHERE {where}").fetchone()
+        return int(row["c"]) if row else 0
+
+
+# =========================================================================
+# 3. AD LINKS (UTM) ANALYTICS (?start=ad_<code>)
+# =========================================================================
+
+def create_ad_link(code: str, title: str) -> int:
+    """Create a tracked advertising deep-link campaign."""
+    clean_code = "".join(c for c in code.lower().strip() if c.isalnum() or c == "_")[:32]
+    if not clean_code:
+        raise ValueError("Invalid ad code")
+    with db_connect() as con:
+        cur = con.execute("""
+            INSERT INTO ad_links (code, title, clicks, created_at)
+            VALUES (?, ?, 0, datetime('now'))
+            ON CONFLICT(code) DO UPDATE SET title = excluded.title
+        """, (clean_code, title.strip()[:80]))
+        con.commit()
+        return cur.lastrowid
+
+
+def delete_ad_link(link_id: int):
+    """Delete an ad link entry (preserves users' historical data)."""
+    with db_connect() as con:
+        con.execute("DELETE FROM ad_links WHERE id = ?", (link_id,))
+        con.commit()
+
+
+def record_ad_click(code: str, user_id: int, is_brand_new: bool):
+    """Record click on ad link and attribute new users to that ad source."""
+    clean_code = "".join(c for c in code.lower().strip() if c.isalnum() or c == "_")[:32]
+    if not clean_code:
+        return
+    with db_connect() as con:
+        # Ensure ad_link exists (if admin created it, increment clicks)
+        con.execute("UPDATE ad_links SET clicks = COALESCE(clicks, 0) + 1 WHERE code = ?", (clean_code,))
+        if is_brand_new:
+            con.execute(
+                "UPDATE users SET ad_source = ? WHERE user_id = ? AND (ad_source IS NULL OR ad_source = '')",
+                (clean_code, user_id)
+            )
+        con.commit()
+
+
+def get_ad_links_stats() -> List[dict]:
+    """Return all ad links with clicks, new users, active users (uses>0), and VIP conversions."""
+    with db_connect() as con:
+        rows = con.execute("""
+            SELECT a.id,
+                   a.code,
+                   a.title,
+                   COALESCE(a.clicks, 0) AS clicks,
+                   substr(datetime(a.created_at, '+5 hours'), 1, 10) AS created_date,
+                   COUNT(u.user_id) AS new_users,
+                   COALESCE(SUM(CASE WHEN COALESCE(u.uses_count, 0) > 0 THEN 1 ELSE 0 END), 0) AS active_users,
+                   COALESCE(SUM(CASE WHEN u.img_pdf_pass_until IS NOT NULL THEN 1 ELSE 0 END), 0) AS vip_users
+            FROM ad_links a
+            LEFT JOIN users u ON u.ad_source = a.code
+            GROUP BY a.id
+            ORDER BY a.id DESC
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
+# =========================================================================
+# 4. FINANCE & PAYMENTS LOG
+# =========================================================================
+
+def log_payment(user_id: int, method: str, plan_days: int = 0,
+                amount_uzs: int = 0, amount_stars: int = 0, note: str = ""):
+    """Record a completed VIP purchase or donation."""
+    with db_connect() as con:
+        con.execute("""
+            INSERT INTO payments_log (user_id, method, plan_days, amount_uzs, amount_stars, note, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        """, (user_id, method, plan_days, amount_uzs, amount_stars, note))
+        con.commit()
+
+
+def get_finance_summary() -> dict:
+    """Return financial revenue breakdown (today, 7d, 30d, total) in UZS and Stars + recent payments."""
+    with db_connect() as con:
+        def _period(where_sql: str) -> dict:
+            r = con.execute(f"""
+                SELECT COUNT(*) AS cnt,
+                       COALESCE(SUM(amount_uzs), 0) AS uzs,
+                       COALESCE(SUM(amount_stars), 0) AS stars
+                FROM payments_log
+                WHERE {where_sql}
+            """).fetchone()
+            return {"cnt": int(r["cnt"]), "uzs": int(r["uzs"]), "stars": int(r["stars"])}
+
+        today = _period("date(created_at, '+5 hours') = date('now', '+5 hours')")
+        week = _period("datetime(created_at) >= datetime('now', '-7 days')")
+        month = _period("datetime(created_at) >= datetime('now', '-30 days')")
+        total = _period("1=1")
+
+        recent_rows = con.execute("""
+            SELECT p.id, p.user_id, p.method, p.plan_days, p.amount_uzs, p.amount_stars, p.note,
+                   substr(datetime(p.created_at, '+5 hours'), 1, 16) AS dt,
+                   COALESCE(u.username, '') AS username,
+                   COALESCE(u.first_name, '') AS first_name
+            FROM payments_log p
+            LEFT JOIN users u ON u.user_id = p.user_id
+            ORDER BY p.id DESC
+            LIMIT 10
+        """).fetchall()
+
+    return {
+        "today": today,
+        "week": week,
+        "month": month,
+        "total": total,
+        "recent": [dict(r) for r in recent_rows],
+    }
+
+
+# =========================================================================
+# 5. PROMO CODES SYSTEM
+# =========================================================================
+
+def create_promo_code(code: str, reward_type: str, reward_value: int, max_uses: int = 0) -> bool:
+    """Create a new promo code (reward_type: 'vip_days' or 'bonus_uses'). Returns False if duplicate."""
+    clean_code = code.strip().upper()
+    if not clean_code or reward_type not in ("vip_days", "bonus_uses") or reward_value <= 0:
+        return False
+    try:
+        with db_connect() as con:
+            con.execute("""
+                INSERT INTO promo_codes (code, reward_type, reward_value, max_uses, used_count, is_active, created_at)
+                VALUES (?, ?, ?, ?, 0, 1, datetime('now'))
+            """, (clean_code, reward_type, reward_value, max(0, max_uses)))
+            con.commit()
+            return True
+    except sqlite3.IntegrityError:
+        return False
+
+
+def get_all_promo_codes() -> List[dict]:
+    """List all promo codes."""
+    with db_connect() as con:
+        rows = con.execute("""
+            SELECT id, code, reward_type, reward_value, max_uses, used_count, is_active,
+                   substr(datetime(created_at, '+5 hours'), 1, 10) AS created_date
+            FROM promo_codes
+            ORDER BY id DESC
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
+def toggle_promo_code(promo_id: int):
+    """Toggle promo code active/inactive status."""
+    with db_connect() as con:
+        con.execute("UPDATE promo_codes SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?", (promo_id,))
+        con.commit()
+
+
+def delete_promo_code(promo_id: int):
+    """Delete a promo code and its redemption records."""
+    with db_connect() as con:
+        con.execute("DELETE FROM promo_redemptions WHERE promo_id = ?", (promo_id,))
+        con.execute("DELETE FROM promo_codes WHERE id = ?", (promo_id,))
+        con.commit()
+
+
+def redeem_promo_code(user_id: int, code: str) -> tuple[bool, str, dict]:
+    """
+    Validate and redeem a promo code for a user.
+    Returns (success, status_code, info_dict):
+      status_code in {'ok', 'not_found', 'inactive', 'exhausted', 'already_used'}
+    """
+    clean_code = (code or "").strip().upper()
+    if not clean_code:
+        return False, "not_found", {}
+
+    with db_connect() as con:
+        promo = con.execute(
+            "SELECT * FROM promo_codes WHERE UPPER(code) = ?",
+            (clean_code,)
+        ).fetchone()
+        if not promo:
+            return False, "not_found", {}
+        if promo["is_active"] != 1:
+            return False, "inactive", {}
+        if promo["max_uses"] > 0 and promo["used_count"] >= promo["max_uses"]:
+            return False, "exhausted", {}
+
+        already = con.execute(
+            "SELECT 1 FROM promo_redemptions WHERE promo_id = ? AND user_id = ?",
+            (promo["id"], user_id)
+        ).fetchone()
+        if already:
+            return False, "already_used", {}
+
+        # Record redemption and increment counter
+        con.execute(
+            "INSERT INTO promo_redemptions (promo_id, user_id, redeemed_at) VALUES (?, ?, datetime('now'))",
+            (promo["id"], user_id)
+        )
+        con.execute(
+            "UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ?",
+            (promo["id"],)
+        )
+        con.commit()
+
+        reward_type = promo["reward_type"]
+        reward_value = int(promo["reward_value"])
+
+    # Grant reward outside the transaction lock
+    info = {"code": clean_code, "reward_type": reward_type, "reward_value": reward_value}
+    if reward_type == "vip_days":
+        activate_img_pdf_pass(user_id, days=reward_value)
+        info["vip_until"] = get_vip_until(user_id) or ""
+    else:
+        add_user_balance(user_id, reward_value)
+        info["new_balance"] = get_user_balance(user_id)
+
+    return True, "ok", info
 
 
