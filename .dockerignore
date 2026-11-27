@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.pyc
+mobile_app
+downloads/*
+bot_oracle_backup.db

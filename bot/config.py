@@ -76,3 +76,8 @@ BROADCAST_RATE = int(os.getenv("BROADCAST_RATE", "25"))
 
 # Donation Card Number
 DONATE_CARD = os.getenv("DONATE_CARD", "5614682914822756").strip()
+
+# Mobile App REST API & Super Admin
+API_PORT = int(os.getenv("API_PORT", "8080").strip() or "8080")
+API_SECRET = os.getenv("API_SECRET", "").strip() or f"{BOT_TOKEN}_sifatli_mobile_jwt_v1"
+SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD", "SifatliAdmin2026!").strip()

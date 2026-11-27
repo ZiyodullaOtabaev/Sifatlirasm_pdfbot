@@ -164,6 +164,27 @@ def db_init():
             PRIMARY KEY (user_id, reminder_type)
         )
         """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS app_devices (
+            device_id TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            platform TEXT DEFAULT 'android',
+            device_name TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS app_link_tokens (
+            token TEXT PRIMARY KEY,
+            device_id TEXT NOT NULL,
+            guest_user_id INTEGER NOT NULL,
+            linked_user_id INTEGER,
+            created_at TEXT DEFAULT (datetime('now')),
+            expires_at TEXT NOT NULL
+        )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_app_devices_uid ON app_devices(user_id)")
         con.commit()
     logger.info("Database initialized successfully")
 
@@ -394,9 +415,9 @@ def has_user_used_free_slide(user_id: int) -> bool:
 
 
 def get_all_user_ids() -> List[int]:
-    """Get all registered user IDs."""
+    """Get all registered Telegram user IDs (excludes mobile-only guest IDs)."""
     with db_connect() as con:
-        rows = con.execute("SELECT user_id FROM users").fetchall()
+        rows = con.execute("SELECT user_id FROM users WHERE user_id < 900000000000").fetchall()
         return [r["user_id"] for r in rows]
 
 
@@ -689,7 +710,8 @@ def get_inactive_users(hours: int) -> List[dict]:
         rows = con.execute("""
             SELECT user_id, username, first_name, uses_count, updated_at
             FROM users
-            WHERE updated_at <= datetime('now', ? || ' hours')
+            WHERE user_id < 900000000000
+              AND updated_at <= datetime('now', ? || ' hours')
               AND updated_at >= datetime('now', ? || ' hours')
               AND uses_count >= 1
         """, (f"-{hours}", f"-{hours * 3}")).fetchall()
@@ -1129,18 +1151,18 @@ def _segment_where_clause(segment: str) -> str:
 
 
 def get_segmented_user_ids(segment: str = "live") -> List[int]:
-    """Get user IDs matching the selected broadcast audience segment."""
+    """Get Telegram user IDs matching the selected broadcast audience segment."""
     where = _segment_where_clause(segment)
     with db_connect() as con:
-        rows = con.execute(f"SELECT user_id FROM users WHERE {where}").fetchall()
+        rows = con.execute(f"SELECT user_id FROM users WHERE user_id < 900000000000 AND ({where})").fetchall()
         return [r["user_id"] for r in rows]
 
 
 def count_segmented_users(segment: str = "live") -> int:
-    """Count users matching the selected broadcast audience segment."""
+    """Count Telegram users matching the selected broadcast audience segment."""
     where = _segment_where_clause(segment)
     with db_connect() as con:
-        row = con.execute(f"SELECT COUNT(*) AS c FROM users WHERE {where}").fetchone()
+        row = con.execute(f"SELECT COUNT(*) AS c FROM users WHERE user_id < 900000000000 AND ({where})").fetchone()
         return int(row["c"]) if row else 0
 
 
@@ -1360,5 +1382,184 @@ def redeem_promo_code(user_id: int, code: str) -> tuple[bool, str, dict]:
         info["new_balance"] = get_user_balance(user_id)
 
     return True, "ok", info
+
+
+# =========================================================================
+# 6. MOBILE APP DEVICES & 1-TAP TELEGRAM ACCOUNT SYNC
+# =========================================================================
+
+MOBILE_GUEST_BASE_ID = 900_000_000_000
+
+
+def is_mobile_guest_id(user_id: int) -> bool:
+    return int(user_id) >= MOBILE_GUEST_BASE_ID
+
+
+def get_or_create_device_user(
+    device_id: str,
+    platform: str = "android",
+    device_name: str = "",
+    lang: str = "uz",
+) -> int:
+    """Bind a mobile device_id to an existing or newly created guest user_id."""
+    clean_dev = (device_id or "").strip()[:128]
+    if not clean_dev:
+        raise ValueError("device_id is required")
+    lang_norm = lang if lang in ("uz", "ru", "en") else "uz"
+    plat_norm = (platform or "android").strip()[:32]
+    name_norm = (device_name or "Mobil Foydalanuvchi").strip()[:64]
+
+    with db_connect() as con:
+        row = con.execute(
+            "SELECT user_id FROM app_devices WHERE device_id = ?",
+            (clean_dev,),
+        ).fetchone()
+        if row:
+            uid = int(row["user_id"])
+            con.execute(
+                "UPDATE app_devices SET platform = ?, device_name = ?, updated_at = datetime('now') WHERE device_id = ?",
+                (plat_norm, name_norm, clean_dev),
+            )
+            exists_u = con.execute("SELECT 1 FROM users WHERE user_id = ?", (uid,)).fetchone()
+            if not exists_u:
+                con.execute(
+                    """
+                    INSERT INTO users (user_id, first_name, language, uses_count, is_blocked, created_at, updated_at)
+                    VALUES (?, ?, ?, 0, 0, datetime('now'), datetime('now'))
+                    """,
+                    (uid, name_norm, lang_norm),
+                )
+            else:
+                con.execute("UPDATE users SET updated_at = datetime('now') WHERE user_id = ?", (uid,))
+            con.commit()
+            return uid
+
+        max_row = con.execute(
+            "SELECT MAX(user_id) AS mx FROM users WHERE user_id >= ?",
+            (MOBILE_GUEST_BASE_ID,),
+        ).fetchone()
+        next_uid = (int(max_row["mx"]) + 1) if (max_row and max_row["mx"]) else (MOBILE_GUEST_BASE_ID + 1)
+
+        con.execute(
+            """
+            INSERT INTO users (user_id, first_name, language, uses_count, is_blocked, created_at, updated_at)
+            VALUES (?, ?, ?, 0, 0, datetime('now'), datetime('now'))
+            """,
+            (next_uid, name_norm, lang_norm),
+        )
+        con.execute(
+            """
+            INSERT INTO app_devices (device_id, user_id, platform, device_name, created_at, updated_at)
+            VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+            """,
+            (clean_dev, next_uid, plat_norm, name_norm),
+        )
+        con.commit()
+        return next_uid
+
+
+def create_telegram_link_token(device_id: str, guest_user_id: int) -> str:
+    """Create a 15-minute one-time deep-link token (?start=app_<token>) to link Telegram account."""
+    import secrets
+
+    token = secrets.token_hex(12)
+    with db_connect() as con:
+        con.execute("DELETE FROM app_link_tokens WHERE expires_at <= datetime('now')")
+        con.execute(
+            """
+            INSERT INTO app_link_tokens (token, device_id, guest_user_id, linked_user_id, created_at, expires_at)
+            VALUES (?, ?, ?, NULL, datetime('now'), datetime('now', '+15 minutes'))
+            """,
+            (token, device_id, int(guest_user_id)),
+        )
+        con.commit()
+    return token
+
+
+def complete_telegram_link(token: str, telegram_user_id: int) -> bool:
+    """
+    Called when user opens Telegram bot via ?start=app_<token>.
+    Links mobile device_id to telegram_user_id and merges any guest balance/VIP safely.
+    """
+    clean_tok = (token or "").strip()[:64]
+    if not clean_tok:
+        return False
+
+    with db_connect() as con:
+        row = con.execute(
+            """
+            SELECT token, device_id, guest_user_id, linked_user_id
+            FROM app_link_tokens
+            WHERE token = ? AND expires_at > datetime('now')
+            """,
+            (clean_tok,),
+        ).fetchone()
+        if not row:
+            return False
+
+        dev_id = row["device_id"]
+        guest_uid = int(row["guest_user_id"])
+
+        con.execute(
+            "UPDATE app_link_tokens SET linked_user_id = ? WHERE token = ?",
+            (int(telegram_user_id), clean_tok),
+        )
+        con.execute(
+            "UPDATE app_devices SET user_id = ?, updated_at = datetime('now') WHERE device_id = ?",
+            (int(telegram_user_id), dev_id),
+        )
+
+        # Merge guest bonus balance or VIP expiration if guest was a temporary mobile ID
+        if guest_uid >= MOBILE_GUEST_BASE_ID and guest_uid != int(telegram_user_id):
+            g_row = con.execute(
+                "SELECT COALESCE(balance, 0) AS bal, img_pdf_pass_until AS vip FROM users WHERE user_id = ?",
+                (guest_uid,),
+            ).fetchone()
+            t_row = con.execute(
+                "SELECT img_pdf_pass_until AS vip FROM users WHERE user_id = ?",
+                (int(telegram_user_id),),
+            ).fetchone()
+            if g_row:
+                g_bal = int(g_row["bal"] or 0)
+                if g_bal > 0:
+                    con.execute(
+                        "UPDATE users SET balance = COALESCE(balance, 0) + ? WHERE user_id = ?",
+                        (g_bal, int(telegram_user_id)),
+                    )
+                    con.execute("UPDATE users SET balance = 0 WHERE user_id = ?", (guest_uid,))
+                g_vip = g_row["vip"]
+                t_vip = t_row["vip"] if t_row else None
+                if g_vip and (not t_vip or str(g_vip) > str(t_vip)):
+                    con.execute(
+                        "UPDATE users SET img_pdf_pass_until = ? WHERE user_id = ?",
+                        (g_vip, int(telegram_user_id)),
+                    )
+                    con.execute("UPDATE users SET img_pdf_pass_until = NULL WHERE user_id = ?", (guest_uid,))
+
+        con.commit()
+        return True
+
+
+def check_telegram_link_token(token: str, device_id: str) -> Optional[int]:
+    """Return linked Telegram user_id if the user completed ?start=app_<token>, else None."""
+    clean_tok = (token or "").strip()[:64]
+    if not clean_tok:
+        return None
+    with db_connect() as con:
+        row = con.execute(
+            """
+            SELECT linked_user_id FROM app_link_tokens
+            WHERE token = ? AND device_id = ? AND linked_user_id IS NOT NULL
+            """,
+            (clean_tok, device_id),
+        ).fetchone()
+        return int(row["linked_user_id"]) if row and row["linked_user_id"] is not None else None
+
+
+def get_mobile_devices_count() -> int:
+    """Count total registered mobile app devices."""
+    with db_connect() as con:
+        row = con.execute("SELECT COUNT(*) AS c FROM app_devices").fetchone()
+        return int(row["c"]) if row else 0
 
 

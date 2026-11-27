@@ -89,7 +89,12 @@ async def main():
         logger.warning(f"Could not set bot commands or menu button: {cmd_err}")
 
     logger.info("Bot is starting...")
-    await dp.start_polling(bot)
+    from bot.api import start_api_server, stop_api_server
+    await start_api_server(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await stop_api_server()
 
 
 if __name__ == "__main__":
